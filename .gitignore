@@ -4,3 +4,4 @@ build/
 scratch/
 .idea/
 .pytest_cache
+miceForest/__pycache__*
