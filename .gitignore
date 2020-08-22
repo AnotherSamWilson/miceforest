@@ -1,0 +1,6 @@
+*.egg-info/
+dist/
+build/
+scratch/
+.idea/
+.pytest_cache

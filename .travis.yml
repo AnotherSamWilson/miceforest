@@ -1,0 +1,27 @@
+language: python
+sudo: false
+
+cache:
+  apt: true
+  directories:
+  - $HOME/.cache/pip
+  - $HOME/download
+python:
+  - "3.6"
+before_install:
+  - pip install pip -U
+  - pip install pytest -U
+  #- pip install xdoctest -U
+install:
+  #- travis_retry python setup.py build develop
+  - travis_retry pip install -e .
+script: 
+  - travis_wait pytest
+    #-p no:doctest --xdoctest
+after_success: 
+  #- coveralls || echo "Coveralls upload failed"
+  - codecov 
+cache: 
+    apt: true
+    directories:
+        - $HOME/.pip-cache
