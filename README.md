@@ -94,8 +94,8 @@ print(completed_data.isna().sum())
     ## target               0
     ## dtype: int64
 
-Printing the MultipleImputedKernel object will tell you some high level
-information:
+Printing the `MultipleImputedKernel` object will tell you some high
+level information:
 
 ``` python
 print(kernel)
@@ -110,7 +110,7 @@ print(kernel)
 ### Controlling Tree Growth
 
 A *very* nice thing about random forests is that they are trivially
-parallelizable. We can save a lot of time by setting the n\_jobs
+parallelizable. We can save a lot of time by setting the `n_jobs`
 parameter in both the fit and predict methods for the random forests:
 
 ``` python
@@ -118,7 +118,8 @@ parameter in both the fit and predict methods for the random forests:
 kernel.mice(2,save_models=True,n_jobs=2)
 ```
 
-Any other arguments may be passed to either method.
+Any other arguments may be passed to either class
+(`RandomForestClassifier`,`RandomForestRegressor`).
 
 ### Creating a Custom Imputation Schema
 
@@ -126,7 +127,7 @@ It is possible to customize our imputation procedure by variable. By
 passing a named list to `variable_schema`, you can specify the
 predictors for each variable to impute. You can also select which
 variables should be imputed using mean matching, as well as the mean
-matching candidates, by passing a dict to`meanMatchCandidates`:
+matching candidates, by passing a dict to`mean_match_candidates`:
 
 ``` python
 var_sch = {
@@ -152,9 +153,10 @@ cust_kernel.mice(2,save_models=True)
 Multiple Imputation can take a long time. If you wish to impute a
 dataset using the MICE algorithm, but don’t have time to train new
 models, it is possible to impute new datasets using a
-`MultipleImputedKernel` object. The `impute_new_data` function uses the
-random forests collected by `MultipleImputedKernel` to perform multiple
-imputation without updating the random forest at each iteration:
+`MultipleImputedKernel` object. The `impute_new_data()` function uses
+the random forests collected by `MultipleImputedKernel` to perform
+multiple imputation without updating the random forest at each
+iteration:
 
 ``` python
 # Our 'new data' is just the first 15 rows of iris_amp
@@ -226,8 +228,8 @@ The numbers shown are returned from the sklearn random forest
 
 ## Using the Imputed Data
 
-To return the imputed data simply use the `kernel.complete_data`
-function:
+To return the imputed data simply use the \`\`complete\_data\`\`\`
+method:
 
 ``` python
 dataset_1 = kernel.complete_data(0)
