@@ -1,11 +1,13 @@
 
-## miceForest: Fast Imputation with Random Forests
+## miceForest: Fast Imputation with Random Forests in Python
 
 <a href='https://github.com/AnotherSamWilson/miceForest'><img src='examples/icon.png' align="right" height="300" /></a>
 
 Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
 with random forests. It can impute categorical and numeric data without
-much setup, and has an array of diagnostic plots available.
+much setup, and has an array of diagnostic plots available. The R
+version of this package maybe found
+[here](https://github.com/FarrellDay/miceRanger).
 
 This document contains a thorough walkthrough of the package,
 benchmarks, and an introduction to multiple imputation. More information
