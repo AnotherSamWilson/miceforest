@@ -1,4 +1,3 @@
-from sklearn.ensemble import RandomForestRegressor,RandomForestClassifier
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
 from pandas import DataFrame
