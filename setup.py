@@ -1,5 +1,8 @@
 from setuptools import setup, find_packages
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setup(
     name="miceForest",
     version="1.0.1",
@@ -8,7 +11,8 @@ setup(
     author_email="samwilson303@gmail.com",
     description="Perform MICE",
     keywords=['MICE','Imputation','Missing Values','Missing','Random Forest'],
-    long_description="Perform MICE with Random Forests",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     install_requires=['sklearn',
                       'numpy',
                       'pandas',

@@ -1,4 +1,10 @@
 
+[![Build
+Status](https://travis-ci.com/FarrellDay/miceRanger.svg?branch=master)](https://travis-ci.com/AnotherSamWilson/miceForest)
+[![MIT
+license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-1.0.1-blue.svg)](https://pypi.org/project/miceForest/)
+
 ## miceForest: Fast Imputation with Random Forests in Python
 
 <a href='https://github.com/AnotherSamWilson/miceForest'><img src='examples/icon.png' align="right" height="300" /></a>
