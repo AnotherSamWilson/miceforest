@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name="miceForest",
+    name="miceforest",
     version="1.0.1",
     author="Samuel Wilson",
     license="MIT",
@@ -19,7 +19,7 @@ setup(
                       'seaborn',
                       'matplotlib'
                       ],
-    url="https://github.com/AnotherSamWilson/miceForest",
+    url="https://github.com/AnotherSamWilson/miceforest",
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

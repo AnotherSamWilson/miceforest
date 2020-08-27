@@ -1,15 +1,16 @@
 
 [![Build
-Status](https://travis-ci.com/FarrellDay/miceRanger.svg?branch=master)](https://travis-ci.com/AnotherSamWilson/miceForest)
+Status](https://travis-ci.com/FarrellDay/miceRanger.svg?branch=master)](https://travis-ci.com/AnotherSamWilson/miceforest)
 [![MIT
 license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-1.0.1-blue.svg)](https://pypi.org/project/miceForest/)
-[![Pypi](https://img.shields.io/pypi/v/miceForest.svg)](https://pypi.python.org/pypi/miceForest)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-1.0.1-blue.svg)](https://pypi.org/project/miceforest/)
+[![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 
-## miceForest: Fast Imputation with Random Forests in Python
+## miceforest: Fast Imputation with Random Forests in Python
 
-<a href='https://github.com/AnotherSamWilson/miceForest'><img src='examples/icon.png' align="right" height="300" /></a>
+<a href='https://github.com/AnotherSamWilson/miceforest'><img src='examples/icon.png' align="right" height="300" /></a>
 
+\*NOTE - THIS LIBRARY WAS ORIGINALLY CALLED ‘miceForest’.  
 Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
 with random forests. It can impute categorical and numeric data without
 much setup, and has an array of diagnostic plots available. The R
@@ -25,43 +26,43 @@ you can find
 #### Table of Contents:
 
   - [Using
-    miceForest](https://github.com/AnotherSamWilson/miceForest#Using-miceForest)
+    miceforest](https://github.com/AnotherSamWilson/miceforest#Using-miceforest)
       - [Simple
-        Example](https://github.com/AnotherSamWilson/miceForest#Simple-Example)
+        Example](https://github.com/AnotherSamWilson/miceforest#Simple-Example)
       - [Controlling Tree
-        Growth](https://github.com/AnotherSamWilson/miceForest#Controlling-Tree-Growth)
+        Growth](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
       - [Custom Imputation
-        Schemas](https://github.com/AnotherSamWilson/miceForest#Creating-a-Custom-Imputation-Schema)
+        Schemas](https://github.com/AnotherSamWilson/miceforest#Creating-a-Custom-Imputation-Schema)
       - [Imputing New Data with Existing
-        Models](https://github.com/AnotherSamWilson/miceForest#Imputing-New-Data-with-Existing-Models)
+        Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
   - [Diagnostic
-    Plotting](https://github.com/AnotherSamWilson/miceForest#Diagnostic-Plotting)
+    Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting)
       - [Imputed
-        Distributions](https://github.com/AnotherSamWilson/miceForest#Distribution-of-Imputed-Values)
+        Distributions](https://github.com/AnotherSamWilson/miceforest#Distribution-of-Imputed-Values)
       - [Correlation
-        Convergence](https://github.com/AnotherSamWilson/miceForest#Convergence-of-Correlation)
+        Convergence](https://github.com/AnotherSamWilson/miceforest#Convergence-of-Correlation)
       - [Variable
-        Importance](https://github.com/AnotherSamWilson/miceForest#Variable-Importance)
+        Importance](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
   - [Using the Imputed
-    Data](https://github.com/AnotherSamWilson/miceForest#Using-the-Imputed-Data)  
+    Data](https://github.com/AnotherSamWilson/miceforest#Using-the-Imputed-Data)
   - [The MICE
-    Algorithm](https://github.com/AnotherSamWilson/miceForest#The-MICE-Algorithm)
-      - [Introduction](https://github.com/AnotherSamWilson/miceForest#The-MICE-Algorithm)
+    Algorithm](https://github.com/AnotherSamWilson/miceforest#The-MICE-Algorithm)
+      - [Introduction](https://github.com/AnotherSamWilson/miceforest#The-MICE-Algorithm)
       - [Common Use
-        Cases](https://github.com/AnotherSamWilson/miceForest#Common-Use-Cases)
+        Cases](https://github.com/AnotherSamWilson/miceforest#Common-Use-Cases)
       - [Predictive Mean
-        Matching](https://github.com/AnotherSamWilson/miceForest#Predictive-Mean-Matching)
+        Matching](https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching)
       - [Effects of Mean
-        Matching](https://github.com/AnotherSamWilson/miceForest#Effects-of-Mean-Matching)
-  - [Installation](https://github.com/AnotherSamWilson/miceForest#Installation)
+        Matching](https://github.com/AnotherSamWilson/miceforest#Effects-of-Mean-Matching)
+  - [Installation](https://github.com/AnotherSamWilson/miceforest#Installation)
 
-## Using miceForest
+## Using miceforest
 
 In these examples we will be looking at a simple example of multiple
 imputation. We need to load the packages, and define the data:
 
 ``` python
-import miceForest as mf
+import miceforest as mf
 from sklearn.datasets import load_iris
 import pandas as pd
 import numpy as np
@@ -75,7 +76,7 @@ iris_amp = mf.ampute_data(iris,perc=0.25,random_state=1991)
 ### Simple example
 
 Now that we have our data with missing values, we can impute them with
-miceForest
+miceforest
 
 ``` python
 # Create kernel. 
@@ -185,7 +186,7 @@ are pulled from the original kernel dataset.
 
 ## Diagnostic Plotting
 
-As of now, miceForest has two diagnostic plots available.
+As of now, miceforest has three diagnostic plots available.
 
 ### Distribution of Imputed-Values
 
@@ -235,8 +236,7 @@ The numbers shown are returned from the sklearn random forest
 
 ## Using the Imputed Data
 
-To return the imputed data simply use the \`\`complete\_data\`\`\`
-method:
+To return the imputed data simply use the `complete_data` method:
 
 ``` python
 dataset_1 = kernel.complete_data(0)
@@ -322,7 +322,7 @@ types of inference:
 
 ### Predictive Mean Matching
 
-`miceForest` can make use of a procedure called predictive mean matching
+`miceforest` can make use of a procedure called predictive mean matching
 (PMM) to select which values are imputed. PMM involves selecting a
 datapoint from the original, nonmissing data which has a predicted value
 close to the predicted value of the missing sample. The closest N
@@ -433,12 +433,12 @@ beneficial, depending on your goal.
 You can download the latest stable version from PyPi:
 
 ``` bash
-$ pip install miceForest
+$ pip install miceforest
 ```
 
 You can also download the latest development version from this
 repository:
 
 ``` bash
-$ pip install git+https://github.com/AnotherSamWilson/miceForest.git
+$ pip install git+https://github.com/AnotherSamWilson/miceforest.git
 ```

@@ -1,6 +1,6 @@
 import pytest
 from sklearn.datasets import load_iris
-import miceForest as mf
+import miceforest as mf
 import pandas as pd
 import numpy as np
 

@@ -1,5 +1,5 @@
 import pytest
-import miceForest as mf
+import miceforest as mf
 from sklearn.datasets import load_boston
 import pandas as pd
 import numpy as np
