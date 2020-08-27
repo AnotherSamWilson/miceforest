@@ -10,7 +10,7 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 
 <a href='https://github.com/AnotherSamWilson/miceforest'><img src='examples/icon.png' align="right" height="300" /></a>
 
-\*NOTE - THIS LIBRARY WAS ORIGINALLY CALLED ‘miceForest’.  
+**NOTE - THIS LIBRARY WAS ORIGINALLY CALLED ‘miceForest’.**  
 Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
 with random forests. It can impute categorical and numeric data without
 much setup, and has an array of diagnostic plots available. The R
