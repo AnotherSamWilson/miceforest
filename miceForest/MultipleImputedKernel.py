@@ -5,6 +5,7 @@ from itertools import combinations
 from datetime import datetime
 from .utils import ensure_rng, _default_rf_classifier, _default_rf_regressor, _distinct_from_list
 from .ImputationSchema import ImputationSchema
+from typing import Optional, Union, List, Dict
 
 
 class ImputedDataSet:
@@ -50,12 +51,13 @@ class ImputedDataSet:
     """
 
     def __init__(self,
-                 data,
-                 datasets=5,
-                 variable_schema=None,
+                 data: DataFrame,
+                 datasets: int = 5,
+                 variable_schema: Optional[Union[List[str], Dict[str, List[str]]]] = None,
                  save_all_iterations=True,
                  verbose=False,
-                 random_state=None):
+                 random_state: Optional[Union[int, np.random.RandomState]] = None
+                 ) -> None:
 
         self._random_state = ensure_rng(random_state)
         assert isinstance(data, DataFrame)
@@ -91,7 +93,7 @@ class ImputedDataSet:
                                              verbose=verbose)
         self.imputation_schema = imputation_schema
 
-        imputation_values = {i: {} for i in dataset_list}
+        imputation_values: Dict[int, Dict] = {i: {} for i in dataset_list}
         for ds in list(imputation_values):
             # all_vars are primed at iteration = with random sampling,
             # since predictors cannot be missing in RandomForestClassifier()

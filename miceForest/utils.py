@@ -1,8 +1,14 @@
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from typing import List, Optional, Union
 
 
-def ampute_data(data, variables=None, perc=0.1, random_state=None):
+
+def ampute_data(
+        data,
+        variables: Optional[List[str]] = None,
+        perc: float = 0.1,
+        random_state: Optional[Union[int, np.random.RandomState]] = None):
     """
     Ampute Data
 
@@ -38,7 +44,7 @@ def ampute_data(data, variables=None, perc=0.1, random_state=None):
     return amputed_data
 
 
-def ensure_rng(random_state=None):
+def ensure_rng(random_state: Optional[Union[int, np.random.RandomState]] = None):
     """
     Creates a random number generator based on an optional seed.  This can be
     an integer or another random state for a seeded rng, or None for an
