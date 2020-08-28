@@ -10,7 +10,10 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 
 <a href='https://github.com/AnotherSamWilson/miceforest'><img src='examples/icon.png' align="right" height="300" /></a>
 
-**NOTE - THIS LIBRARY WAS ORIGINALLY CALLED ‘miceForest’.**  
+**NOTE - THIS LIBRARY WAS ORIGINALLY CALLED ‘miceForest’. Changing the
+name on PyPi causes unintended consequences. If you recently recieved an
+error that said ‘miceForest could not be found’, this has been fixed
+with version 1.0.4 on PyPi.**  
 Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
 with random forests. It can impute categorical and numeric data without
 much setup, and has an array of diagnostic plots available. The R
