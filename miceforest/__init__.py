@@ -1,5 +1,5 @@
 from .utils import ampute_data
-from .MultipleImputedKernel import ImputedDataSet,MultipleImputedKernel
+from .MultipleImputedKernel import ImputedDataSet, MultipleImputedKernel
 from .ImputationSchema import ImputationSchema
 
 __all__ = [

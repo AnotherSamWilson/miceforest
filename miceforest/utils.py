@@ -1,22 +1,17 @@
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from typing import (
-    List,
-    Optional,
-    Union,
-    Any,
-    TYPE_CHECKING
-)
+from typing import List, Optional, Union, Any, TYPE_CHECKING
+
 if TYPE_CHECKING:
     from pandas import DataFrame
 
 
 def ampute_data(
-        data: 'DataFrame',
-        variables: Optional[List[str]] = None,
-        perc: float = 0.1,
-        random_state: Optional[Union[int, np.random.RandomState]] = None
-) -> 'DataFrame':
+    data: "DataFrame",
+    variables: Optional[List[str]] = None,
+    perc: float = 0.1,
+    random_state: Optional[Union[int, np.random.RandomState]] = None,
+) -> "DataFrame":
     """
     Ampute Data
 
@@ -39,7 +34,7 @@ def ampute_data(
     """
     amputed_data = data.copy()
     nrow = amputed_data.shape[0]
-    amp_rows = int(perc*nrow)
+    amp_rows = int(perc * nrow)
     random_state = ensure_rng(random_state)
 
     if variables is None:
@@ -53,7 +48,7 @@ def ampute_data(
 
 
 def ensure_rng(
-        random_state: Optional[Union[int, np.random.RandomState]] = None
+    random_state: Optional[Union[int, np.random.RandomState]] = None
 ) -> np.random.RandomState:
     """
     Creates a random number generator based on an optional seed.  This can be
@@ -72,29 +67,21 @@ def ensure_rng(
 # These exist so we can make a default classifier with the same parameters
 # as those that may be passed to **kw_fit
 def _default_rf_classifier(
-        random_state: np.random.RandomState,
-        max_features="sqrt",
-        **kw_fit
+    random_state: np.random.RandomState, max_features="sqrt", **kw_fit
 ) -> RandomForestClassifier:
 
     rfc = RandomForestClassifier(
-        random_state=random_state,
-        max_features=max_features,
-        **kw_fit
+        random_state=random_state, max_features=max_features, **kw_fit
     )
     return rfc
 
 
 def _default_rf_regressor(
-        random_state: np.random.RandomState,
-        max_features="sqrt",
-        **kw_fit
+    random_state: np.random.RandomState, max_features="sqrt", **kw_fit
 ) -> RandomForestRegressor:
 
     rfc = RandomForestRegressor(
-        random_state=random_state,
-        max_features=max_features,
-        **kw_fit
+        random_state=random_state, max_features=max_features, **kw_fit
     )
     return rfc
 
