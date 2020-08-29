@@ -5,7 +5,15 @@ from itertools import combinations
 from datetime import datetime
 from .utils import ensure_rng, _default_rf_classifier, _default_rf_regressor, _distinct_from_list
 from .ImputationSchema import ImputationSchema
-from typing import Optional, Union, List, Dict
+from typing import (
+    Optional,
+    Union,
+    List,
+    Dict,
+    TYPE_CHECKING
+)
+if TYPE_CHECKING:
+    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 
 class ImputedDataSet:
@@ -52,11 +60,11 @@ class ImputedDataSet:
 
     def __init__(self,
                  data: DataFrame,
-                 datasets: int = 5,
-                 variable_schema: Optional[Union[List[str], Dict[str, List[str]]]] = None,
-                 save_all_iterations=True,
-                 verbose=False,
-                 random_state: Optional[Union[int, np.random.RandomState]] = None
+                 datasets: Union[int, List[int]] = 5,
+                 variable_schema: Union[List[str], Dict[str, List[str]]] = None,
+                 save_all_iterations: bool = True,
+                 verbose: bool = False,
+                 random_state: Union[int, np.random.RandomState] = None
                  ) -> None:
 
         self._random_state = ensure_rng(random_state)
@@ -71,7 +79,7 @@ class ImputedDataSet:
         # was passed, make it into a range. If a list was passed, the user
         # wants to interact with those datasets specifically.
         if isinstance(datasets, int):
-            dataset_list = range(datasets)
+            dataset_list = list(range(datasets))
         else:
             dataset_list = datasets
         self.dataset_list = dataset_list
@@ -88,9 +96,10 @@ class ImputedDataSet:
         na_counts = na_where.sum()
         self.na_counts = na_counts
 
-        imputation_schema = ImputationSchema(variable_schema=variable_schema,
-                                             validation_data=data,
-                                             verbose=verbose)
+        imputation_schema = ImputationSchema(
+            variable_schema=variable_schema,
+            validation_data=data,
+            verbose=verbose)
         self.imputation_schema = imputation_schema
 
         imputation_values: Dict[int, Dict] = {i: {} for i in dataset_list}
@@ -98,11 +107,14 @@ class ImputedDataSet:
             # all_vars are primed at iteration = with random sampling,
             # since predictors cannot be missing in RandomForestClassifier()
             for var in self.imputation_schema.all_vars:
-                imputation_values[ds][var] = {0: self._random_state.choice(
-                    data[var].dropna(), size=na_counts[var])}
+                imputation_values[ds][var] = {
+                    0: self._random_state.choice(
+                        data[var].dropna(), size=na_counts[var]
+                    )
+                }
         self.imputation_values = imputation_values
 
-    def _ids_info(self):
+    def _ids_info(self) -> str:
 
         summary_string = ("           Datasets: " + str(len(self.dataset_list)) + "\n" +
                           "         Iterations: " + str(self.get_iterations()) + "\n" +
@@ -115,7 +127,11 @@ class ImputedDataSet:
                           self._ids_info())
         return summary_string
 
-    def get_iterations(self, dataset=None, var=None):
+    def get_iterations(
+            self,
+            dataset: int = None,
+            var: str = None
+    ) -> int:
         """
         Return iterations for the entire process, or a specific
         dataset, variable.
@@ -161,7 +177,12 @@ class ImputedDataSet:
         else:
             raise ValueError('Provide both or neither datasets,var parameters')
 
-    def get_imps(self, dataset, var, iteration=None):
+    def get_imps(
+            self,
+            dataset: int,
+            var: str,
+            iteration: int = None
+    ) -> np.ndarray:
         """
         Return imputations for specified dataset, variable, iteration.
 
@@ -194,7 +215,11 @@ class ImputedDataSet:
         return self.imputation_values[dataset][var][iteration]
 
     # Should return all rows of data
-    def _make_xy(self, dataset, var):
+    def _make_xy(
+            self,
+            dataset: int,
+            var: str):
+
         xvars = self.imputation_schema.get_var_pred_list(var)
         completed_data = self.complete_data(dataset=dataset, all_vars=True)
         x = completed_data[xvars].copy()
@@ -204,7 +229,11 @@ class ImputedDataSet:
             x[ctc] = x[ctc].cat.codes
         return x, y
 
-    def _insert_new_data(self, dataset, var, new_data):
+    def _insert_new_data(
+            self,
+            dataset: int,
+            var: str,
+            new_data: np.ndarray):
 
         current_iter = self.get_iterations(dataset, var)
         if self.save_all_iterations:
@@ -213,7 +242,11 @@ class ImputedDataSet:
             del self.imputation_values[dataset][var][current_iter]
             self.imputation_values[dataset][var][current_iter + 1] = new_data
 
-    def complete_data(self, dataset=0, iteration=None, all_vars=False):
+    def complete_data(
+            self,
+            dataset: int = 0,
+            iteration: int = None,
+            all_vars: bool = False) -> DataFrame:
         """
         Replace missing values with imputed values.
 
@@ -245,17 +278,25 @@ class ImputedDataSet:
             ret_vars = self.imputation_schema.response_vars
 
         for var in ret_vars:
-            imputed_dataset.loc[self.na_where[var],
-                                var] = self.get_imps(dataset, var, iteration)
+            imputed_dataset.loc[
+                self.na_where[var],
+                var
+            ] = self.get_imps(dataset, var, iteration)
         return imputed_dataset
 
-    def _cross_check_numeric(self, variables):
+    def _cross_check_numeric(
+            self,
+            variables: Optional[List[str]]) -> List[str]:
+
         if len(self.dataset_list) < 3:
             raise ValueError(
-                'Not enough datasets to calcualate correlations between them')
+                'Not enough datasets to calculate correlations between them'
+            )
 
-        numeric_imputed_vars = list(set(self.imputation_schema.response_vars) -
-                                    set(self.categorical_features))
+        numeric_imputed_vars = list(
+            set(self.imputation_schema.response_vars) -
+            set(self.categorical_features)
+        )
 
         if variables is None:
             variables = numeric_imputed_vars
@@ -263,11 +304,14 @@ class ImputedDataSet:
         else:
             if any([var not in numeric_imputed_vars for var in variables]):
                 raise ValueError(
-                    'Specified variable is not in imputed numeric variables.')
+                    'Specified variable is not in imputed numeric variables.'
+                )
 
         return variables
 
-    def get_correlations(self, variables=None):
+    def get_correlations(
+            self,
+            variables: List[str] = None) -> Dict[str, Dict[int, List[float]]]:
         """
         Return the correlations between datasets for
         the specified variables.
@@ -295,7 +339,7 @@ class ImputedDataSet:
         # at each iteration
         correlation_dict = {}
         if self.save_all_iterations:
-            iter_range = range(self.get_iterations() + 1)
+            iter_range = list(range(self.get_iterations() + 1))
         else:
             # Make this iterable for code tidyness
             iter_range = [self.get_iterations()]
@@ -322,7 +366,10 @@ class ImputedDataSet:
 
         return correlation_dict
 
-    def plot_correlations(self, variables=None, **adj_args):
+    def plot_correlations(
+            self,
+            variables: List[str],
+            **adj_args):
         """
         Plot the correlations between datasets.
         See get_correlations for more details.
@@ -363,7 +410,11 @@ class ImputedDataSet:
             ax[axr, axc].set_ylim([-1, 1])
         plt.subplots_adjust(**adj_args)
 
-    def plot_imputed_distributions(self, variables=None, iteration=None, **adj_args):
+    def plot_imputed_distributions(
+            self,
+            variables: List[str] = None,
+            iteration: int = None,
+            **adj_args):
         """
         Plot the imputed value distribution for all datasets.
 
@@ -466,7 +517,7 @@ class MultipleImputedKernel(ImputedDataSet):
                  data,
                  datasets=5,
                  variable_schema=None,
-                 mean_match_candidates=None,
+                 mean_match_candidates: Union[int, Dict[str, int]] = None,
                  save_all_iterations=False,
                  verbose=False,
                  random_state=None):
@@ -479,19 +530,26 @@ class MultipleImputedKernel(ImputedDataSet):
 
         self.iteration_time_seconds = -1
 
-        # If mean_match_candidates is None, use min(5, 0.1% of the available candidates)
+        # If mean_match_candidates is None, use max(5, 0.1% of the available candidates)
         if mean_match_candidates is None:
-            mean_match_candidates = {key: (max([5, int((self.data_shape[0] - self.na_counts[key])*0.001)]))
-                                     for key in self.imputation_schema.response_vars}
-            mmc_inadequate = [var for var, mmc in mean_match_candidates.items()
-                              if (mmc >= (self.data_shape[0] - self.na_counts[var]))]
+            mean_match_candidates = {
+                key: (
+                    max([5, int((self.data_shape[0] - self.na_counts[key])*0.001)]))
+                for key in self.imputation_schema.response_vars
+            }
+            mmc_inadequate = [
+                var for var, mmc in mean_match_candidates.items()
+                if (mmc >= (self.data_shape[0] - self.na_counts[var]))
+            ]
             if len(mmc_inadequate) > 0:
                 raise ValueError(
                     'Custom mean_match_candidates dict required due to lack of candidates.')
-        # Format mean_match_candidates appropriately.
+
         elif isinstance(mean_match_candidates, int):
             mean_match_candidates = {
-                key: mean_match_candidates for key in self.imputation_schema.response_vars}
+                key: mean_match_candidates
+                for key in self.imputation_schema.response_vars
+            }
         elif isinstance(mean_match_candidates, dict):
             if not set(mean_match_candidates) == set(variable_schema):
                 raise ValueError('mean_match_candidates not consistent with variable_schema. ' +
@@ -509,15 +567,25 @@ class MultipleImputedKernel(ImputedDataSet):
         self.mean_match_candidates = mean_match_candidates
 
         # We save the models in the kernel
-        models = {i: {var: None for var in self.imputation_schema.response_vars}
-                  for i in self.dataset_list}
-        self.models = models
+        self.models = {
+            i: {
+                var: None
+                for var in self.imputation_schema.response_vars
+            }
+            for i in self.dataset_list
+        }
         self.models_saved = False
 
     # Either returns value (if mean_matching_candidates == 0) or the result from mean matching
     # Candidate data is always drawn from self.data.
-    def _calculate_imputation_values(self, model, var, bachelor_features,
-                                     candidate_features, candidate_values):
+    def _calculate_imputation_values(
+            self,
+            model: Union['RandomForestClassifier', 'RandomForestRegressor'],
+            var: str,
+            bachelor_features: List[str],
+            candidate_features: List[str],
+            candidate_values: np.ndarray):
+
         mmc = self.mean_match_candidates[var]
         if mmc == 0:
             bachelor_preds = model.predict(bachelor_features)
@@ -531,7 +599,6 @@ class MultipleImputedKernel(ImputedDataSet):
                 # Collect the candidates, and the predictions for the candidates and bachelors
                 bachelor_preds = np.array(model.predict(bachelor_features))
                 candidate_preds = np.array(model.predict(candidate_features))
-                candidate_features.isna().sum()
                 candidate_values = np.array(candidate_values)
 
                 # Determine the nearest neighbors of the bachelor predictions in the candidate predictions
@@ -547,7 +614,12 @@ class MultipleImputedKernel(ImputedDataSet):
 
     # This function will _always_ be performed on self.kernel_mids.
     # Models are updated here, and only here.
-    def mice(self, iterations=5, save_models=True, verbose=False, **kw_fit):
+    def mice(
+            self,
+            iterations: int = 5,
+            save_models: bool = True,
+            verbose: bool = False,
+            **kw_fit):
         """Perform mice on kernel dataset.
 
         Parameters
@@ -567,10 +639,14 @@ class MultipleImputedKernel(ImputedDataSet):
 
         """
 
+        self.models_saved = save_models
+
         # This seems goofy. Maybe a bad idea to have initial imputation as iteration 0?
         iterations_at_start = self.get_iterations()
-        iter_range = range(iterations_at_start + 1,
-                           iterations + iterations_at_start + 1)
+        iter_range = range(
+            iterations_at_start + 1,
+            iterations_at_start + iterations + 1
+        )
         iter_vars = self.imputation_schema.response_vars
 
         iteration_start = datetime.now()
@@ -590,7 +666,7 @@ class MultipleImputedKernel(ImputedDataSet):
                         print(" | " + var, end=endcap)
 
                     x, y = self._make_xy(dataset, var)
-                    # To save time, oob_score is only calculated if we are saving the models.
+
                     if var in self.categorical_features:
                         current_model = _default_rf_classifier(
                             random_state=self._random_state,
@@ -616,25 +692,28 @@ class MultipleImputedKernel(ImputedDataSet):
                     if iteration == iter_range[-1] and save_models:
                         self.models[dataset][var] = current_model
 
-                if iteration == iter_range[0] and dataset == 0:
+                if iteration == iter_range[0] and dataset == self.dataset_list[0]:
                     iteration_finish = datetime.now()
                     iteration_time_delta = iteration_finish - iteration_start
                     if iteration_time_delta.seconds > 30 and verbose:
                         expected_completion_time = (iteration_finish +
                                                     iteration_time_delta*(iterations*5-1))
                         print("\nExpected Time of Completion: \n" +
-                              datetime.strftime(expected_completion_time,
-                                                format='%Y-%m-%d - %H:%M') + "\n")
+                              expected_completion_time.strftime(
+                                  '%Y-%m-%d - %H:%M') + "\n"
+                              )
+                        help(datetime.strftime)
 
-        self.models_saved = save_models
         self.iteration_time_seconds = iteration_time_delta.seconds
 
-    def impute_new_data(self,
-                        new_data,
-                        datasets=None,
-                        iterations=None,
-                        save_all_iterations=False,
-                        verbose=False):
+    def impute_new_data(
+            self,
+            new_data: DataFrame,
+            datasets: List[int] = None,
+            iterations: int = None,
+            save_all_iterations: bool = False,
+            verbose: bool = False
+    ) -> ImputedDataSet:
         """Impute a dataset using a preexisting kernel
 
         Parameters
@@ -675,25 +754,24 @@ class MultipleImputedKernel(ImputedDataSet):
         if iterations is None:
             iterations = self.get_iterations()
 
-        imputed_data_set = ImputedDataSet(new_data,
-                                          datasets=dataset_list,
-                                          variable_schema=self.imputation_schema.variable_schema.copy(),
-                                          save_all_iterations=save_all_iterations,
-                                          verbose=verbose)
+        imputed_data_set = ImputedDataSet(
+            new_data,
+            datasets=dataset_list,
+            variable_schema=self.imputation_schema.variable_schema.copy(),
+            save_all_iterations=save_all_iterations,
+            verbose=verbose
+        )
 
         iter_range = range(1, iterations + 1)
         iter_vars = list(imputed_data_set.imputation_schema.response_vars)
 
         for dataset in dataset_list:
-            # dataset = 0
             if verbose:
                 print("Dataset " + str(dataset))
             for iteration in iter_range:
-                # iteration = 1
                 if verbose:
                     print("Iteration " + str(iteration), end="")
                 for var in iter_vars:
-                    # var = iter_vars[0]
                     if verbose:
                         if var == iter_vars[-1]:
                             endcap = "\n"
@@ -715,7 +793,7 @@ class MultipleImputedKernel(ImputedDataSet):
 
         return imputed_data_set
 
-    def get_feature_importance(self, dataset=0):
+    def get_feature_importance(self, dataset: int = 0) -> DataFrame:
         """
         Return a matrix of feature importance. The cells
         represent the normalized feature importance of the
@@ -731,22 +809,23 @@ class MultipleImputedKernel(ImputedDataSet):
         Returns
         -------
         pandas DataFrame
-            A pandas dataframe with variable column names and
+            A pandas DataFrame with variable column names and
             indexes.
 
         """
         # Should change this to save importance as models are updated, so
         # we can still get feature importance even if models are not saved.
-        if not self.models_saved:
-            raise ValueError('Models were not saved, cannot get importance.')
+        assert self.models_saved
         predictor_names = self.imputation_schema.predictor_vars
         predictor_names.sort()
         imputed_var_names = self.imputation_schema.response_vars
         imputed_var_names.sort()
         importance_matrix = DataFrame(
-            columns=predictor_names, index=imputed_var_names, dtype=np.double)
+            columns=predictor_names,
+            index=imputed_var_names,
+            dtype=np.double
+        )
 
-        # Getting the feature importance assignments from RandomForestClassifier/Regressor is such a PITA
         for ivar in imputed_var_names:
             importance_dict = dict(
                 zip(
@@ -756,11 +835,12 @@ class MultipleImputedKernel(ImputedDataSet):
             )
             for pvar in importance_dict:
                 importance_matrix.loc[ivar, pvar] = np.round(
-                    importance_dict[pvar], 3)
+                    importance_dict[pvar], 3
+                )
 
         return importance_matrix
 
-    def plot_feature_importance(self, dataset=0, **kw_plot):
+    def plot_feature_importance(self, dataset: int = 0, **kw_plot):
         """
         Plot the feature importance. See get_feature_importance
         for more details.

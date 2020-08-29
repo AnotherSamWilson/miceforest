@@ -1,14 +1,22 @@
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from typing import List, Optional, Union
-
+from typing import (
+    List,
+    Optional,
+    Union,
+    Any,
+    TYPE_CHECKING
+)
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 
 def ampute_data(
-        data,
+        data: 'DataFrame',
         variables: Optional[List[str]] = None,
         perc: float = 0.1,
-        random_state: Optional[Union[int, np.random.RandomState]] = None):
+        random_state: Optional[Union[int, np.random.RandomState]] = None
+) -> 'DataFrame':
     """
     Ampute Data
 
@@ -44,7 +52,9 @@ def ampute_data(
     return amputed_data
 
 
-def ensure_rng(random_state: Optional[Union[int, np.random.RandomState]] = None):
+def ensure_rng(
+        random_state: Optional[Union[int, np.random.RandomState]] = None
+) -> np.random.RandomState:
     """
     Creates a random number generator based on an optional seed.  This can be
     an integer or another random state for a seeded rng, or None for an
@@ -61,7 +71,12 @@ def ensure_rng(random_state: Optional[Union[int, np.random.RandomState]] = None)
 
 # These exist so we can make a default classifier with the same parameters
 # as those that may be passed to **kw_fit
-def _default_rf_classifier(random_state, max_features="sqrt", **kw_fit):
+def _default_rf_classifier(
+        random_state: np.random.RandomState,
+        max_features="sqrt",
+        **kw_fit
+) -> RandomForestClassifier:
+
     rfc = RandomForestClassifier(
         random_state=random_state,
         max_features=max_features,
@@ -70,7 +85,12 @@ def _default_rf_classifier(random_state, max_features="sqrt", **kw_fit):
     return rfc
 
 
-def _default_rf_regressor(random_state, max_features="sqrt", **kw_fit):
+def _default_rf_regressor(
+        random_state: np.random.RandomState,
+        max_features="sqrt",
+        **kw_fit
+) -> RandomForestRegressor:
+
     rfc = RandomForestRegressor(
         random_state=random_state,
         max_features=max_features,
@@ -80,7 +100,7 @@ def _default_rf_regressor(random_state, max_features="sqrt", **kw_fit):
 
 
 # Exists because list(set()) ruins reproducibility
-def _distinct_from_list(lst):
+def _distinct_from_list(lst: List[Any]) -> List[Any]:
     output = []
     for item in lst:
         if item not in output:
