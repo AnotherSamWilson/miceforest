@@ -50,6 +50,9 @@ def test_csmice():
     assert all(compdat.isna().sum()[
                ['petal width (cm)', 'sepal width (cm)']] == [0, 0])
 
+    featimp = kernel.get_feature_importance()
+    assert isinstance(featimp, pd.DataFrame)
+
 
 def test_csimpute_new():
     kernel = mf.MultipleImputedKernel(

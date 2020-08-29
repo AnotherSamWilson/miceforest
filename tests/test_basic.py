@@ -16,7 +16,7 @@ boston_amp = mf.ampute_data(boston, perc=0.25, random_state=random_state)
 def test_kernel():
     kernel = mf.MultipleImputedKernel(
         boston_amp,
-        datasets=[0,3,4],
+        datasets=3,
         save_all_iterations=True,
         random_state=random_state
     )
@@ -37,6 +37,9 @@ def test_mice():
 
     compdat = kernel.complete_data()
     assert all(compdat.isna().sum() == 0)
+
+    featimp = kernel.get_feature_importance()
+    assert isinstance(featimp, pd.DataFrame)
 
 
 def test_impute_new():
