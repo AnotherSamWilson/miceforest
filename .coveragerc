@@ -1,0 +1,14 @@
+[run]
+branch = True
+source = bayes_opt
+
+[report]
+exclude_lines =
+    def __repr__
+    raise
+    if __name__ == .__main__.:
+    print(.*)
+
+omit =
+    */setup.py
+    tests/*
