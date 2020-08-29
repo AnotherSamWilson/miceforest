@@ -28,7 +28,7 @@ def test_kernel():
 def test_mice():
     kernel = mf.MultipleImputedKernel(
         boston_amp,
-        datasets=3,
+        datasets=4,
         save_all_iterations=False,
         random_state=random_state
     )
@@ -40,6 +40,11 @@ def test_mice():
 
     featimp = kernel.get_feature_importance()
     assert isinstance(featimp, pd.DataFrame)
+
+    # Throw plotting in here because creating kernel is expensive
+    kernel.plot_imputed_distributions()
+    kernel.plot_feature_importance()
+    kernel.plot_correlations()
 
 
 def test_impute_new():

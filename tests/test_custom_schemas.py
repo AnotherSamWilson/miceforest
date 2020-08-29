@@ -37,7 +37,7 @@ def test_cskernel():
 def test_csmice():
     kernel = mf.MultipleImputedKernel(
         iris_amp,
-        datasets=2,
+        datasets=4,
         variable_schema=var_sch,
         mean_match_candidates=var_mmc,
         save_all_iterations=True,
@@ -52,6 +52,13 @@ def test_csmice():
 
     featimp = kernel.get_feature_importance()
     assert isinstance(featimp, pd.DataFrame)
+
+    # Throw plotting in here because creating kernel is expensive
+    kernel.plot_imputed_distributions()
+    kernel.plot_feature_importance()
+    kernel.plot_correlations()
+
+    self = kernel
 
 
 def test_csimpute_new():
