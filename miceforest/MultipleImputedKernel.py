@@ -8,6 +8,7 @@ from .ImputationSchema import ImputationSchema
 from typing import (
     Optional,
     Union,
+    Any,
     List,
     Dict,
     TYPE_CHECKING
@@ -567,7 +568,7 @@ class MultipleImputedKernel(ImputedDataSet):
         self.mean_match_candidates = mean_match_candidates
 
         # We save the models in the kernel
-        self.models = {
+        self.models: Dict[int, Dict[str, Any]] = {
             i: {
                 var: None
                 for var in self.imputation_schema.response_vars
