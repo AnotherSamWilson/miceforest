@@ -369,7 +369,7 @@ class ImputedDataSet:
 
     def plot_correlations(
             self,
-            variables: List[str],
+            variables: List[str] = None,
             **adj_args):
         """
         Plot the correlations between datasets.
@@ -387,6 +387,7 @@ class ImputedDataSet:
         if len(self.dataset_list) < 4:
             raise ValueError('Not enough datasets to make box plot')
 
+        variables = self._cross_check_numeric(variables)
         correlation_dict = self.get_correlations(variables=variables)
 
         import matplotlib.pyplot as plt
@@ -396,7 +397,7 @@ class ImputedDataSet:
         plotrows, plotcols = int(np.ceil(np.sqrt(plots))), int(
             np.ceil(plots / np.ceil(np.sqrt(plots))))
         gs = gridspec.GridSpec(plotrows, plotcols)
-        fig, ax = plt.subplots(plotrows, plotcols)
+        fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
         for v in range(plots):
             axr, axc = gs[v].get_rows_columns()[2], gs[v].get_rows_columns()[5]
@@ -442,7 +443,7 @@ class ImputedDataSet:
         plotrows, plotcols = int(np.ceil(np.sqrt(plots))), int(
             np.ceil(plots / np.ceil(np.sqrt(plots))))
         gs = gridspec.GridSpec(plotrows, plotcols)
-        fig, ax = plt.subplots(plotrows, plotcols)
+        fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
         for v in range(plots):
             var = list(variables)[v]
