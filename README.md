@@ -1,8 +1,19 @@
 
-<p align="center">
-<a href="https://travis-ci.com/AnotherSamWilson/miceforest"><img alt="Build Status" src="https://travis-ci.com/FarrellDay/miceRanger.svg?branch=master"></a>
-<a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
-</p>
+<center>
+
+[![Build
+Status](https://travis-ci.com/FarrellDay/miceRanger.svg?branch=master)](https://travis-ci.com/AnotherSamWilson/miceforest)
+[![MyPy](https://img.shields.io/badge/MyPy-passing-success.svg)](https://pypi.org/project/miceforest/)
+[![MIT
+license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
+[![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
+[![Code style:
+black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-1.0.6-blue.svg)](https://pypi.org/project/miceforest/)
+[![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
+[![Downloads](https://pepy.tech/badge/miceforest/week)](https://pepy.tech/project/miceforest/week)
+
+</center>
 
 ## miceforest: Fast Imputation with Random Forests in Python
 
