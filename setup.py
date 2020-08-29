@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="miceforest",
-    version="1.0.5",
+    version="1.0.6",
     author="Samuel Wilson",
     license="MIT",
     author_email="samwilson303@gmail.com",
