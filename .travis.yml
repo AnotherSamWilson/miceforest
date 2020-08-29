@@ -15,10 +15,12 @@ before_install:
   - pip install pytest -U
   - pip install pytest-cov -U
   - pip install codecov -U
+  - pip install mypy -U
 install:
   - travis_retry pip install -e .
 script: 
   - travis_wait pytest tests --cov=miceforest
+  - travis_wait mypy miceforest
 after_success:
   - codecov 
 cache: 
