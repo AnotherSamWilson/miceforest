@@ -21,7 +21,7 @@ setup(
                       'matplotlib'
                       ],
     url="https://github.com/AnotherSamWilson/miceforest",
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests.*", "tests"]),
     classifiers=[
         'Natural Language :: English',
         'Operating System :: MacOS',
