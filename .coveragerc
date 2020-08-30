@@ -1,12 +1,13 @@
 [run]
-branch = True
-source = bayes_opt
+branch = true
+parallel = true
+source = miceforest
 
 [report]
 exclude_lines =
     def __repr__
     raise
-    if __name__ == .__main__.:
+    if __name__ == '__main__':
     print(.*)
 
 omit =

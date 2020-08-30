@@ -5,10 +5,11 @@ with open("README.md", "r") as fh:
 
 setup(
     name="miceforest",
-    version="1.0.6",
+    version="1.0.7",
     author="Samuel Wilson",
     license="MIT",
     author_email="samwilson303@gmail.com",
+    test_suite="tests",
     description="Perform MICE",
     keywords=['MICE','Imputation','Missing Values','Missing','Random Forest'],
     long_description=long_description,

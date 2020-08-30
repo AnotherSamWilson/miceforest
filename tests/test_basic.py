@@ -61,11 +61,3 @@ def test_get_correlations():
     assert list(correlation_dict) == sorted(
         list(set(boston.columns) - set(kernel.categorical_features))
     )
-
-
-if __name__ == "__main__":
-    r"""
-    CommandLine:
-        python tests/test_basic.py
-    """
-    pytest.main([__file__])
