@@ -114,14 +114,14 @@ class ImputedDataSet:
 
     def _ids_info(self) -> str:
         summary_string = f"""\
-                       Datasets: {len(self.dataset_list)}
-                     Iterations: {self.get_iterations()}
-              Imputed Variables: {self.imputation_schema.n_imputed_vars}
-            save_all_iterations: {self.save_all_iterations}"""
+           Datasets: {len(self.dataset_list)}
+         Iterations: {self.get_iterations()}
+  Imputed Variables: {self.imputation_schema.n_imputed_vars}
+save_all_iterations: {self.save_all_iterations}"""
         return summary_string
 
     def __repr__(self):
-        summary_string = "Instance of ImputedDataSet:\n" + self._ids_info()
+        summary_string = "              Class: ImputedDataSet\n" + self._ids_info()
         return summary_string
 
     def get_iterations(self, dataset: int = None, var: str = None) -> int:
@@ -269,11 +269,6 @@ class ImputedDataSet:
 
     def _cross_check_numeric(self, variables: Optional[List[str]]) -> List[str]:
 
-        if len(self.dataset_list) < 3:
-            raise ValueError(
-                "Not enough datasets to calculate correlations between them"
-            )
-
         numeric_imputed_vars = list(
             set(self.imputation_schema.response_vars) - set(self.categorical_features)
         )
@@ -311,7 +306,7 @@ class ImputedDataSet:
 
         if len(self.dataset_list) < 3:
             raise ValueError(
-                "Not enough datasets to calcualate correlations between them"
+                "Not enough datasets to calculate correlations between them"
             )
 
         variables = self._cross_check_numeric(variables)
@@ -577,6 +572,15 @@ class MultipleImputedKernel(ImputedDataSet):
             for i in self.dataset_list
         }
         self.models_saved = False
+
+    def __repr__(self):
+        summary_string = (
+            f"""\
+              Class: MultipleImputedKernel
+       Models Saved: {self.models_saved}\n"""
+            + self._ids_info()
+        )
+        return summary_string
 
     # Either returns value (if mean_matching_candidates == 0) or the result from mean matching
     # Candidate data is always drawn from self.data.
