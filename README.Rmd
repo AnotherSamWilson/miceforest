@@ -16,6 +16,7 @@ sys.path.append('C:/Users/swilson/Projects/miceforest/miceforest')
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
 [![DEV_Version_Badge](https://img.shields.io/badge/Dev-1.0.8-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
+[![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 [![Downloads](https://pepy.tech/badge/miceforest/week)](https://pepy.tech/project/miceforest/week)  
 
 </center>
@@ -24,7 +25,7 @@ sys.path.append('C:/Users/swilson/Projects/miceforest/miceforest')
 
 <a href='https://github.com/AnotherSamWilson/miceforest'><img src='examples/icon.png' align="right" height="300" /></a>
 
-Fast, memory efficient Multiple Imputation by Chained Equations (MICE) with random forests. It can impute categorical and numeric data without much setup, and has an array of diagnostic plots available. The R version of this package maybe found [here](https://github.com/FarrellDay/miceRanger).  
+Fast, memory efficient Multiple Imputation by Chained Equations (MICE) with random forests. It can impute categorical and numeric data without much setup, and has an array of diagnostic plots available. The R version of this package may be found [here](https://github.com/FarrellDay/miceRanger).  
   
 
 This document contains a thorough walkthrough of the package, benchmarks, and an introduction to multiple imputation. More information on MICE can be found in Stef van Buuren's excellent online book, which you can find [here](https://stefvanbuuren.name/fimd/ch-introduction.html).  

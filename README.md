@@ -11,6 +11,7 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
 [![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-1.0.8-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
+[![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 [![Downloads](https://pepy.tech/badge/miceforest/week)](https://pepy.tech/project/miceforest/week)
 
 </center>
@@ -22,7 +23,7 @@ black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://gith
 Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
 with random forests. It can impute categorical and numeric data without
 much setup, and has an array of diagnostic plots available. The R
-version of this package maybe found
+version of this package may be found
 [here](https://github.com/FarrellDay/miceRanger).
 
 This document contains a thorough walkthrough of the package,
