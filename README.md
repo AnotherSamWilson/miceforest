@@ -2,14 +2,14 @@
 <center>
 
 [![Build
-Status](https://travis-ci.com/FarrellDay/miceRanger.svg?branch=master)](https://travis-ci.com/AnotherSamWilson/miceforest)
+Status](https://travis-ci.com/AnotherSamWilson/miceforest.svg?branch=master)](https://travis-ci.org/AnotherSamWilson/miceforest)
 [![MyPy](https://img.shields.io/badge/MyPy-passing-success.svg)](https://pypi.org/project/miceforest/)
 [![MIT
 license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-1.0.7-blue.svg)](https://pypi.org/project/miceforest/)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-1.0.8-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![Downloads](https://pepy.tech/badge/miceforest/week)](https://pepy.tech/project/miceforest/week)
 
@@ -19,10 +19,6 @@ black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://gith
 
 <a href='https://github.com/AnotherSamWilson/miceforest'><img src='examples/icon.png' align="right" height="300" /></a>
 
-**NOTE - THIS LIBRARY WAS ORIGINALLY CALLED ‘miceForest’. Changing the
-name on PyPi causes unintended consequences. If you recently recieved an
-error that said ‘miceForest could not be found’, this has been fixed
-with version 1.0.4 on PyPi.**  
 Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
 with random forests. It can impute categorical and numeric data without
 much setup, and has an array of diagnostic plots available. The R
