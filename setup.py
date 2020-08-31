@@ -10,7 +10,7 @@ setup(
     license="MIT",
     author_email="samwilson303@gmail.com",
     test_suite="tests",
-    description="Perform MICE",
+    description="Imputes missing data with MICE + random forests",
     keywords=['MICE','Imputation','Missing Values','Missing','Random Forest'],
     long_description=long_description,
     long_description_content_type="text/markdown",
