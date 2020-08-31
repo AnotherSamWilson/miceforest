@@ -9,3 +9,4 @@ scratch/
 htmlcov/
 coverage.*
 .codecovtoken
+examples/icon_small.png
