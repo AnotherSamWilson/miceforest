@@ -459,7 +459,8 @@ class MultipleImputedKernel(ImputedDataSet):
 
     Creates a multiple imputed kernel, which is an ImputedDataSet
     with additional methods. Can perform mice, as well as impute
-    new data.
+    new data. More details on usage can be found on the GitHub:
+    https://github.com/AnotherSamWilson/miceforest
 
     Parameters
     ----------
