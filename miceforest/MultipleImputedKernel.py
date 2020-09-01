@@ -704,10 +704,10 @@ class MultipleImputedKernel(ImputedDataSet):
                 if iteration == iter_range[0] and dataset == self.dataset_list[0]:
                     iteration_finish = datetime.now()
                     iteration_time_delta = iteration_finish - iteration_start
-                    if iteration_time_delta.seconds > 30 and verbose:
+                    if iteration_time_delta.seconds > 10 and verbose:
                         expected_completion_time = (
                             iteration_finish
-                            + iteration_time_delta * (iterations * 5 - 1)
+                            + iteration_time_delta * (iterations * len(self.dataset_list) - 1)
                         )
                         print(
                             "\nExpected Time of Completion: \n"
@@ -762,10 +762,6 @@ class MultipleImputedKernel(ImputedDataSet):
                 or np.min(datasets) < self.dataset_list
             ):
                 raise ValueError("Dataset does not exist")
-        else:
-            raise ValueError(
-                "datasets not recognized. Please provide a list, or leave None to return all."
-            )
 
         if iterations is None:
             iterations = self.get_iterations()
