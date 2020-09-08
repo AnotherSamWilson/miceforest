@@ -1,5 +1,4 @@
 language: python
-sudo: false
 
 cache:
   apt: true
@@ -23,8 +22,4 @@ script:
   - travis_wait pytest tests --cov-config .coveragerc --cov=miceforest
   - travis_wait mypy miceforest
 after_success:
-  - codecov 
-cache: 
-    apt: true
-    directories:
-        - $HOME/.pip-cache
+  - codecov
