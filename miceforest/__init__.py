@@ -1,10 +1,13 @@
 from .utils import ampute_data
-from .MultipleImputedKernel import ImputedDataSet, MultipleImputedKernel
-from .ImputationSchema import ImputationSchema
+from .ImputedDataSet import ImputedDataSet
+from .MultipleImputedDataSet import MultipleImputedDataSet
+from .MultipleImputedKernel import MultipleImputedKernel
+from .KernelDataSet import KernelDataSet
 
 __all__ = [
-    "ImputationSchema",
     "MultipleImputedKernel",
     "ImputedDataSet",
+    "MultipleImputedDataSet",
     "ampute_data",
+    "KernelDataSet",
 ]
