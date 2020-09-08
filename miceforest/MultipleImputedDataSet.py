@@ -22,36 +22,6 @@ class MultipleImputedDataSet(_ImputationSchema):
     ----------
     initial_dataset: ImputedDataSet
 
-    Methods
-    -------
-    append()
-        Adds an imputed dataset.
-
-    remove()
-        Removes an imputed dataset.
-
-    dataset_count()
-        Returns the number of datasets being stored.
-
-    get_correlations()
-        Returns the pearson correlations between imputed datasets.
-
-    plot_correlations()
-        Plots the pearson correlations between imputed datasets.
-
-    plot_imputed_distributions()
-        Plots the distribution of imputed values against the original.
-
-    iteration_count()
-        Returns the iterations that have been run to impute the data.
-
-    complete_data()
-        Returns the completed data for the specified dataset
-
-    plot_mean_convergence()
-        Plots the means of the imputed values for each dataset over
-        iterations.
-
     """
 
     def __init__(self, initial_dataset: ImputedDataSet):

@@ -35,14 +35,13 @@ class ImputedDataSet(_ImputationSchema):
         Candidates are _always_ drawn from a kernel dataset.
         Mean matching follows the following rules based on variable type:
             Categorical:
-                If mmc = 0, the predicted class is used
-                If mmc > 0, return class based on random draw weighted by
-                    class probability for each sample.
+                If mmc = 0, the predicted class is used. If mmc > 0, return
+                class based on random draw weighted by class probability
+                for each sample.
             Numeric:
-                If mmc = 0, the predicted value is used
-                If mmc > 0, obtain the mmc closest candidate
-                    predictions and collect the associated
-                    real candidate values. Choose 1 randomly.
+                If mmc = 0, the predicted value is used. If mmc > 0, obtain
+                the mmc closest candidate predictions and collect the associated
+                real candidate values. Choose 1 randomly.
 
         For more information, see:
         https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching
@@ -54,21 +53,6 @@ class ImputedDataSet(_ImputationSchema):
 
     random_state: None,int, or numpy.random.RandomState
         Ensures a random state throughout the process
-
-    Methods
-    -------
-    iteration_count()
-        Returns the number of iterations that have been run to impute
-        the data.
-
-    complete_data()
-        Returns a completed dataset, with missing values imputed.
-
-    get_means()
-        Returns the average value of numeric variables at each iteration.
-
-    plot_mean_convergence()
-        Plots the average value of numeric variables at each iteration.
 
     """
 

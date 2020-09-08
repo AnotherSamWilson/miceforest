@@ -33,50 +33,6 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         Saving all iterations allows for additional plotting,
         but may take more memory
 
-    Methods
-    -------
-    append()
-        Adds an imputed dataset.
-
-    remove()
-        Removes an imputed dataset.
-
-    dataset_count()
-        Returns the number of datasets being stored.
-
-    get_correlations()
-        Returns the pearson correlations between imputed datasets.
-
-    plot_correlations()
-        Plots the pearson correlations between imputed datasets.
-
-    plot_imputed_distributions()
-        Plots the distribution of imputed values against the original.
-
-    iteration_count()
-        Returns the iterations that have been run to impute the data.
-
-    complete_data()
-        Returns the completed data for the specified dataset.
-
-    plot_mean_convergence()
-        Plots the means of the imputed values for each dataset over
-        iterations.
-
-    impute_new_data()
-        Imputes a new dataset using the models obtained from performing
-        mice on the kernel dataset. Pulls mean matching candidate values
-        from the kernel data.
-
-    mice()
-        Performs mice on the kernel data.
-
-    get_feature_importance()
-        Returns feature importance of the specified dataset.
-
-    plot_feature_importance()
-        Plots the feature importance of the specified dataset.
-
     """
 
     def __init__(

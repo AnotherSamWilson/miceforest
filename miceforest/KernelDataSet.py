@@ -71,36 +71,6 @@ class KernelDataSet(ImputedDataSet):
     random_state: None,int, or numpy.random.RandomState
         Ensures a random state throughout the process
 
-    Methods
-    -------
-    iteration_count()
-        Returns the number of iterations that have been run to impute
-        the data.
-
-    complete_data()
-        Returns a completed dataset, with missing values imputed.
-
-    get_means()
-        Returns the average value of numeric variables at each iteration.
-
-    plot_mean_convergence()
-        Plots the average value of numeric variables at each iteration.
-
-    get_model()
-        Returns the model used to impute the specified variable.
-
-    mice()
-        Performs mice on the missing data.
-
-    impute_new_data()
-        Uses the model obtained from mice to impute a new dataset.
-
-    get_feature_importance()
-        Returns feature importance of the specified dataset.
-
-    plot_feature_importance()
-        Plots the feature importance of the specified dataset.
-
     """
 
     def __init__(
