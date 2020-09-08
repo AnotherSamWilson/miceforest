@@ -1,12 +1,12 @@
 from .ImputationSchema import _ImputationSchema
 import numpy as np
 from pandas import DataFrame
-from itertools import combinations
 from .utils import (
     ensure_rng,
     _distinct_from_list,
     _copy_and_remove,
-    _list_union
+    _list_union,
+    _var_comparison,
 )
 from typing import Optional, Union, List, Dict
 
@@ -22,32 +22,54 @@ class ImputedDataSet(_ImputationSchema):
     ----------
     data: DataFrame
         A pandas DataFrame to impute.
+
     variable_schema: None or list or dict
         If None all variables are used to impute all variables which have
         missing values.
         If list all variables are used to impute the variables in the list
         If dict the values will be used to impute the keys.
+
+    mean_match_candidates:  None or int or dict
+        The number of mean matching candidates to use. Mean matching
+        allows the process to impute more realistic values.
+        Candidates are _always_ drawn from a kernel dataset.
+        Mean matching follows the following rules based on variable type:
+            Categorical:
+                If mmc = 0, the predicted class is used
+                If mmc > 0, return class based on random draw weighted by
+                    class probability for each sample.
+            Numeric:
+                If mmc = 0, the predicted value is used
+                If mmc > 0, obtain the mmc closest candidate
+                    predictions and collect the associated
+                    real candidate values. Choose 1 randomly.
+
+        For more information, see:
+        https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching
+
     save_all_iterations: boolean, optional(default=False)
         Save all iterations that have been imputed, or just the latest.
         Saving all iterations allows for additional plotting,
         but may take more memory
-    verbose: boolean, optional(default=False)
-        Print warnings and imputation progress?
+
     random_state: None,int, or numpy.random.RandomState
         Ensures a random state throughout the process
 
     Methods
     -------
-    get_iterations()
-        Return iterations for the entire process, or a specific
-        dataset, variable.
-    get_imps()
-        Return imputations for specified dataset, variable, iteration.
+    iteration_count()
+        Returns the number of iterations that have been run to impute
+        the data.
+
     complete_data()
-        Replace missing values with imputed values.
-    get_correlations()
-        Return the correlations between datasets for
-        the specified variables.
+        Returns a completed dataset, with missing values imputed.
+
+    get_means()
+        Returns the average value of numeric variables at each iteration.
+
+    plot_mean_convergence()
+        Plots the average value of numeric variables at each iteration.
+
     """
 
     def __init__(
@@ -72,43 +94,51 @@ class ImputedDataSet(_ImputationSchema):
         self.categorical_variables = list(
             self.data_dtypes[self.data_dtypes == "category"].keys()
         )
-        self.imputation_values: Dict[str, Dict] = {var: dict() for var in self.response_vars}
 
-        # Right now variables are filled in randomly.
-        # Add options in the future.
-        for var in list(self.imputation_values):
+        # Right now variables are filled in with random draws
+        # from their original distribution. Add options in the future.
+        self.imputation_values: Dict[str, Dict] = {
+            var: dict() for var in self._all_imputed_vars
+        }
+        for var in self._all_imputed_vars:
             self.imputation_values[var] = {
                 0: self._random_state.choice(
                     data[var].dropna(), size=self.na_counts[var]
                 )
             }
 
+    # Subsetting allows us to get to the imputation values:
+    def __getitem__(self, tup):
+        var, iteration = tup
+        return self.imputation_values[var][iteration]
+
+    def __setitem__(self, tup, newitem):
+        var, iteration = tup
+        self.imputation_values[var][iteration] = newitem
+
+    def __delitem__(self, tup):
+        var, iteration = tup
+        del self.imputation_values[var][iteration]
+
+    def __repr__(self):
+        summary_string = " " * 14 + "Class: ImputedDataSet\n" + self._ids_info()
+        return summary_string
+
     def _ids_info(self) -> str:
         summary_string = f"""\
-         Iterations: {self.get_iterations()}
+         Iterations: {self.iteration_count()}
   Imputed Variables: {self.n_imputed_vars}
 save_all_iterations: {self.save_all_iterations}"""
         return summary_string
 
-    def __repr__(self):
-        summary_string = "              Class: ImputedDataSet\n" + self._ids_info()
-        return summary_string
-
-    def get_iterations(self, var: str = None) -> int:
+    def iteration_count(self, var: str = None) -> int:
         """
         Return iterations for the entire dataset, or a specific variable
 
         Parameters
         ----------
-        dataset: None,int
-            The dataset to return the iterations for. If not None,
-            var must also be supplied, which returns the specific
-            iterations for a dataset, variable.
-            If dataset and var are None, the meta iteration count
-            for the entire process is returned.
         var: None,str
-            The variable to get the number of iterations for. See
-            dataset parameter for specifics.
+            If None, the meta iteration is returned.
 
         Returns
         -------
@@ -120,8 +150,12 @@ save_all_iterations: {self.save_all_iterations}"""
         # if called inside iteration updates, which would mean certain variables
         # have different numbers of iterations.
         if var is None:
-            var_iterations = {var:np.max(list(iter)) for var,iter in self.imputation_values.items()}
-            distinct_iterations = _distinct_from_list(list(var_iterations.values()))
+            var_iterations = [
+                np.max(list(itr))
+                for var, itr in self.imputation_values.items()
+                if var in self.response_vars
+            ]
+            distinct_iterations = _distinct_from_list(var_iterations)
             if len(distinct_iterations) > 1:
                 raise ValueError(
                     "Inconsistent state - cannot get meta iteration count."
@@ -132,65 +166,76 @@ save_all_iterations: {self.save_all_iterations}"""
             # Extract the number of iterations so far for a specific dataset, variable
             return np.max(list(self.imputation_values[var]))
 
-    def get_imps(self, var: str, iteration: int = None) -> np.ndarray:
+    def _default_iteration(self, iteration: Optional[int], **kwargs) -> int:
         """
-        Return imputations for specified dataset, variable, iteration.
-
-        Parameters
-        ----------
-        var: str
-            The variable to return the imputations for
-        iteration: int
-            The iteration to return.
-            If not None, save_all_iterations must be True
-
-        Returns
-        -------
-            An array of imputed values.
+        If iteration is not specified it is assumed to
+        be the last iteration run in many cases.
         """
-
-        current_iteration = self.get_iterations(var=var)
         if iteration is None:
-            iteration = current_iteration
-        elif iteration != current_iteration:
-            if iteration not in self.imputation_values[var]:
-                raise ValueError('This iterations imputed values were not saved.')
-            else:
-                return self.imputation_values[var][iteration]
+            return self.iteration_count(**kwargs)
+        else:
+            return iteration
 
-    # Should return all rows of data
-    def _make_xy(self, var: str):
+    def _varfilter(self, vrs, response, predictor) -> List[str]:
+        """
+        Extracts predictor and response variables
+        from a list of variables.
+        """
+        if not response and not predictor:
+            return vrs
+        if response:
+            vrs = _list_union(vrs, self.response_vars)
+        if predictor:
+            vrs = _list_union(vrs, self.predictor_vars)
+        return vrs
 
+    def _get_cat_vars(self, response=True, predictor=False) -> List[str]:
+        cat_vars = self._varfilter(
+            vrs=self.categorical_variables, response=response, predictor=predictor
+        )
+        return cat_vars
+
+    def _get_num_vars(self, response=True, predictor=False):
+        num_vars = [v for v in self.data.columns if v not in self.categorical_variables]
+        num_vars = self._varfilter(vrs=num_vars, response=response, predictor=predictor)
+        return num_vars
+
+    def _make_xy(self, var: str, iteration: int = None):
+        """
+        Make the predictor and response set used to train the model.
+        Must be defined in ImputedDataSet because this method is called
+        directly in KernelDataSet.impute_new_data()
+
+        If iteration is None, it returns the most up-to-date imputations
+        for each variable.
+        """
         xvars = self.variable_schema[var]
-        completed_data = self.complete_data(all_vars=True)
-        x = completed_data[xvars].copy()
-        y = completed_data[var].copy()
-        to_convert = _list_union(self.categorical_variables,xvars)
+        completed_data = self.complete_data(iteration=iteration, all_vars=True)
+        to_convert = _list_union(self.categorical_variables, xvars)
         for ctc in to_convert:
-            x[ctc] = x[ctc].cat.codes
+            completed_data[ctc] = completed_data[ctc].cat.codes
+        x = completed_data[xvars]
+        y = completed_data[var]
         return x, y
 
     def _insert_new_data(self, var: str, new_data: np.ndarray):
-
-        current_iter = self.get_iterations(var)
+        current_iter = self.iteration_count(var)
         if not self.save_all_iterations:
-            del self.imputation_values[var][current_iter]
+            del self[var, current_iter]
+        self[var, current_iter + 1] = new_data
 
-        self.imputation_values[var][current_iter + 1] = new_data
-
-    def complete_data(
-        self, iteration: int = None, all_vars: bool = False
-    ) -> DataFrame:
+    def complete_data(self, iteration: int = None, all_vars: bool = False) -> DataFrame:
         """
         Replace missing values with imputed values.
 
         Parameters
         ----------
-        dataset: int
-            The dataset to return
         iteration: int
             The iteration to return.
-            If not None, save_all_iterations must be True
+            If None, returns the most up-to-date iterations,
+            even if different between variables.
+            If not none, iteration must have been saved in
+            imputed values.
         all_vars: bool
             Should all variables in the imputation schema be
             imputed, or just the ones specified to be imputed?
@@ -201,22 +246,20 @@ save_all_iterations: {self.save_all_iterations}"""
             The completed data
 
         """
-
-        imputed_dataset = self.data.copy()
+        imputed_dataframe = self.data.copy()
 
         # Need to impute all variables used in variable_schema if we are running model
         # Just impute specified variables if the user wants it.
-        ret_vars = self.all_vars if all_vars else self.response_vars
+        ret_vars = self._all_imputed_vars if all_vars else self.response_vars
 
         for var in ret_vars:
-            imputed_dataset.loc[self.na_where[var], var] = self.get_imps(
-                var, iteration
-            )
-        return imputed_dataset
+            itrn = self._default_iteration(iteration=iteration, var=var)
+            imputed_dataframe.loc[self.na_where[var], var] = self[var, itrn]
+        return imputed_dataframe
 
     def _cross_check_numeric(self, variables: Optional[List[str]]) -> List[str]:
 
-        numeric_imputed_vars = _copy_and_remove(variables,self.categorical_variables)
+        numeric_imputed_vars = _copy_and_remove(variables, self.categorical_variables)
 
         if variables is None:
             variables = numeric_imputed_vars
@@ -228,91 +271,56 @@ save_all_iterations: {self.save_all_iterations}"""
 
         return variables
 
-    def get_correlations(
-        self, variables: List[str] = None
-    ) -> Dict[str, Dict[int, List[float]]]:
+    def get_means(self, variables: List[str] = None):
         """
-        Return the correlations between datasets for
-        the specified variables.
-
-        Parameters
-        ----------
-        variables: None,str
-            The variables to return the correlations for.
-
-        Returns
-        -------
-        dict
-            The correlations at each iteration for the specified
-            variables.
-
+        Return a dict containing the average imputation value
+        for specified variables at each iteration.
         """
-
-        if len(self.dataset_list) < 3:
-            raise ValueError(
-                "Not enough datasets to calculate correlations between them"
-            )
-
-        variables = self._cross_check_numeric(variables)
+        num_vars = self._get_num_vars()
+        variables = _var_comparison(variables, num_vars)
 
         # For every variable, get the correlations between every dataset combination
         # at each iteration
-        correlation_dict = {}
+        curr_iteration = self.iteration_count()
         if self.save_all_iterations:
-            iter_range = list(range(self.get_iterations() + 1))
+            iter_range = list(range(curr_iteration + 1))
         else:
             # Make this iterable for code tidyness
-            iter_range = [self.get_iterations()]
+            iter_range = [curr_iteration]
 
-        for var in variables:
+        mean_dict = {
+            var: {itr: np.mean(self[var, itr]) for itr in iter_range}
+            for var in variables
+        }
+        return mean_dict
 
-            # Get a dict of variables and imputations for all datasets for this iteration
-            iteration_level_imputations = {
-                iteration: {
-                    dataset: self.get_imps(dataset, var, iteration=iteration)
-                    for dataset in self.dataset_list
-                }
-                for iteration in iter_range
-            }
-
-            combination_correlations = {
-                iteration: np.array(
-                    [
-                        round(np.corrcoef(impcomb)[0, 1], 3)
-                        for impcomb in list(combinations(varimps.values(), 2))
-                    ]
-                )
-                for iteration, varimps in iteration_level_imputations.items()
-            }
-
-            correlation_dict[var] = combination_correlations
-
-        return correlation_dict
-
-    def plot_correlations(self, variables: List[str] = None, **adj_args):
+    def plot_mean_convergence(self, variables: List[str] = None, **adj_args):
         """
-        Plot the correlations between datasets.
-        See get_correlations for more details.
+        Plots the average value of imputations over each iteration.
 
         Parameters
         ----------
-        variables: None,list
-            The variables to plot.
+        variables: List[str]
+            The variables to plot. Must be numeric.
         adj_args
-            Additional arguments passed to plt.subplots_adjust()
+            Passed to matplotlib.pyplot.subplots_adjust()
 
         """
+        if self.iteration_count() < 2 or not self.save_all_iterations:
+            raise ValueError("There is only one iteration.")
 
-        if len(self.dataset_list) < 4:
-            raise ValueError("Not enough datasets to make box plot")
+        num_vars = self._get_num_vars()
+        if variables is None:
+            variables = num_vars
+        elif any([v not in num_vars for v in variables]):
+            raise ValueError("variables were either not numeric or not imputed.")
 
-        variables = self._cross_check_numeric(variables)
-        correlation_dict = self.get_correlations(variables=variables)
+        mean_dict = self.get_means(variables=variables)
 
         import matplotlib.pyplot as plt
         from matplotlib import gridspec
 
-        plots = len(correlation_dict)
+        plots = len(mean_dict)
         plotrows, plotcols = int(np.ceil(np.sqrt(plots))), int(
             np.ceil(plots / np.ceil(np.sqrt(plots)))
         )
@@ -321,22 +329,30 @@ save_all_iterations: {self.save_all_iterations}"""
 
         for v in range(plots):
             axr, axc = gs[v].get_rows_columns()[2], gs[v].get_rows_columns()[5]
-            var = list(correlation_dict)[v]
-            ax[axr, axc].boxplot(
-                list(correlation_dict[var].values()),
-                labels=range(len(correlation_dict[var])),
-            )
+            var = list(mean_dict)[v]
+            ax[axr, axc].plot(list(mean_dict[var].values()))
             ax[axr, axc].set_title(var)
             ax[axr, axc].set_xlabel("Iteration")
-            ax[axr, axc].set_ylabel("Correlations")
-            ax[axr, axc].set_ylim([-1, 1])
+            ax[axr, axc].set_ylabel("mean")
         plt.subplots_adjust(**adj_args)
+
+    def _prep_multi_plot(
+        self,
+        variables: List[str],
+    ):
+        plots = len(variables)
+        plotrows, plotcols = int(np.ceil(np.sqrt(plots))), int(
+            np.ceil(plots / np.ceil(np.sqrt(plots)))
+        )
+        return plots, plotrows, plotcols
 
     def plot_imputed_distributions(
         self, variables: List[str] = None, iteration: int = None, **adj_args
     ):
         """
-        Plot the imputed value distribution for all datasets.
+        Plot the imputed value distributions.
+        Red lines are the distribution of original data
+        Black lines are the distribution of the imputed values.
 
         Parameters
         ----------
@@ -353,26 +369,22 @@ save_all_iterations: {self.save_all_iterations}"""
         import matplotlib.pyplot as plt
         from matplotlib import gridspec
 
-        variables = self._cross_check_numeric(variables)
+        iteration = self._default_iteration(iteration)
 
-        if iteration is None:
-            iteration = self.get_iterations()
+        num_vars = self._get_num_vars()
+        if variables is None:
+            variables = num_vars
+        elif any([v not in num_vars for v in variables]):
+            raise ValueError("variables were either not numeric or not imputed.")
 
-        plots = len(variables)
-        plotrows, plotcols = int(np.ceil(np.sqrt(plots))), int(
-            np.ceil(plots / np.ceil(np.sqrt(plots)))
-        )
+        plots, plotrows, plotcols = self._prep_multi_plot(variables)
         gs = gridspec.GridSpec(plotrows, plotcols)
         fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
         for v in range(plots):
-            var = list(variables)[v]
-            axr, axc = gs[v].get_rows_columns()[2], gs[v].get_rows_columns()[5]
-
-            iteration_level_imputations = {
-                dataset: self.get_imps(dataset, var, iteration=iteration)
-                for dataset in self.dataset_list
-            }
+            var = variables[v]
+            gsgrc = gs[v].get_rows_columns()
+            axr, axc = gsgrc[2], gsgrc[5]
             plt.sca(ax[axr, axc])
             ax[axr, axc] = sns.distplot(
                 self.data[var].dropna(),
@@ -380,179 +392,11 @@ save_all_iterations: {self.save_all_iterations}"""
                 kde=True,
                 kde_kws={"linewidth": 2, "color": "red"},
             )
-            for imparray in iteration_level_imputations.values():
-                # Subset to the airline
-
-                # Draw the density plot
-                ax[axr, axc] = sns.distplot(
-                    imparray,
-                    hist=False,
-                    kde=True,
-                    kde_kws={"linewidth": 1, "color": "black"},
-                )
-
-        plt.subplots_adjust(**adj_args)
-
-
-class MultipleImputedDataSet:
-    def __init__(self,imputed_data_sets: Dict[int,ImputedDataSet] = {}):
-        self.imputed_data_sets = imputed_data_sets
-
-    def append(self,imputed_data_set: ImputedDataSet):
-        curr_count = self.get_dataset_count()
-        self.imputed_data_sets[curr_count] = imputed_data_set
-
-    def remove(self,datasets: Union[int,List[int]]):
-        """
-        Remove an ImputedDataSet by key
-
-        Parameters
-        ----------
-        datasets: int or list of int
-            The dataset(s) to remove.
-
-        Returns
-        -------
-            A dict with datasets removed.
-            Renames the keys to be sequential.
-        """
-        if datasets._class__.__name__ == 'int':
-            datasets = list(datasets)
-
-        for d in datasets:
-            del self.imputed_data_sets[d]
-
-        # Rename the keys. Supporting 3.6 means we can't use zip,
-        # or they'll be unordered.
-        curr_keys = sorted(list(self.imputed_data_sets))
-        for i in curr_keys:
-            ind = curr_keys.index(i)
-            self.imputed_data_sets[ind] = self.imputed_data_sets.pop(i)
-
-    def get_dataset_count(self):
-        return len(self.imputed_data_sets)
-
-    def get_imputed_dataset(self,dataset):
-        return self.imputed_data_sets[dataset]
-
-    def get_iterations(self,dataset: int = None,var: str = None):
-        if dataset is not None:
-            self.imputed_data_sets[dataset].get_iterations(var=var)
-        else:
-            # Get iterations for all imputed data sets.
-            # If the iterations differ, fail.
-            ids_iterations = [
-                ids.get_iterations(var=var)
-                for ids in self.imputed_data_sets.values()
-            ]
-            unique_iterations = _distinct_from_list(ids_iterations)
-            if len(unique_iterations) > 1:
-                raise ValueError('Iterations are not consistent across provided datasets, var.')
-            else:
-                return next(iter(unique_iterations))
-
-    def get_correlations(
-        self, variables: List[str] = None
-    ) -> Dict[str, Dict[int, List[float]]]:
-        """
-        Return the correlations between datasets for
-        the specified variables.
-
-        Parameters
-        ----------
-        variables: None,str
-            The variables to return the correlations for.
-
-        Returns
-        -------
-        dict
-            The correlations at each iteration for the specified
-            variables.
-
-        """
-
-        if self.get_dataset_count() < 3:
-            raise ValueError(
-                "Not enough datasets to calculate correlations between them"
+            ax[axr, axc] = sns.distplot(
+                self[var, iteration],
+                hist=False,
+                kde=True,
+                kde_kws={"linewidth": 1, "color": "black"},
             )
 
-        variables = self._cross_check_numeric(variables)
-
-        # For every variable, get the correlations between every dataset combination
-        # at each iteration
-        correlation_dict = {}
-        if self.save_all_iterations:
-            iter_range = list(range(self.get_iterations() + 1))
-        else:
-            # Make this iterable for code tidyness
-            iter_range = [self.get_iterations()]
-
-        for var in variables:
-
-            # Get a dict of variables and imputations for all datasets for this iteration
-            iteration_level_imputations = {
-                iteration: {
-                    dataset: self.get_imps(dataset, var, iteration=iteration)
-                    for dataset in self.dataset_list
-                }
-                for iteration in iter_range
-            }
-
-            combination_correlations = {
-                iteration: np.array(
-                    [
-                        round(np.corrcoef(impcomb)[0, 1], 3)
-                        for impcomb in list(combinations(varimps.values(), 2))
-                    ]
-                )
-                for iteration, varimps in iteration_level_imputations.items()
-            }
-
-            correlation_dict[var] = combination_correlations
-
-        return correlation_dict
-
-    def plot_correlations(self, variables: List[str] = None, **adj_args):
-        """
-        Plot the correlations between datasets.
-        See get_correlations for more details.
-
-        Parameters
-        ----------
-        variables: None,list
-            The variables to plot.
-        adj_args
-            Additional arguments passed to plt.subplots_adjust()
-
-        """
-
-        if len(self.dataset_list) < 4:
-            raise ValueError("Not enough datasets to make box plot")
-
-        variables = self._cross_check_numeric(variables)
-        correlation_dict = self.get_correlations(variables=variables)
-
-        import matplotlib.pyplot as plt
-        from matplotlib import gridspec
-
-        plots = len(correlation_dict)
-        plotrows, plotcols = int(np.ceil(np.sqrt(plots))), int(
-            np.ceil(plots / np.ceil(np.sqrt(plots)))
-        )
-        gs = gridspec.GridSpec(plotrows, plotcols)
-        fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
-
-        for v in range(plots):
-            axr, axc = gs[v].get_rows_columns()[2], gs[v].get_rows_columns()[5]
-            var = list(correlation_dict)[v]
-            ax[axr, axc].boxplot(
-                list(correlation_dict[var].values()),
-                labels=range(len(correlation_dict[var])),
-            )
-            ax[axr, axc].set_title(var)
-            ax[axr, axc].set_xlabel("Iteration")
-            ax[axr, axc].set_ylabel("Correlations")
-            ax[axr, axc].set_ylim([-1, 1])
         plt.subplots_adjust(**adj_args)
-
-
