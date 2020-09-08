@@ -9,10 +9,10 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-1.0.8-blue.svg)](https://pypi.org/project/miceforest/)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-2.0.1-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
-[![Downloads](https://pepy.tech/badge/miceforest/week)](https://pepy.tech/project/miceforest/week)
+[![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest/month)
 
 </center>
 
@@ -34,10 +34,14 @@ you can find
 
 #### Table of Contents:
 
+  - [Package
+    Meta](https://github.com/AnotherSamWilson/miceforest#Package-Meta)
   - [Using
     miceforest](https://github.com/AnotherSamWilson/miceforest#Using-miceforest)
-      - [Simple
-        Example](https://github.com/AnotherSamWilson/miceforest#Simple-Example)
+      - [Single
+        Imputation](https://github.com/AnotherSamWilson/miceforest#Imputing-A-Single-Dataset)
+      - [Multiple
+        Imputation](https://github.com/AnotherSamWilson/miceforest#Simple-Example-Of-Multiple-Imputation)
       - [Controlling Tree
         Growth](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
       - [Custom Imputation
@@ -52,6 +56,8 @@ you can find
         Convergence](https://github.com/AnotherSamWilson/miceforest#Convergence-of-Correlation)
       - [Variable
         Importance](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
+      - [Mean
+        Convergence](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
   - [Using the Imputed
     Data](https://github.com/AnotherSamWilson/miceforest#Using-the-Imputed-Data)
   - [The MICE
@@ -65,9 +71,39 @@ you can find
         Matching](https://github.com/AnotherSamWilson/miceforest#Effects-of-Mean-Matching)
   - [Installation](https://github.com/AnotherSamWilson/miceforest#Installation)
 
+### Package Meta
+
+miceforest has 4 main classes which the user will interact with:
+
+  - `KernelDataSet` - a kernel data set is a dataset on which the mice
+    algorithm is performed. Models are saved inside the instance, which
+    can also be called on to impute new data. Several plotting methods
+    are included to run diagnostics on the imputed data.  
+  - `MultipleImputedKernel` - a collection of `KernelDataSet`s. Has
+    additional methods for accessing and comparing multiple kernel
+    datasets together.  
+  - `ImputedDataSet` - a single dataset that has been imputed. These are
+    returned after `impute_new_data()` is called.
+  - `MultipleImputedDataSet` - A collection of datasets that have been
+    imputed. Has additional methods for comparing the imputations
+    between datasets.
+
+You can download the latest stable version from PyPi:
+
+``` bash
+$ pip install miceforest
+```
+
+You can also download the latest development version from this
+repository:
+
+``` bash
+$ pip install git+https://github.com/AnotherSamWilson/miceforest.git
+```
+
 ## Using miceforest
 
-In these examples we will be looking at a simple example of multiple
+In these examples we will be looking at a few simple example of
 imputation. We need to load the packages, and define the data:
 
 ``` python
@@ -82,10 +118,34 @@ iris['target'] = iris['target'].astype('category')
 iris_amp = mf.ampute_data(iris,perc=0.25,random_state=1991)
 ```
 
-### Simple example
+### Imputing a Single Dataset
 
-Now that we have our data with missing values, we can impute them with
-miceforest
+If you only want to create a single imputed dataset, you can use
+`KernelDataSet`:
+
+``` python
+# Create kernel. 
+kds = mf.KernelDataSet(
+  iris_amp,
+  save_all_iterations=True,
+  random_state=1991
+)
+
+# Run the MICE algorithm for 3 iterations
+kds.mice(3)
+
+# Return the completed kernel data
+completed_data = kds.complete_data()
+```
+
+There are also an array of plotting functions available, these are
+discussed below in the section [Diagnostic
+Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting).
+
+### Simple Example of Multiple Imputation
+
+We can also create multiple `KernelDataSet`s, along with easy ways to
+compare them:
 
 ``` python
 # Create kernel. 
@@ -96,20 +156,9 @@ kernel = mf.MultipleImputedKernel(
   random_state=1991
 )
 
-# Run the MICE algorithm for 4 iterations on the kernel
-kernel.mice(4)
-
-# Return and print the completed kernel data
-completed_data = kernel.complete_data()
-print(completed_data.isna().sum())
+# Run the MICE algorithm for 3 iterations on each of the datasets
+kernel.mice(3)
 ```
-
-    ## sepal length (cm)    0
-    ## sepal width (cm)     0
-    ## petal length (cm)    0
-    ## petal width (cm)     0
-    ## target               0
-    ## dtype: int64
 
 Printing the `MultipleImputedKernel` object will tell you some high
 level information:
@@ -119,9 +168,9 @@ print(kernel)
 ```
 
     ##               Class: MultipleImputedKernel
-    ##        Models Saved: True
+    ##        Models Saved: Last Iteration
     ##            Datasets: 4
-    ##          Iterations: 4
+    ##          Iterations: 3
     ##   Imputed Variables: 5
     ## save_all_iterations: True
 
@@ -133,7 +182,7 @@ parameter in both the fit and predict methods for the random forests:
 
 ``` python
 # Run the MICE algorithm for 2 more iterations on the kernel, 
-kernel.mice(2,save_models=True,n_jobs=2)
+kernel.mice(2,n_jobs=2)
 ```
 
 Any other arguments may be passed to either class
@@ -163,7 +212,7 @@ cust_kernel = mf.MultipleImputedKernel(
     variable_schema=var_sch,
     mean_match_candidates=var_mmc
 )
-cust_kernel.mice(2,save_models=True)
+cust_kernel.mice(2)
 ```
 
 ### Imputing New Data with Existing Models
@@ -183,27 +232,32 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(new_data_imputed)
 ```
 
-    ##               Class: ImputedDataSet
+    ##               Class: MultipleImputedDataSet
     ##            Datasets: 4
-    ##          Iterations: 6
+    ##          Iterations: 5
     ##   Imputed Variables: 5
     ## save_all_iterations: False
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
 `MultipleImputedKernel` object. When mean matching, the candidate values
-are pulled from the original kernel dataset.
+are pulled from the original kernel dataset. To impute new data, the
+`save_models` parameter in `MultipleImputedKernel` must be \> 0. If
+`save_models == 1`, the model from the latest iteration is saved for
+each variable. If `save_models > 1`, the model from each iteration is
+saved. This allows for new data to be imputed in a more similar fashion
+to the original mice procedure.
 
 ## Diagnostic Plotting
 
-As of now, miceforest has three diagnostic plots available.
+As of now, miceforest has four diagnostic plots available.
 
 ### Distribution of Imputed-Values
 
 We probably want to know how the imputed values are distributed. We can
 plot the original distribution beside the imputed distributions in each
 dataset by using the `plot_imputed_distributions` method of an
-`ImputedDataSet` object:
+`MultipleImputedKernel` object:
 
 ``` python
 kernel.plot_imputed_distributions(wspace=0.3,hspace=0.3)
@@ -236,7 +290,7 @@ variable. We can plot this information by using the
 `plot_feature_importance` method.
 
 ``` python
-plot_feature_importance(annot=True,cmap="YlGnBu",vmin=0, vmax=1)
+kernel.plot_feature_importance(annot=True,cmap="YlGnBu",vmin=0, vmax=1)
 ```
 
 <img src="examples/var_imp.png" width="600px" />
@@ -244,6 +298,21 @@ plot_feature_importance(annot=True,cmap="YlGnBu",vmin=0, vmax=1)
 The numbers shown are returned from the sklearn random forest
 `_feature_importance` attribute. Each square represents the importance
 of the column variable in imputing the row variable.
+
+### Mean Convergence
+
+If our data is not missing completely at random, we may see that it
+takes a few iterations for our models to get the distribution of
+imputations right. We can plot the average value of our imputations to
+see if this is occurring:
+
+``` python
+kernel.plot_mean_convergence(wspace=0.3, hspace=0.4)
+```
+
+<img src="examples/mean_convergence.png" width="600px" /> Our data was
+missing completely at random, so we don’t see any convergence occurring
+here.
 
 ## Using the Imputed Data
 
@@ -262,9 +331,9 @@ how well the imputations compare to the original data:
 
 ``` python
 acclist = []
-for iteration in range(kernel.get_iterations()+1):
+for iteration in range(kernel.iteration_count()+1):
     target_na_count = kernel.na_counts['target']
-    compdat = kernel.complete_data(iteration=iteration)
+    compdat = kernel.complete_data(dataset=0,iteration=iteration)
     
     # Record the accuract of the imputations of target.
     acclist.append(
@@ -276,12 +345,11 @@ for iteration in range(kernel.get_iterations()+1):
 print(acclist)
 ```
 
-    ## [0.32, 0.51, 0.57, 0.65, 0.68, 0.73, 0.81]
+    ## [0.32, 0.76, 0.78, 0.81, 0.86, 0.86]
 
 In this instance, we went from a \~32% accuracy (which is expected with
-random sampling) to an accuracy of \~81%. We managed to replace the
-missing `target` values with a pretty high degree of accuracy\! We could
-probably get better accuracy if we ran more iterations.
+random sampling) to an accuracy of \~86%. We managed to replace the
+missing `target` values with a pretty high degree of accuracy\!
 
 ## The MICE Algorithm
 
@@ -438,18 +506,3 @@ distribution of the data. Simply returning the value from the model
 prediction, while it may provide a better ‘fit’, will not provide
 imputations with a similair distribution to the original. This may be
 beneficial, depending on your goal.
-
-## Installation
-
-You can download the latest stable version from PyPi:
-
-``` bash
-$ pip install miceforest
-```
-
-You can also download the latest development version from this
-repository:
-
-``` bash
-$ pip install git+https://github.com/AnotherSamWilson/miceforest.git
-```
