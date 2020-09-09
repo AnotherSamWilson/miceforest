@@ -14,3 +14,4 @@ support/
 BuildAndInstall.bat
 setupdev.py
 */_build/
+*.bat
