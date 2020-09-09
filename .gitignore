@@ -13,3 +13,4 @@ examples/icon_small.png
 support/
 BuildAndInstall.bat
 setupdev.py
+*/_build/
