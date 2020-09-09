@@ -1,6 +1,4 @@
 
-<center>
-
 [![Build
 Status](https://travis-ci.org/AnotherSamWilson/miceforest.svg?branch=master)](https://travis-ci.org/AnotherSamWilson/miceforest)
 [![MyPy](https://img.shields.io/badge/MyPy-passing-success.svg)](https://pypi.org/project/miceforest/)
@@ -15,8 +13,6 @@ black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://gith
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 [![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest/month)
-
-</center>
 
 ## miceforest: Fast Imputation with Random Forests in Python
 
@@ -71,7 +67,6 @@ you can find
         Matching](https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching)
       - [Effects of Mean
         Matching](https://github.com/AnotherSamWilson/miceforest#Effects-of-Mean-Matching)
-  - [Installation](https://github.com/AnotherSamWilson/miceforest#Installation)
 
 ### Package Meta
 
@@ -105,7 +100,7 @@ $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
 
 ## Using miceforest
 
-In these examples we will be looking at a few simple example of
+In these examples we will be looking at a few simple examples of
 imputation. We need to load the packages, and define the data:
 
 ``` python
@@ -143,11 +138,13 @@ completed_data = kds.complete_data()
 There are also an array of plotting functions available, these are
 discussed below in the section [Diagnostic
 Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting).
+The plotting behavior between single imputed datasets and multi-imputed
+datasets is slightly different.
 
 ### Simple Example of Multiple Imputation
 
-We can also create multiple `KernelDataSet`s, along with easy ways to
-compare them:
+We can also create a class which contains multiple `KernelDataSet`s,
+along with easy ways to compare them:
 
 ``` python
 # Create kernel. 
@@ -188,7 +185,9 @@ kernel.mice(2,n_jobs=2)
 ```
 
 Any other arguments may be passed to either class
-(`RandomForestClassifier`,`RandomForestRegressor`).
+(`RandomForestClassifier`,`RandomForestRegressor`). In our example, we
+may not have saved much (if any) time. This is because there is overhead
+with using multiple cores, and our data is very small.
 
 ### Creating a Custom Imputation Schema
 
@@ -312,9 +311,10 @@ see if this is occurring:
 kernel.plot_mean_convergence(wspace=0.3, hspace=0.4)
 ```
 
-<img src="examples/mean_convergence.png" width="600px" /> Our data was
-missing completely at random, so we don’t see any convergence occurring
-here.
+<img src="examples/mean_convergence.png" width="600px" />
+
+Our data was missing completely at random, so we don’t see any
+convergence occurring here.
 
 ## Using the Imputed Data
 

@@ -7,8 +7,6 @@ always_allow_html: true
 sys.path.append('C:/Users/swilson/Projects/miceforest/miceforest')
 ```
 
-<center>
-
 [![Build Status](https://travis-ci.org/AnotherSamWilson/miceforest.svg?branch=master)](https://travis-ci.org/AnotherSamWilson/miceforest)
 [![MyPy](https://img.shields.io/badge/MyPy-passing-success.svg)](https://pypi.org/project/miceforest/)
 [![Documentation Status](https://readthedocs.org/projects/miceforest/badge/?version=latest)](https://miceforest.readthedocs.io/en/latest/?badge=latest)
@@ -20,7 +18,6 @@ sys.path.append('C:/Users/swilson/Projects/miceforest/miceforest')
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 [![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest/month)  
 
-</center>
 
 ## miceforest: Fast Imputation with Random Forests in Python
 
@@ -53,8 +50,7 @@ This document contains a thorough walkthrough of the package, benchmarks, and an
     + [Common Use Cases](https://github.com/AnotherSamWilson/miceforest#Common-Use-Cases)
     + [Predictive Mean Matching](https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching)
     + [Effects of Mean Matching](https://github.com/AnotherSamWilson/miceforest#Effects-of-Mean-Matching)
-* [Installation](https://github.com/AnotherSamWilson/miceforest#Installation)      
-  
+
   
 ### Package Meta  
 miceforest has 4 main classes which the user will interact with:
@@ -79,7 +75,7 @@ $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
   
 ## Using miceforest  
   
-In these examples we will be looking at a few simple example of
+In these examples we will be looking at a few simple examples of
 imputation. We need to load the packages, and define the data:
 
 ``` {python SETUP}
@@ -111,10 +107,11 @@ kds.mice(3)
 # Return the completed kernel data
 completed_data = kds.complete_data()
 ```  
-There are also an array of plotting functions available, these are discussed below in the section [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting).
+There are also an array of plotting functions available, these are discussed below in the section [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting). The plotting behavior between
+single imputed datasets and multi-imputed datasets is slightly different.
 
 ### Simple Example of Multiple Imputation
-We can also create multiple ```KernelDataSet```s, along with easy ways to compare them:
+We can also create a class which contains multiple ```KernelDataSet```s, along with easy ways to compare them:
 ``` {python SIMPLEEXAMPLE}
 # Create kernel. 
 kernel = mf.MultipleImputedKernel(
@@ -131,7 +128,8 @@ kernel.mice(3)
 Printing the `MultipleImputedKernel` object will tell you some high level information:
 ``` {python PRINTKERNEL}
 print(kernel)
-```
+```  
+
 ### Controlling Tree Growth
 A *very* nice thing about random forests is that they are trivially parallelizable.
 We can save a lot of time by setting the `n_jobs` parameter in both the fit and
@@ -141,7 +139,9 @@ predict methods for the random forests:
 kernel.mice(2,n_jobs=2)
 ```
 
-Any other arguments may be passed to either class (`RandomForestClassifier`,`RandomForestRegressor`).
+Any other arguments may be passed to either class (`RandomForestClassifier`,`RandomForestRegressor`). 
+In our example, we may not have saved much (if any) time. This is because there is overhead
+with using multiple cores, and our data is very small. 
 
 ### Creating a Custom Imputation Schema
 
@@ -249,7 +249,8 @@ kernel.plot_mean_convergence(wspace=0.3, hspace=0.4)
 ```
 ```{r,echo=FALSE,out.width="600px"}
 knitr::include_graphics("examples/mean_convergence.png")
-```
+```  
+  
 Our data was missing completely at random, so we don't see any convergence occurring here.
 
 ## Using the Imputed Data
