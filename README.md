@@ -9,14 +9,14 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-2.0.2-blue.svg)](https://pypi.org/project/miceforest/)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-2.0.3-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 [![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest/month)
 
 ## miceforest: Fast Imputation with Random Forests in Python
 
-<a href='https://github.com/AnotherSamWilson/miceforest'><img src='examples/icon.png' align="right" height="300" /></a>
+<a href='https://github.com/AnotherSamWilson/miceforest'><img src='https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/icon.png' align="right" height="300" /></a>
 
 Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
 with random forests. It can impute categorical and numeric data without
@@ -264,7 +264,7 @@ dataset by using the `plot_imputed_distributions` method of an
 kernel.plot_imputed_distributions(wspace=0.3,hspace=0.3)
 ```
 
-<img src="examples/distributions.png" width="600px" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/distributions.png" width="600px" />
 
 The red line is the original data, and each black line are the imputed
 values of each dataset.
@@ -282,7 +282,7 @@ convergence over iterations:
 kernel.plot_correlations()
 ```
 
-<img src="examples/plot_corr.png" width="600px" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/plot_corr.png" width="600px" />
 
 ### Variable Importance
 
@@ -294,7 +294,7 @@ variable. We can plot this information by using the
 kernel.plot_feature_importance(annot=True,cmap="YlGnBu",vmin=0, vmax=1)
 ```
 
-<img src="examples/var_imp.png" width="600px" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/var_imp.png" width="600px" />
 
 The numbers shown are returned from the sklearn random forest
 `_feature_importance` attribute. Each square represents the importance
@@ -311,7 +311,7 @@ see if this is occurring:
 kernel.plot_mean_convergence(wspace=0.3, hspace=0.4)
 ```
 
-<img src="examples/mean_convergence.png" width="600px" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/mean_convergence.png" width="600px" />
 
 Our data was missing completely at random, so we don’t see any
 convergence occurring here.
@@ -361,7 +361,7 @@ each iteration, each specified variable in the dataset is imputed using
 the other variables in the dataset. These iterations should be run until
 it appears that convergence has been met.
 
-<img src="examples/MICEalgorithm.png" width="851" style="display: block; margin: auto;" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/MICEalgorithm.png" style="display: block; margin: auto;" />
 
 This process is continued until all specified variables have been
 imputed. Additional iterations can be run if it appears that the average
@@ -412,7 +412,7 @@ from which a value is chosen at random. This can be specified on a
 column-by-column basis. Going into more detail from our example above,
 we see how this works in practice:
 
-<img src="examples/PMM.png" width="793" style="display: block; margin: auto;" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/PMM.png" style="display: block; margin: auto;" />
 
 This method is very useful if you have a variable which needs imputing
 which has any of the following characteristics:
@@ -472,7 +472,7 @@ g = sns.PairGrid(dat)
 g.map(plt.scatter,s=5)
 ```
 
-<img src="examples/dataset.png" width="600px" style="display: block; margin: auto;" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/dataset.png" width="600px" style="display: block; margin: auto;" />
 We can see how our variables are distributed and correlated in the graph
 above. Now let’s run our imputation process twice, once using mean
 matching, and once using the model prediction.
@@ -493,7 +493,7 @@ Let’s look at the effect on the different variables.
 kernelmeanmatch.plot_imputed_distributions(wspace=0.2,hspace=0.4)
 ```
 
-<img src="examples/meanmatcheffects.png" width="600px" style="display: block; margin: auto;" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/meanmatcheffects.png" width="600px" style="display: block; margin: auto;" />
 
 ##### Without Mean Matching
 
@@ -501,7 +501,7 @@ kernelmeanmatch.plot_imputed_distributions(wspace=0.2,hspace=0.4)
 kernelmodeloutput.plot_imputed_distributions(wspace=0.2,hspace=0.4)
 ```
 
-<img src="examples/nomeanmatching.png" width="600px" style="display: block; margin: auto;" />
+<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/nomeanmatching.png" width="600px" style="display: block; margin: auto;" />
 
 You can see the effects that mean matching has, depending on the
 distribution of the data. Simply returning the value from the model
