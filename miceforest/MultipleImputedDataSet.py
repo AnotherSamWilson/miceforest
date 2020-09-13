@@ -301,7 +301,7 @@ save_all_iterations: {self.save_all_iterations}"""
         fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
         for v in range(plots):
-            axr, axc = gs[v].get_rows_columns()[2], gs[v].get_rows_columns()[5]
+            axr, axc = next(iter(gs[v].rowspan)), next(iter(gs[v].colspan))
             var = num_vars[v]
             for d in mean_dict.values():
                 ax[axr, axc].plot(list(d[var].values()), color="black")
@@ -344,24 +344,21 @@ save_all_iterations: {self.save_all_iterations}"""
 
         for v in range(plots):
             var = variables[v]
-            gsgrc = gs[v].get_rows_columns()
-            axr, axc = gsgrc[2], gsgrc[5]
+            axr, axc = next(iter(gs[v].rowspan)), next(iter(gs[v].colspan))
             iteration_level_imputations = {
                 key: dataset[var, iteration] for key, dataset in self.items()
             }
             plt.sca(ax[axr, axc])
-            ax[axr, axc] = sns.distplot(
+            ax[axr, axc] = sns.kdeplot(
                 self.data[var].dropna(),
-                hist=False,
-                kde=True,
-                kde_kws={"linewidth": 2, "color": "red"},
+                color="red",
+                linewidth=2
             )
             for imparray in iteration_level_imputations.values():
-                ax[axr, axc] = sns.distplot(
+                ax[axr, axc] = sns.kdeplot(
                     imparray,
-                    hist=False,
-                    kde=True,
-                    kde_kws={"linewidth": 1, "color": "black"},
+                    color="black",
+                    linewidth=1
                 )
 
         plt.subplots_adjust(**adj_args)
@@ -393,7 +390,7 @@ save_all_iterations: {self.save_all_iterations}"""
         fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
         for v in range(plots):
-            axr, axc = gs[v].get_rows_columns()[2], gs[v].get_rows_columns()[5]
+            axr, axc = next(iter(gs[v].rowspan)), next(iter(gs[v].colspan))
             var = list(correlation_dict)[v]
             ax[axr, axc].boxplot(
                 list(correlation_dict[var].values()),

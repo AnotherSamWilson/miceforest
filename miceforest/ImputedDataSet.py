@@ -312,7 +312,7 @@ save_all_iterations: {self.save_all_iterations}"""
         fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
         for v in range(plots):
-            axr, axc = gs[v].get_rows_columns()[2], gs[v].get_rows_columns()[5]
+            axr, axc = next(iter(gs[v].rowspan)), next(iter(gs[v].colspan))
             var = list(mean_dict)[v]
             ax[axr, axc].plot(list(mean_dict[var].values()))
             ax[axr, axc].set_title(var)
@@ -367,20 +367,17 @@ save_all_iterations: {self.save_all_iterations}"""
 
         for v in range(plots):
             var = variables[v]
-            gsgrc = gs[v].get_rows_columns()
-            axr, axc = gsgrc[2], gsgrc[5]
+            axr, axc = next(iter(gs[v].rowspan)), next(iter(gs[v].colspan))
             plt.sca(ax[axr, axc])
-            ax[axr, axc] = sns.distplot(
+            ax[axr, axc] = sns.kdeplot(
                 self.data[var].dropna(),
-                hist=False,
-                kde=True,
-                kde_kws={"linewidth": 2, "color": "red"},
+                color="red",
+                linewidth=2
             )
-            ax[axr, axc] = sns.distplot(
+            ax[axr, axc] = sns.kdeplot(
                 self[var, iteration],
-                hist=False,
-                kde=True,
-                kde_kws={"linewidth": 1, "color": "black"},
+                color="black",
+                linewidth=1
             )
 
         plt.subplots_adjust(**adj_args)
