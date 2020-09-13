@@ -370,14 +370,8 @@ save_all_iterations: {self.save_all_iterations}"""
             axr, axc = next(iter(gs[v].rowspan)), next(iter(gs[v].colspan))
             plt.sca(ax[axr, axc])
             ax[axr, axc] = sns.kdeplot(
-                self.data[var].dropna(),
-                color="red",
-                linewidth=2
+                self.data[var].dropna(), color="red", linewidth=2
             )
-            ax[axr, axc] = sns.kdeplot(
-                self[var, iteration],
-                color="black",
-                linewidth=1
-            )
+            ax[axr, axc] = sns.kdeplot(self[var, iteration], color="black", linewidth=1)
 
         plt.subplots_adjust(**adj_args)

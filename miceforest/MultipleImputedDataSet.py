@@ -350,16 +350,10 @@ save_all_iterations: {self.save_all_iterations}"""
             }
             plt.sca(ax[axr, axc])
             ax[axr, axc] = sns.kdeplot(
-                self.data[var].dropna(),
-                color="red",
-                linewidth=2
+                self.data[var].dropna(), color="red", linewidth=2
             )
             for imparray in iteration_level_imputations.values():
-                ax[axr, axc] = sns.kdeplot(
-                    imparray,
-                    color="black",
-                    linewidth=1
-                )
+                ax[axr, axc] = sns.kdeplot(imparray, color="black", linewidth=1)
 
         plt.subplots_adjust(**adj_args)
 
