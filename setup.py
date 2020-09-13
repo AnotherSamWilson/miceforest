@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="miceforest",
-    version="2.0.1",
+    version="2.0.2",
     author="Samuel Wilson",
     license="MIT",
     author_email="samwilson303@gmail.com",
@@ -17,8 +17,8 @@ setup(
     install_requires=['sklearn',
                       'numpy',
                       'pandas',
-                      'seaborn',
-                      'matplotlib'
+                      'seaborn >= 0.11.0',
+                      'matplotlib >= 3.3.0'
                       ],
     url="https://github.com/AnotherSamWilson/miceforest",
     packages=find_packages(exclude=["tests.*", "tests"]),
