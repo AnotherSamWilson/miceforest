@@ -151,7 +151,7 @@ def _get_default_mmc(candidates=None):
     else:
         percent = 0.001
         minimum = 5
-        mean_match_candidates = np.max(minimum, int(percent * candidates))
+        mean_match_candidates = max(minimum, int(percent * candidates))
         return mean_match_candidates
 
 
