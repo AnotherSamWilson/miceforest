@@ -20,7 +20,7 @@ sys.path.append('C:/Users/swilson/Projects/miceforest/miceforest')
 [![DEV_Version_Badge](https://img.shields.io/badge/Dev-2.0.3-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
-[![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest/month)  
+[![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest)
 
 
 ## miceforest: Fast Imputation with Random Forests in Python

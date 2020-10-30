@@ -12,7 +12,7 @@ black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://gith
 [![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-2.0.3-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
-[![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest/month)
+[![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest)
 
 ## miceforest: Fast Imputation with Random Forests in Python
 
