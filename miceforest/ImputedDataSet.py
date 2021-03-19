@@ -8,7 +8,7 @@ from .utils import (
     _list_union,
     _var_comparison,
 )
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Callable
 
 
 class ImputedDataSet(_ImputationSchema):
@@ -53,6 +53,14 @@ class ImputedDataSet(_ImputationSchema):
 
     random_state: None,int, or numpy.random.RandomState
         Ensures a random state throughout the process
+        
+    initial_imputation: None, str
+        Allows user to specify how to impute at initialization (ie 0th imputation)
+        Categorical:
+            - if not None the mode is used 
+        Numeric:
+            - 'mean', 'mode' or 'median'
+        ##TODO add callble that returns single value eg just like np.mean or user specified
 
     """
 
@@ -63,6 +71,7 @@ class ImputedDataSet(_ImputationSchema):
         mean_match_candidates: Union[int, Dict[str, int]] = None,
         save_all_iterations: bool = True,
         random_state: Union[int, np.random.RandomState] = None,
+        initial_imputation: Union[str, dict, Callable] = None, 
     ):
 
         super().__init__(
@@ -84,13 +93,36 @@ class ImputedDataSet(_ImputationSchema):
         self.imputation_values: Dict[str, Dict] = {
             var: dict() for var in self._all_imputed_vars
         }
+        # added custom initial imputation 
         for var in self._all_imputed_vars:
-            self.imputation_values[var] = {
-                0: self._random_state.choice(
-                    data[var].dropna(), size=self.na_counts[var]
-                )
-            }
-
+            if initial_imputation is None:
+                self.imputation_values[var] = {
+                    0: self._random_state.choice(
+                        data[var].dropna(), size=self.na_counts[var]
+                        )
+                    }
+                
+            elif initial_imputation in ['mean', 'median', 'mode']:
+                # right now impute numerical with initial_imputation options -> mean, mode, median 
+                # and categorical with mode 
+                if var in self.categorical_variables:
+                    self._initial_impute(data, var, 'mode')
+                    
+                if var not in self.categorical_variables:
+                    self._initial_impute(data, var, initial_imputation)
+            else:
+                raise NotImplementedError('Currently this initial imputation is not implemented')
+                
+                    
+                
+    def _initial_impute(self, data, var, imputation_method):
+        """ Applies intial imputation method
+        ### TODO accept any function transforms pandas series/array to single value
+        """
+        self.imputation_values[var] = {
+                            0: np.array([getattr(data[var] , imputation_method)()] * self.na_counts[var]).flatten()
+                            }
+        
     # Subsetting allows us to get to the imputation values:
     def __getitem__(self, tup):
         var, iteration = tup

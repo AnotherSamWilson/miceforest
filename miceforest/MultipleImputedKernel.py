@@ -2,7 +2,7 @@ from .ImputedDataSet import ImputedDataSet
 from .MultipleImputedDataSet import MultipleImputedDataSet
 from .KernelDataSet import KernelDataSet
 from pandas import DataFrame
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Callable
 from .utils import ensure_rng
 
 
@@ -44,6 +44,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         save_all_iterations: bool = False,
         save_models: int = 1,
         random_state=None,
+        initial_imputation: Union[str, dict, Callable] = None
     ):
 
         random_state = ensure_rng(random_state)
@@ -56,6 +57,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
                 save_all_iterations=save_all_iterations,
                 save_models=save_models,
                 random_state=random_state,
+                initial_imputation=initial_imputation,
             )
         )
 
@@ -69,6 +71,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
                     save_all_iterations=save_all_iterations,
                     save_models=save_models,
                     random_state=random_state,
+                    initial_imputation=initial_imputation,
                 )
             )
 

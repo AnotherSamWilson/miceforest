@@ -5,7 +5,7 @@ from datetime import datetime
 from .utils import _get_default_mmc, _default_rf_classifier, _default_rf_regressor
 from pandas import DataFrame
 import numpy as np
-from typing import Union, List, Dict, Any, TYPE_CHECKING
+from typing import Union, List, Dict, Any, TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -81,6 +81,7 @@ class KernelDataSet(ImputedDataSet):
         save_all_iterations: bool = True,
         save_models: int = 1,
         random_state: Union[int, np.random.RandomState] = None,
+        initial_imputation: Union[str, dict, Callable] = None, 
     ):
         super().__init__(
             data=data,
@@ -88,6 +89,7 @@ class KernelDataSet(ImputedDataSet):
             mean_match_candidates=mean_match_candidates,
             save_all_iterations=save_all_iterations,
             random_state=random_state,
+            initial_imputation=initial_imputation,
         )
 
         self.save_models = save_models
