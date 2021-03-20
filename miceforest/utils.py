@@ -127,16 +127,26 @@ def _distinct_from_list(
     lst: Union[np.ndarray, List[Any]], flatten: bool = False
 ) -> List[Any]:
     output = []
-
+    
     # https://stackoverflow.com/questions/952914/how-to-make-a-flat-list-out-of-list-of-lists
     if flatten:
         lst = [item for sublist in lst for item in sublist]
-
+    
     for item in lst:
         if item not in output:
             output.append(item)
+    
     return output
 
+def _distinct_from_list_fast(
+    lst: Union[np.ndarray, List[Any]], flatten: bool = False
+    ) -> List[Any]:
+    
+    # https://stackoverflow.com/questions/952914/how-to-make-a-flat-list-out-of-list-of-lists
+    if flatten:
+        lst = [item for sublist in lst for item in sublist]
+    ## with python 3.7 and above dict is insertion ordered so the following should work
+    return list(dict.fromkeys(lst))
 
 def _copy_and_remove(lst, elements):
     lt = lst.copy()
