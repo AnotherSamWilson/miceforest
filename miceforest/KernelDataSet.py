@@ -7,6 +7,7 @@ from pandas import DataFrame
 import numpy as np
 from typing import Union, List, Dict, Any, TYPE_CHECKING, Callable
 
+
 if TYPE_CHECKING:
     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
@@ -350,6 +351,7 @@ class KernelDataSet(ImputedDataSet):
             if verbose:
                 print("\n", end="")
         self.time_log.add_time("mice", mice_s)
+        
 
     def impute_new_data(
         self,
@@ -357,6 +359,7 @@ class KernelDataSet(ImputedDataSet):
         iterations: int = None,
         save_all_iterations: bool = True,
         verbose: bool = False,
+        initial_imputation = None,
     ) -> ImputedDataSet:
         """
         Impute a new dataset
@@ -400,7 +403,11 @@ class KernelDataSet(ImputedDataSet):
 
         if self.save_models < 1:
             raise ValueError("No models were saved.")
-
+            
+        if initial_imputation is not None:
+            # get the fitted values for mean, mode, median
+            initial_imputation = self.imputation_values.copy()
+            
         imputed_data_set = ImputedDataSet(
             new_data,
             # copied because it can be edited if there are no
@@ -409,6 +416,7 @@ class KernelDataSet(ImputedDataSet):
             mean_match_candidates=self.mean_match_candidates,
             save_all_iterations=save_all_iterations,
             random_state=self._random_state,
+            initial_imputation=initial_imputation,
         )
 
         curr_iters = self.iteration_count()

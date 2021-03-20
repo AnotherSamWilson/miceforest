@@ -10,7 +10,6 @@ from .utils import (
 )
 from typing import Optional, Union, List, Dict, Callable
 
-
 class ImputedDataSet(_ImputationSchema):
     """
     Imputed Data Set
@@ -79,11 +78,13 @@ class ImputedDataSet(_ImputationSchema):
             mean_match_candidates=mean_match_candidates,
             validation_data=data,
         )
-
+        
         self._random_state = ensure_rng(random_state)
-
+        
         self.data = data
         self.save_all_iterations = save_all_iterations
+        self.initial_imputation = initial_imputation
+        
         self.categorical_variables = list(
             self.data_dtypes[self.data_dtypes == "category"].keys()
         )
@@ -110,6 +111,17 @@ class ImputedDataSet(_ImputationSchema):
                     
                 if var not in self.categorical_variables:
                     self._initial_impute(data, var, initial_imputation)
+            
+            # a fix to work on new data with imputation made on the original data 
+            # or any other imputation the user defines 
+            # --- right now inside loop for consistency
+            ### create new object to handle initial imputation ? 
+                
+            elif isinstance(initial_imputation, dict):
+                self.imputation_values[var] = {0 : np.array(
+            # ugly way to handle categorical
+                                                    [initial_imputation[var][0][0]] * self.na_counts[var] 
+                                                    )}
             else:
                 raise NotImplementedError('Currently this initial imputation is not implemented')
                 
