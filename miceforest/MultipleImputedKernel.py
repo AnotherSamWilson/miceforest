@@ -131,6 +131,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         iterations: int = None,
         save_all_iterations: bool = False,
         verbose: bool = False,
+        initial_imputation = None,
     ) -> Union[ImputedDataSet, MultipleImputedDataSet]:
         """
         Call impute_new_data on multiple kernel kernel datasets,
@@ -172,10 +173,11 @@ class MultipleImputedKernel(MultipleImputedDataSet):
             iterations=iterations,
             save_all_iterations=save_all_iterations,
             verbose=verbose,
+            initial_imputation=initial_imputation,
         )
         if len(datasets) > 0:
             multiple_imputed_set = MultipleImputedDataSet(
-                initial_dataset=imputed_data_set
+                    initial_dataset=imputed_data_set
             )
             while len(datasets) > 0:
                 if verbose:
@@ -186,6 +188,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
                         iterations=iterations,
                         save_all_iterations=save_all_iterations,
                         verbose=verbose,
+                        initial_imputation=initial_imputation,
                     )
                 )
             return multiple_imputed_set

@@ -249,7 +249,11 @@ save_all_iterations: {self.save_all_iterations}"""
     def _insert_new_data(self, var: str, new_data: np.ndarray):
         current_iter = self.iteration_count(var)
         if not self.save_all_iterations:
-            del self[var, current_iter]
+            #fix to remember the median imputation if used
+            if current_iter==0 and (self.initial_imputation in ['median', 'mean', 'mode']):
+                pass
+            else:
+                del self[var, current_iter]
         self[var, current_iter + 1] = new_data
 
     def complete_data(self, iteration: int = None, all_vars: bool = False) -> DataFrame:
