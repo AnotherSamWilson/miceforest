@@ -3,7 +3,6 @@ import numpy as np
 from pandas import DataFrame
 from .utils import (
     ensure_rng,
-    _distinct_from_list,
     _copy_and_remove,
     _list_union,
     _var_comparison,
@@ -139,7 +138,7 @@ save_all_iterations: {self.save_all_iterations}"""
                 for var, itr in self.imputation_values.items()
                 if var in self.response_vars
             ]
-            distinct_iterations = _distinct_from_list(var_iterations)
+            distinct_iterations = np.unique(var_iterations)
             if len(distinct_iterations) > 1:
                 raise ValueError(
                     "Inconsistent state - cannot get meta iteration count."

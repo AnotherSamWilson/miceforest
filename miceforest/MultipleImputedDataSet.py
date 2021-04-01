@@ -3,7 +3,7 @@ from .ImputationSchema import _ImputationSchema
 import numpy as np
 from pandas import DataFrame
 from itertools import combinations
-from .utils import _distinct_from_list, _var_comparison
+from .utils import _var_comparison
 from typing import Union, List, Dict
 
 
@@ -138,15 +138,11 @@ save_all_iterations: {self.save_all_iterations}"""
         return len(self.imputed_data_sets)
 
     def _get_all_vars(self) -> List[str]:
-        all_vars = _distinct_from_list(
-            [ids.all_vars for key, ids in self.items()], flatten=True
-        )
+        all_vars = np.unique([ids.all_vars for key, ids in self.items()])
         return all_vars
 
     def _get_cat_vars(self, response=True, predictor=False) -> List[str]:
-        cat_vars = _distinct_from_list(
-            [ids.categorical_variables for key, ids in self.items()], flatten=True
-        )
+        cat_vars = np.unique([ids.categorical_variables for key, ids in self.items()])
         cat_vars = self._varfilter(cat_vars, response, predictor)
         return cat_vars
 
@@ -239,7 +235,7 @@ save_all_iterations: {self.save_all_iterations}"""
             self[dataset].iteration_count(var=var)
         else:
             # Get iterations for all imputed data sets.
-            ids_iterations = _distinct_from_list(
+            ids_iterations = np.unique(
                 [ids.iteration_count(var=var) for key, ids in self.items()]
             )
             if len(ids_iterations) > 1:

@@ -1,5 +1,5 @@
-from numpy import concatenate
-from .utils import _distinct_from_list, _copy_and_remove, _setequal, _list_union
+from numpy import concatenate, unique
+from .utils import _copy_and_remove, _setequal, _list_union
 from typing import Optional, Union, List, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -71,11 +71,12 @@ class _ImputationSchema:
 
         # Store values pertaining to variable schema
         self.variable_schema = variable_schema
-        self.predictor_vars = _distinct_from_list(
+        self.predictor_vars = unique(
             concatenate([value for key, value in variable_schema.items()])
-        )
+        ).tolist()
+
         self.response_vars = list(variable_schema)
-        self.all_vars = _distinct_from_list(self.response_vars + self.predictor_vars)
+        self.all_vars = unique(self.response_vars + self.predictor_vars)
         self._all_imputed_vars = _list_union(self.vars_with_any_missing, self.all_vars)
         self.n_imputed_vars = len(variable_schema)
         self.not_imputable = not_imputable

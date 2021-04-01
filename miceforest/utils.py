@@ -122,22 +122,6 @@ def _var_comparison(variables: Optional[List[str]], comparison: List[str]) -> Li
     return variables
 
 
-# Exists because list(set()) ruins reproducibility
-def _distinct_from_list(
-    lst: Union[np.ndarray, List[Any]], flatten: bool = False
-) -> List[Any]:
-    output = []
-
-    # https://stackoverflow.com/questions/952914/how-to-make-a-flat-list-out-of-list-of-lists
-    if flatten:
-        lst = [item for sublist in lst for item in sublist]
-
-    for item in lst:
-        if item not in output:
-            output.append(item)
-    return output
-
-
 def _copy_and_remove(lst, elements):
     lt = lst.copy()
     for element in elements:
