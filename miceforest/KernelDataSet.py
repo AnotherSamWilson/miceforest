@@ -417,7 +417,7 @@ class KernelDataSet(ImputedDataSet):
 
         for iteration in iter_range:
             if verbose:
-                print("\n" + str(iteration) + " ", end="")
+                print(str(iteration) + " ", end="")
 
             # Determine which model iteration to grab
             if self.save_models == 1 or iteration > curr_iters:
@@ -426,12 +426,7 @@ class KernelDataSet(ImputedDataSet):
                 itergrab = iteration
 
             for var in iter_vars:
-                if verbose:
-                    if var == iter_vars[-1]:
-                        endcap = "\n"
-                    else:
-                        endcap = ""
-                    print(" | " + var, end=endcap)
+                print(" | " + var, end="")
 
                 x, y = imputed_data_set._make_xy(var)
                 kernelx, kernely = self._make_xy(var)
@@ -461,7 +456,8 @@ class KernelDataSet(ImputedDataSet):
                     )
 
                 imputed_data_set._insert_new_data(var, imp_values)
-
+            if verbose:
+                print("\n", end="")
         self.time_log.add_time("impute_new_data", impute_new_data_s)
         return imputed_data_set
 
