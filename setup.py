@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="miceforest",
-    version="2.0.3",
+    version="2.0.4",
     author="Samuel Wilson",
     license="MIT",
     author_email="samwilson303@gmail.com",
@@ -29,6 +29,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],

@@ -15,3 +15,4 @@ BuildAndInstall.bat
 setupdev.py
 */_build/
 *.bat
+release_commands.txt
