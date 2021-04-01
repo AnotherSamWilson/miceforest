@@ -182,7 +182,7 @@ class KernelDataSet(ImputedDataSet):
         is_categorical: bool,
         bachelor_features: DataFrame,
         candidate_features: DataFrame = None,
-        candidate_values: np.array = None,
+        candidate_values: np.ndarray = None,
     ):
         """
         Performs mean matching. Logic:

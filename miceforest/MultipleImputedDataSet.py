@@ -198,12 +198,10 @@ save_all_iterations: {self.save_all_iterations}"""
             }
 
             combination_correlations = {
-                iteration: np.array(
-                    [
-                        round(np.corrcoef(impcomb)[0, 1], 3)
-                        for impcomb in list(combinations(varimps.values(), 2))
-                    ]
-                )
+                iteration: [
+                    round(np.corrcoef(impcomb)[0, 1], 3)
+                    for impcomb in list(combinations(varimps.values(), 2))
+                ]
                 for iteration, varimps in iteration_level_imputations.items()
             }
 
