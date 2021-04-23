@@ -14,7 +14,7 @@ setup(
     keywords=['MICE','Imputation','Missing Values','Missing','Random Forest'],
     long_description=long_description,
     long_description_content_type="text/markdown",
-    install_requires=['sklearn',
+    install_requires=['scikit-learn',
                       'numpy',
                       'pandas',
                       'seaborn >= 0.11.0',
