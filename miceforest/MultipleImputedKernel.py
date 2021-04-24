@@ -4,6 +4,7 @@ from .KernelDataSet import KernelDataSet
 from pandas import DataFrame
 from typing import Union, List, Dict
 from .utils import ensure_rng
+from .logger import Logger
 
 
 class MultipleImputedKernel(MultipleImputedDataSet):
@@ -116,9 +117,9 @@ class MultipleImputedKernel(MultipleImputedDataSet):
             sklearn.RandomForestRegressor and
             sklearn.RandomForestClassifier
         """
+        logger = Logger(verbose)
         for dataset in list(self.keys()):
-            if verbose:
-                print("Dataset " + str(dataset))
+            logger.log("Dataset " + str(dataset))
             self[dataset].mice(iterations=iterations, verbose=verbose, **kw_fit)
 
     def impute_new_data(
@@ -158,12 +159,12 @@ class MultipleImputedKernel(MultipleImputedDataSet):
             is returned.
 
         """
+        logger = Logger(verbose)
         if datasets is None:
             datasets = list(self.keys())
 
         # Create an ImputedDataSet on the first dataset in the list
-        if verbose:
-            print("Dataset " + str(datasets[0]))
+        logger.log("Dataset " + str(datasets[0]))
         imputed_data_set = self[datasets.pop(0)].impute_new_data(
             new_data=new_data,
             iterations=iterations,
@@ -175,8 +176,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
                 initial_dataset=imputed_data_set
             )
             while len(datasets) > 0:
-                if verbose:
-                    print("Dataset " + str(datasets[0]))
+                logger.log("Dataset " + str(datasets[0]))
                 multiple_imputed_set.append(
                     self[datasets.pop(0)].impute_new_data(
                         new_data=new_data,

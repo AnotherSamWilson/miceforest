@@ -6,6 +6,7 @@ from .utils import _get_default_mmc, _default_rf_classifier, _default_rf_regress
 from pandas import DataFrame
 import numpy as np
 from typing import Union, List, Dict, Any, TYPE_CHECKING
+from .logger import Logger
 
 if TYPE_CHECKING:
     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -282,6 +283,8 @@ class KernelDataSet(ImputedDataSet):
 
         """
 
+        logger = Logger(verbose)
+
         mice_s = datetime.now()
 
         iterations_at_start = self.iteration_count()
@@ -293,11 +296,9 @@ class KernelDataSet(ImputedDataSet):
         assert isinstance(self.mean_match_candidates, Dict)
 
         for iteration in iter_range:
-            if verbose:
-                print(str(iteration) + " ", end="")
+            logger.log(str(iteration) + " ", end="")
             for var in self.response_vars:
-                if verbose:
-                    print(" | " + var, end="")
+                logger.log(" | " + var, end="")
 
                 x, y = self._make_xy(var=var)
                 non_missing_ind = self.na_where[var] == False
@@ -345,8 +346,7 @@ class KernelDataSet(ImputedDataSet):
                     )
 
                 self._insert_new_data(var, imp_values)
-            if verbose:
-                print("\n", end="")
+            logger.log("\n", end="")
         self.time_log.add_time("mice", mice_s)
 
     def impute_new_data(
@@ -391,6 +391,8 @@ class KernelDataSet(ImputedDataSet):
 
         """
 
+        logger = Logger(verbose)
+
         impute_new_data_s = datetime.now()
 
         if set(new_data.columns) != set(self.data.columns):
@@ -416,8 +418,7 @@ class KernelDataSet(ImputedDataSet):
         assert isinstance(self.mean_match_candidates, Dict)
 
         for iteration in iter_range:
-            if verbose:
-                print(str(iteration) + " ", end="")
+            logger.log(str(iteration) + " ", end="")
 
             # Determine which model iteration to grab
             if self.save_models == 1 or iteration > curr_iters:
@@ -426,7 +427,7 @@ class KernelDataSet(ImputedDataSet):
                 itergrab = iteration
 
             for var in iter_vars:
-                print(" | " + var, end="")
+                logger.log(" | " + var, end="")
 
                 x, y = imputed_data_set._make_xy(var)
                 kernelx, kernely = self._make_xy(var)
@@ -456,8 +457,7 @@ class KernelDataSet(ImputedDataSet):
                     )
 
                 imputed_data_set._insert_new_data(var, imp_values)
-            if verbose:
-                print("\n", end="")
+            logger.log("\n", end="")
         self.time_log.add_time("impute_new_data", impute_new_data_s)
         return imputed_data_set
 
