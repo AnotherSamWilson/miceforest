@@ -95,16 +95,14 @@ class KernelDataSet(ImputedDataSet):
 
         # Format mean_match_candidates before priming datasets
         available_candidates = {
-            var: self.data_shape[0] - self.data[var].isna().sum()
+            var: (-self.data[var].isna()).sum()
             for var in self.response_vars
         }
-
         if self.mean_match_candidates is None:
             self.mean_match_candidates = {
                 var: _get_default_mmc(available_candidates[var])
                 for var in self.response_vars
             }
-
         elif isinstance(self.mean_match_candidates, int):
             self.mean_match_candidates = {
                 key: self.mean_match_candidates for key in self.response_vars
@@ -116,6 +114,8 @@ class KernelDataSet(ImputedDataSet):
                     + "Do all variables in variable_schema have missing values?."
                 )
 
+        # Make sure there are enough non-missing values
+        # in each column to pull candidates from.
         mmc_inadequate = [
             var
             for var, mmc in self.mean_match_candidates.items()
@@ -129,9 +129,8 @@ class KernelDataSet(ImputedDataSet):
                 + " do not have enough candidates to perform mean matching."
             )
 
-        # Initialize models
+        # Initialize models and time_log
         self.models: Dict[str, Dict] = {var: {0: None} for var in self.response_vars}
-
         self.time_log = TimeLog(_TIMED_EVENTS)
 
     def __repr__(self):
