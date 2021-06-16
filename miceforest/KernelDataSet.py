@@ -95,8 +95,7 @@ class KernelDataSet(ImputedDataSet):
 
         # Format mean_match_candidates before priming datasets
         available_candidates = {
-            var: (-self.data[var].isna()).sum()
-            for var in self.response_vars
+            var: (-self.data[var].isna()).sum() for var in self.response_vars
         }
         if self.mean_match_candidates is None:
             self.mean_match_candidates = {
