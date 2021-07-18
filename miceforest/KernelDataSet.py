@@ -236,7 +236,7 @@ class KernelDataSet(ImputedDataSet):
             candidate_values = np.array(candidate_values)
 
             # Determine the nearest neighbors of the bachelor predictions in the candidate predictions
-            knn = NearestNeighbors(n_neighbors=mmc, algorithm="ball_tree")
+            knn = NearestNeighbors(n_neighbors=mmc, algorithm="ball_tree", n_jobs=-1)
             knn.fit(candidate_preds.reshape(-1, 1))
             knn_indices = knn.kneighbors(
                 bachelor_preds.reshape(-1, 1), return_distance=False
