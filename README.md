@@ -11,6 +11,8 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
 [![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-2.0.6-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
+[![Conda
+Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 [![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest)
 
@@ -85,14 +87,20 @@ miceforest has 4 main classes which the user will interact with:
     imputed. Has additional methods for comparing the imputations
     between datasets.
 
-You can download the latest stable version from PyPi:
+This package can be installed using either pip or conda, through
+conda-forge:
 
 ``` bash
+# Using pip
 $ pip install miceforest
+
+# Using conda
+$ conda install -c conda-forge miceforest
 ```
 
 You can also download the latest development version from this
-repository:
+repository. If you want to install from github with conda, you must
+first run `conda install pip git`.
 
 ``` bash
 $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
@@ -100,8 +108,8 @@ $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
 
 ## Using miceforest
 
-In these examples we will be looking at a few simple examples of
-imputation. We need to load the packages, and define the data:
+We will be looking at a few simple examples of imputation. We need to
+load the packages, and define the data:
 
 ``` python
 import miceforest as mf
@@ -180,7 +188,7 @@ parallelizable. We can save a lot of time by setting the `n_jobs`
 parameter in both the fit and predict methods for the random forests:
 
 ``` python
-# Run the MICE algorithm for 2 more iterations on the kernel, 
+# Run the MICE algorithm for 2 more iterations on the kernel 
 kernel.mice(2,n_jobs=2)
 ```
 
