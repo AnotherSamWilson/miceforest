@@ -243,9 +243,9 @@ class KernelDataSet(ImputedDataSet):
         default_lgb_params = {
             **obj,
             "boosting": "random_forest",
-            "n_estimators": 96,
+            "n_estimators": 48,
             "max_depth": 8,
-            "min_data_in_leaf": 1,
+            "min_data_in_leaf": 5,
             "min_sum_hessian_in_leaf": 0.0,
             "min_gain_to_split": 0.0,
             "bagging_fraction": 0.632,
