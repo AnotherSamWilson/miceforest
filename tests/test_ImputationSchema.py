@@ -13,9 +13,9 @@ boston[8] = boston[8].astype("category")
 boston.columns = [str(i) for i in boston.columns]
 
 # Several types of datasets are tested:
-boston_amp = mf.ampute_data(boston, variables=[str(i) for i in [0,1,2,3,4]], perc=0.25, random_state=random_state)
+boston_amp = mf.ampute_data(boston, variables=[str(i) for i in [0,1,9,3,4]], perc=0.25, random_state=random_state)
 boston_amp = mf.ampute_data(boston_amp, variables=[str(i) for i in [5,6,7,8]], perc=0.50, random_state=random_state)
-boston_amp = mf.ampute_data(boston_amp, variables=[str(i) for i in [9,10,11,12]], perc=0.90, random_state=random_state)
+boston_amp = mf.ampute_data(boston_amp, variables=[str(i) for i in [2,10,11,12]], perc=0.90, random_state=random_state)
 
 # Ampute only some variables
 somevars = ["1", "2", "5", "10"]
@@ -90,7 +90,7 @@ def test_var_schem_dict():
     assert set(impschem.response_vars) == {"1", "2", "5"}
     assert set(impschem.predictor_vars) == {"2", "5", "3", "6", "7", "8"}
     assert impschem.mean_match_candidates == {"1": 3, "2": 4, "5": 5}
-    assert impschem.imputation_order == ['5','1','2']
+    assert impschem.imputation_order == ['2','5','1']
 
     # 6 has no missing data, make sure it doesn't show up in response_vars
     schem = {"1": ["2", "5"], "2": ["3", "5"], "6": ["10", "7", "8"]}
