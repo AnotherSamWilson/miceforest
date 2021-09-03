@@ -435,7 +435,7 @@ for iteration in range(kernel.iteration_count()+1):
 print(acclist)
 ```
 
-    ## [0.32, 0.86, 0.76, 0.65, 0.78, 0.86]
+    ## [0.32, 0.84, 0.81, 0.68, 0.81, 0.86]
 
 In this instance, we went from a \~32% accuracy (which is expected with
 random sampling) to an accuracy of \~86% after the first iteration. The
