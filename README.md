@@ -9,7 +9,7 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-2.0.6-blue.svg)](https://pypi.org/project/miceforest/)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-3.0.0-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![Conda
 Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
@@ -275,7 +275,7 @@ cust_kernel = mf.MultipleImputedKernel(
     variable_schema=var_sch,
     mean_match_candidates=var_mmc,
     mean_match_subset=var_mms,
-    mean_matching_function=mmf
+    mean_match_function=mmf
 )
 cust_kernel.mice(2)
 ```
@@ -384,9 +384,9 @@ kernel.plot_feature_importance(annot=True,cmap="YlGnBu",vmin=0, vmax=1)
 
 <img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/var_imp.png" width="600px" />
 
-The numbers shown are returned from the sklearn random forest
-`_feature_importance` attribute. Each square represents the importance
-of the column variable in imputing the row variable.
+The numbers shown are returned from the
+`lightgbm.Booster.feature_importance()` function. Each square represents
+the importance of the column variable in imputing the row variable.
 
 ### Mean Convergence
 
