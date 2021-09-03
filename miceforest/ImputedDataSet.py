@@ -1,7 +1,7 @@
 from .ImputationSchema import _ImputationSchema
 import numpy as np
 from pandas import DataFrame
-from .utils import ensure_rng, _list_union, _var_comparison, MeanMatchType, VarSchemType
+from .utils import ensure_rng, _var_comparison, MeanMatchType, VarSchemType
 from typing import Optional, Union, List, Dict, Callable
 
 

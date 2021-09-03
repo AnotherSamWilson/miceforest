@@ -1,6 +1,6 @@
 from numpy import concatenate
 from .utils import _copy_and_remove, _setequal, _list_union, MeanMatchType, VarSchemType
-from typing import Optional, Union, List, Dict, TYPE_CHECKING, Callable
+from typing import Union, List, TYPE_CHECKING, Callable
 from pandas import unique
 
 if TYPE_CHECKING:

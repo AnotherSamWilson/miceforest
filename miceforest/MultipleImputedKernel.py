@@ -2,7 +2,7 @@ from .ImputedDataSet import ImputedDataSet
 from .MultipleImputedDataSet import MultipleImputedDataSet
 from .KernelDataSet import KernelDataSet
 from pandas import DataFrame
-from typing import Union, List, Dict, Callable
+from typing import Union, List, Callable
 from .utils import ensure_rng, MeanMatchType, VarSchemType
 from .logger import Logger
 

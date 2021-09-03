@@ -37,8 +37,6 @@ class MultipleImputedDataSet(_ImputationSchema):
         )
         self.data = getattr(initial_dataset, "data")
         self.save_all_iterations = getattr(initial_dataset, "save_all_iterations")
-        # self.categorical_variables = getattr(initial_dataset, "categorical_variables")
-        # self._varfilter = getattr(initial_dataset, "_varfilter")
         self._prep_multi_plot = getattr(initial_dataset, "_prep_multi_plot")
         self._default_iteration = getattr(initial_dataset, "_default_iteration")
         self.imputed_data_sets = {0: initial_dataset}

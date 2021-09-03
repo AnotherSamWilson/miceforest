@@ -10,12 +10,9 @@ from .utils import (
 )
 from pandas import DataFrame
 import numpy as np
-from typing import Union, List, Dict, Any, TYPE_CHECKING, Callable
+from typing import Union, Dict, Any, Callable
 from .logger import Logger
 from lightgbm import train, Dataset
-
-# if TYPE_CHECKING:
-#     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 _TIMED_EVENTS = ["mice", "model_fit", "model_predict", "mean_match", "impute_new_data"]
 
