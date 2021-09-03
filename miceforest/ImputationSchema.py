@@ -1,6 +1,7 @@
-from numpy import concatenate, unique
-from .utils import _copy_and_remove, _setequal, _list_union
-from typing import Optional, Union, List, Dict, TYPE_CHECKING
+from numpy import concatenate
+from .utils import _copy_and_remove, _setequal, _list_union, MeanMatchType, VarSchemType
+from typing import Optional, Union, List, Dict, TYPE_CHECKING, Callable
+from pandas import unique
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -26,8 +27,11 @@ class _ImputationSchema:
     def __init__(
         self,
         validation_data: "DataFrame",
-        variable_schema: Optional[Union[List[str], Dict[str, List[str]]]] = None,
-        mean_match_candidates: Union[int, Dict[str, int]] = None,
+        variable_schema: VarSchemType = None,
+        mean_match_candidates: MeanMatchType = None,
+        mean_match_subset: MeanMatchType = None,
+        mean_match_function: Callable = None,
+        imputation_order: Union[str, List[str]] = "ascending",
     ):
 
         self.na_where = validation_data.isnull()
@@ -37,6 +41,7 @@ class _ImputationSchema:
         self.data_variables = list(validation_data.columns)
         self.vars_with_any_missing = list(self.na_counts[self.na_counts > 0].keys())
         self.mean_match_candidates = mean_match_candidates
+        self.mean_match_subset = mean_match_subset
 
         if variable_schema is None:
             variable_schema = self.vars_with_any_missing
@@ -76,7 +81,7 @@ class _ImputationSchema:
         ).tolist()
 
         self.response_vars = list(variable_schema)
-        self.all_vars = unique(self.response_vars + self.predictor_vars)
+        self.all_vars = unique(self.response_vars + self.predictor_vars).tolist()
         self._all_imputed_vars = _list_union(self.vars_with_any_missing, self.all_vars)
         self.n_imputed_vars = len(variable_schema)
         self.not_imputable = not_imputable
@@ -88,6 +93,51 @@ class _ImputationSchema:
             & (set(self.vars_with_any_missing) - set(self.response_vars))
         )
         self.static_predictors.sort()
+
+        # Get list of categorical variables
+        self.categorical_variables = [
+            i for i in self.all_vars if (self.data_dtypes == "category")[i]
+        ]
+        self.categorical_dtypes = {
+            var: validation_data[var].dtype for var in self.categorical_variables
+        }
+
+        # Only import sklearn if we really need to.
+        if mean_match_function is None:
+            from .default_mean_match import default_mean_match
+
+            self.mean_match_function = default_mean_match
+        else:
+            self.mean_match_function = mean_match_function
+
+        # Format imputation order
+        if isinstance(imputation_order, list):
+            # subset because response_vars can be removed if imputing new data with no missing values
+            # for certain variables.
+            assert set(self.response_vars).issubset(
+                imputation_order
+            ), "response vars not subset of imputation_order"
+            imputation_order = [i for i in imputation_order if i in self.response_vars]
+        elif isinstance(imputation_order, str):
+            assert imputation_order in [
+                "ascending",
+                "descending",
+                "roman",
+                "arabic",
+            ], "imputation_order not recognized"
+            if imputation_order == "ascending":
+                missing_order = self.na_counts.sort_values(ascending=True).index.values
+                imputation_order = [i for i in missing_order if i in self.response_vars]
+            elif imputation_order == "descending":
+                missing_order = self.na_counts.sort_values(ascending=False).index.values
+                imputation_order = [i for i in missing_order if i in self.response_vars]
+            elif imputation_order == "roman":
+                imputation_order = self.response_vars.copy()
+            elif imputation_order == "arabic":
+                imputation_order = self.response_vars.copy()
+                imputation_order.reverse()
+
+        self.imputation_order = imputation_order
 
     def equal_schemas(self, imp_sch, fail=True):
         """
@@ -111,3 +161,32 @@ class _ImputationSchema:
                 return False
         else:
             return True
+
+    def is_categorical(self, var):
+        assert var in self.all_vars, "Variable not recognized."
+        return True if var in list(self.categorical_dtypes) else False
+
+    def _varfilter(self, vrs, response, predictor) -> List[str]:
+        """
+        Extracts predictor and response variables
+        from a list of variables.
+        """
+        if not response and not predictor:
+            return vrs
+        if response:
+            vrs = _list_union(vrs, self.response_vars)
+        if predictor:
+            vrs = _list_union(vrs, self.predictor_vars)
+        return vrs
+
+    def _get_cat_vars(self, response=True, predictor=False) -> List[str]:
+        cat_vars = self._varfilter(
+            vrs=self.categorical_variables, response=response, predictor=predictor
+        )
+        return cat_vars
+
+    def _get_num_vars(self, response=True, predictor=False):
+        categorical_variables = self._get_cat_vars(True, True)
+        num_vars = [v for v in self.all_vars if v not in categorical_variables]
+        num_vars = self._varfilter(vrs=num_vars, response=response, predictor=predictor)
+        return num_vars

@@ -31,14 +31,16 @@ class MultipleImputedDataSet(_ImputationSchema):
             validation_data=initial_dataset.data,
             variable_schema=initial_dataset.variable_schema,
             mean_match_candidates=initial_dataset.mean_match_candidates,
+            mean_match_subset=initial_dataset.mean_match_subset,
+            mean_match_function=initial_dataset.mean_match_function,
+            imputation_order=initial_dataset.imputation_order,
         )
         self.data = getattr(initial_dataset, "data")
         self.save_all_iterations = getattr(initial_dataset, "save_all_iterations")
-        self.categorical_variables = getattr(initial_dataset, "categorical_variables")
-        self._varfilter = getattr(initial_dataset, "_varfilter")
+        # self.categorical_variables = getattr(initial_dataset, "categorical_variables")
+        # self._varfilter = getattr(initial_dataset, "_varfilter")
         self._prep_multi_plot = getattr(initial_dataset, "_prep_multi_plot")
         self._default_iteration = getattr(initial_dataset, "_default_iteration")
-
         self.imputed_data_sets = {0: initial_dataset}
 
     def __getitem__(self, key):
@@ -136,22 +138,6 @@ save_all_iterations: {self.save_all_iterations}"""
         Returns the number of datasets being stored
         """
         return len(self.imputed_data_sets)
-
-    def _get_all_vars(self) -> List[str]:
-        all_vars = np.unique([ids.all_vars for key, ids in self.items()])
-        return all_vars
-
-    def _get_cat_vars(self, response=True, predictor=False) -> List[str]:
-        cat_vars = np.unique([ids.categorical_variables for key, ids in self.items()])
-        cat_vars = self._varfilter(cat_vars, response, predictor)
-        return cat_vars
-
-    def _get_num_vars(self, response=True, predictor=False) -> List[str]:
-        all_vars = self._get_all_vars()
-        cat_vars = self._get_cat_vars()
-        num_vars = [i for i in all_vars if i not in cat_vars]
-        num_vars = self._varfilter(num_vars, response, predictor)
-        return num_vars
 
     def get_correlations(
         self, variables: List[str]

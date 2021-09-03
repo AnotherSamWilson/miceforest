@@ -1,15 +1,21 @@
 from .ImputedDataSet import ImputedDataSet
-from sklearn.neighbors import NearestNeighbors
 from .TimeLog import TimeLog
 from datetime import datetime
-from .utils import _get_default_mmc, _default_rf_classifier, _default_rf_regressor
+from .utils import (
+    _get_default_mmc,
+    _get_default_mms,
+    disallowed_aliases_n_estimators,
+    MeanMatchType,
+    VarSchemType,
+)
 from pandas import DataFrame
 import numpy as np
-from typing import Union, List, Dict, Any, TYPE_CHECKING
+from typing import Union, List, Dict, Any, TYPE_CHECKING, Callable
 from .logger import Logger
+from lightgbm import train, Dataset
 
-if TYPE_CHECKING:
-    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+# if TYPE_CHECKING:
+#     from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 _TIMED_EVENTS = ["mice", "model_fit", "model_predict", "mean_match", "impute_new_data"]
 
@@ -23,7 +29,7 @@ class KernelDataSet(ImputedDataSet):
     Parameters
     ----------
     data: DataFrame
-        A pandas DataFrame to impute.
+        A pandas DataFrame.
 
     variable_schema: None or list or dict
         If None all variables are used to impute all variables which have
@@ -31,14 +37,18 @@ class KernelDataSet(ImputedDataSet):
         If list all variables are used to impute the variables in the list
         If dict the values will be used to impute the keys.
 
-    mean_match_candidates:  None or int or dict
+    mean_match_candidates:  None or int or float or dict
+        If float must be 0.0 < mmc <= 1.0. Interpreted as a percentage of available candidates
+        If int must be mmc >= 0. Interpreted as the number of candidates.
+        If dict, keys must be variable names, and values must follow two above rules.
+
         The number of mean matching candidates to use.
         Candidates are _always_ drawn from a kernel dataset, even
         when imputing new data.
 
         Mean matching follows the following rules based on variable type:
             Categorical:
-                If mmc = 0, the predicted class is used
+                If mmc = 0, the class with the highest probability is chosen.
                 If mmc > 0, return class based on random draw weighted by
                     class probability for each sample.
             Numeric:
@@ -49,6 +59,32 @@ class KernelDataSet(ImputedDataSet):
 
         For more information, see:
         https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching
+
+    mean_match_subset: None or int or float or dict.
+        If float must be 0.0 < mms <= 1.0. Interpreted as a percentage of available candidates
+        If int must be mms >= 0. Interpreted as the number of candidates. If 0, no subsetting is done.
+        If dict, keys must be variable names, and values must follow two above rules.
+
+        The number of candidates to search in mean matching. Set
+        to a lower number to speed up mean matching. Must be greater
+        than mean_match_candidates, and above 0. If a float <= 1.0 is
+        passed, it is interpreted as the percentage of the candidates
+        to take as a subset. If an int > 1 is passed, it is interpreted
+        as the count of candidates to take as a subset.
+
+        Mean matching can take a while on larger datasets. It is recommended to carefully
+        select this value for each variable if dealing with very large data.
+
+    mean_match_function: Calable, default = None
+        Must take the following parameters:
+            mmc: int,
+            candidate_preds: np.ndarray,
+            bachelor_preds: np.ndarray,
+            candidate_values: np.ndarray,
+            cat_dtype: CategoricalDtype,
+            random_state: np.random.RandomState,
+
+        A default mean matching function will be used if None.
 
     save_all_iterations: boolean, optional(default=True)
         Save all the imputation values from all iterations, or just
@@ -77,8 +113,10 @@ class KernelDataSet(ImputedDataSet):
     def __init__(
         self,
         data: DataFrame,
-        variable_schema: Union[List[str], Dict[str, List[str]]] = None,
-        mean_match_candidates: Union[int, Dict[str, int]] = None,
+        variable_schema: VarSchemType = None,
+        mean_match_candidates: MeanMatchType = None,
+        mean_match_subset: MeanMatchType = None,
+        mean_match_function: Callable = None,
         save_all_iterations: bool = True,
         save_models: int = 1,
         random_state: Union[int, np.random.RandomState] = None,
@@ -87,6 +125,8 @@ class KernelDataSet(ImputedDataSet):
             data=data,
             variable_schema=variable_schema,
             mean_match_candidates=mean_match_candidates,
+            mean_match_subset=mean_match_subset,
+            mean_match_function=mean_match_function,
             save_all_iterations=save_all_iterations,
             random_state=random_state,
         )
@@ -97,36 +137,25 @@ class KernelDataSet(ImputedDataSet):
         available_candidates = {
             var: (-self.data[var].isna()).sum() for var in self.response_vars
         }
-        if self.mean_match_candidates is None:
-            self.mean_match_candidates = {
-                var: _get_default_mmc(available_candidates[var])
-                for var in self.response_vars
-            }
-        elif isinstance(self.mean_match_candidates, int):
-            self.mean_match_candidates = {
-                key: self.mean_match_candidates for key in self.response_vars
-            }
-        elif isinstance(mean_match_candidates, dict):
-            if not set(mean_match_candidates) == set(self.response_vars):
-                raise ValueError(
-                    "mean_match_candidates not consistent with variable_schema. "
-                    + "Do all variables in variable_schema have missing values?."
-                )
+        mean_match_candidates = self._format_mm(
+            mean_match_candidates, available_candidates, _get_default_mmc
+        )
+        mean_match_subset = self._format_mm(
+            mean_match_subset, available_candidates, _get_default_mms
+        )
 
-        # Make sure there are enough non-missing values
-        # in each column to pull candidates from.
-        mmc_inadequate = [
-            var
-            for var, mmc in self.mean_match_candidates.items()
-            if (mmc >= available_candidates[var])
-        ]
-        if len(mmc_inadequate) > 0:
-            raise ValueError(
-                "<"
-                + ",".join(mmc_inadequate)
-                + ">"
-                + " do not have enough candidates to perform mean matching."
-            )
+        # Ensure mmc and mms make sense:
+        # mmc <= mms <= available candidates for each var
+        for var in self.response_vars:
+            assert (
+                mean_match_candidates[var] <= mean_match_subset[var]
+            ), f"{var} mean_match_candidates > mean_match_subset"
+            assert (
+                mean_match_subset[var] <= available_candidates[var]
+            ), f"{var} mean_match_subset > available candidates"
+
+        self.mean_match_candidates = mean_match_candidates
+        self.mean_match_subset = mean_match_subset
 
         # Initialize models and time_log
         self.models: Dict[str, Dict] = {var: {0: None} for var in self.response_vars}
@@ -135,6 +164,57 @@ class KernelDataSet(ImputedDataSet):
     def __repr__(self):
         summary_string = " " * 14 + "Class: KernelDataSet\n" + self._ids_info()
         return summary_string
+
+    def _mm_type_handling(self, mm, available_candidates) -> int:
+        if isinstance(mm, float):
+            assert (mm > 0.0) & (mm <= 1.0)
+            ret = int(mm * available_candidates)
+        elif isinstance(mm, int):
+            assert mm >= 0
+            ret = int(mm)
+        else:
+            raise ValueError(
+                "mean_match_candidates type not recognized. "
+                + "Any supplied values must be a float <= 1.0 or int >= 1"
+            )
+
+        return ret
+
+    def _format_mm(
+        self, mm, available_candidates, defaulting_function
+    ) -> Dict[str, int]:
+        """
+        mean_match_candidates and mean_match_subset both require similar formatting.
+        The only real difference is the default value based on the number of available
+        candidates, which is what the defaulting_function is for.
+        """
+        if mm is None:
+            mm = {
+                var: int(defaulting_function(available_candidates[var]))
+                for var in self.response_vars
+            }
+        # If a static value was passed
+        elif isinstance(mm, (int, float)):
+            mm = {
+                var: self._mm_type_handling(mm, available_candidates[var])
+                for var in self.response_vars
+            }
+        elif isinstance(mm, dict):
+            if not set(mm).issubset(set(self.response_vars)):
+                raise ValueError(
+                    "Some keys in mean_matching aren't being imputed. "
+                    + "Do all variables in variable_schema have missing values?."
+                )
+            mm = {
+                var: self._mm_type_handling(mm[var], available_candidates[var])
+                if var in mm.keys()
+                else int(defaulting_function(available_candidates[var]))
+                for var in self.response_vars
+            }
+        else:
+            raise ValueError("mean_match_candidates couldn't be interpreted.")
+
+        return mm
 
     def _insert_new_model(self, var, model):
         """
@@ -148,6 +228,45 @@ class KernelDataSet(ImputedDataSet):
             self.models[var][current_iter + 1] = model
         if self.save_models == 1:
             del self.models[var][current_iter]
+
+    def _get_lgb_params(self, var, vsp, **kwlgb):
+
+        seed = self._random_state.randint(1000000, size=1)[0]
+
+        # binary is included in multiclass because we want the multi-output from .predict()
+        if var in list(self.categorical_dtypes):
+            n_c = len(self.categorical_dtypes[var].categories)
+            if n_c > 2:
+                obj = {"objective": "multiclass", "num_classes": n_c}
+            else:
+                obj = {"objective": "binary"}
+        else:
+            obj = {"objective": "regression"}
+
+        default_lgb_params = {
+            **obj,
+            "boosting": "random_forest",
+            "n_estimators": 96,
+            "max_depth": 8,
+            "min_data_in_leaf": 1,
+            "min_sum_hessian_in_leaf": 0.0,
+            "min_gain_to_split": 0.0,
+            "bagging_fraction": 0.632,
+            "feature_fraction": 0.632,
+            "bagging_freq": 1,
+            "verbose": -1,
+            "seed": seed,
+        }
+
+        params = {**default_lgb_params, **kwlgb, **vsp}
+
+        assert not any(x in params for x in disallowed_aliases_n_estimators), (
+            "Please use n_estimators "
+            "instead of other aliases to "
+            "control number of trees."
+        )
+
+        return params
 
     def get_model(self, var, iteration=None):
         """
@@ -174,83 +293,34 @@ class KernelDataSet(ImputedDataSet):
         except Exception:
             raise ValueError("Iteration was not saved")
 
-    def _mean_match(
-        self,
-        model,
-        mmc: int,
-        is_categorical: bool,
-        bachelor_features: DataFrame,
-        candidate_features: DataFrame = None,
-        candidate_values: np.ndarray = None,
-    ):
+    def _format_variable_parameters(self, variable_parameters):
         """
-        Performs mean matching. Logic:
-            if categorical:
-                Return class based on random draw weighted by
-                class probability for each sample.
-            if numeric:
-                For each sample prediction, obtain the mmc closest
-                candidate_values and collect the associated
-                candidate_features. Choose 1 randomly.
-
-        For a graphical example, see:
-        https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching
-
-        Parameters
-        ----------
-        model
-            The model
-        mmc
-            The mean matching candidates
-        is_categorical
-            Is the feature we are imputing categorical
-        bachelor_features
-            The features of the variable to be imputed
-        candidate_features
-            The features of the candidates
-        candidate_values
-            The real values of the candidates
-
-        Returns
-        -------
-            An array of imputed values.
-
+        Unpacking will expect an empty dict at a minimum.
+        This function collects parameters if they were
+        provided, and returns empty dicts if they weren't.
         """
-        mean_match_s = datetime.now()
-
-        if is_categorical:
-            # Select category according to their probability for each sample
-            model_predict_s = datetime.now()
-            bachelor_preds = model.predict_proba(bachelor_features)
-            self.time_log.add_time("model_predict", model_predict_s)
-            imp_values = [
-                self._random_state.choice(model.classes_, p=p, size=1)[0]
-                for p in bachelor_preds
-            ]
+        if variable_parameters is None:
+            vsp = {var: {} for var in self.response_vars}
         else:
-            # Collect the candidates, and the predictions for the candidates and bachelors
-            model_predict_s = datetime.now()
-            bachelor_preds = np.array(model.predict(bachelor_features))
-            candidate_preds = np.array(model.predict(candidate_features))
-            self.time_log.add_time("model_predict", model_predict_s)
-            candidate_values = np.array(candidate_values)
+            vsp_vars = list(variable_parameters)
+            assert set(vsp_vars).issubset(
+                self.response_vars
+            ), "Some variable_parameters are not being imputed."
+            vsp = {
+                var: variable_parameters[var] if var in vsp_vars else {}
+                for var in self.response_vars
+            }
 
-            # Determine the nearest neighbors of the bachelor predictions in the candidate predictions
-            knn = NearestNeighbors(n_neighbors=mmc, algorithm="ball_tree", n_jobs=-1)
-            knn.fit(candidate_preds.reshape(-1, 1))
-            knn_indices = knn.kneighbors(
-                bachelor_preds.reshape(-1, 1), return_distance=False
-            )
-            index_choice: List[int] = [
-                self._random_state.choice(i) for i in knn_indices
-            ]
-            imp_values = candidate_values[index_choice]
-
-        self.time_log.add_time("mean_match", mean_match_s)
-        return imp_values
+        return vsp
 
     # Models are updated here, and only here.
-    def mice(self, iterations: int = 5, verbose: bool = False, **kw_fit):
+    def mice(
+        self,
+        iterations: int = 5,
+        verbose: bool = False,
+        variable_parameters: Dict[str, Dict[str, Any]] = None,
+        **kwlgb,
+    ):
         """
         Perform mice given dataset.
 
@@ -276,8 +346,7 @@ class KernelDataSet(ImputedDataSet):
             be printed?
         kw_fit:
             Additional arguments to pass to
-            sklearn.RandomForestRegressor and
-            sklearn.RandomForestClassifier
+            lightgbm. Applied to all models.
 
         """
 
@@ -289,62 +358,70 @@ class KernelDataSet(ImputedDataSet):
         iter_range = range(
             iterations_at_start + 1, iterations_at_start + iterations + 1
         )
+        vsp = self._format_variable_parameters(variable_parameters)
 
-        # Required shut mypy up.
-        assert isinstance(self.mean_match_candidates, Dict)
+        # Required to shut mypy up.
+        assert isinstance(self.mean_match_candidates, dict)
+        assert isinstance(self.mean_match_subset, dict)
 
         for iteration in iter_range:
             logger.log(str(iteration) + " ", end="")
-            for var in self.response_vars:
+            for var in self.imputation_order:
                 logger.log(" | " + var, end="")
 
                 x, y = self._make_xy(var=var)
-                non_missing_ind = self.na_where[var] == False
-                candidate_features = x[non_missing_ind]
-                candidate_values = y[non_missing_ind]
+                candidate_non_missing_ind = np.where(self.na_where[var] == False)[0]
+                candidate_features = x.iloc[candidate_non_missing_ind, :]
+                candidate_target = y.iloc[candidate_non_missing_ind]
 
+                lgbpars = self._get_lgb_params(var, vsp[var], **kwlgb)
+                n_estimators = lgbpars.pop("n_estimators")
+                train_pointer = Dataset(data=candidate_features, label=candidate_target)
                 fit_s = datetime.now()
-                if var in self.categorical_variables:
-                    current_model = _default_rf_classifier(
-                        random_state=self._random_state, **kw_fit
-                    )
-                else:
-                    current_model = _default_rf_regressor(
-                        random_state=self._random_state, **kw_fit
-                    )
-
-                current_model.fit(X=candidate_features, y=candidate_values)
+                current_model = train(
+                    params=lgbpars,
+                    train_set=train_pointer,
+                    num_boost_round=n_estimators,
+                    verbose_eval=False,
+                )
                 self.time_log.add_time("model_fit", fit_s)
 
                 self._insert_new_model(var=var, model=current_model)
 
                 bachelor_features = x[self.na_where[var]]
                 mmc = self.mean_match_candidates[var]
+                assert isinstance(mmc, int)  # mypy
+                is_categorical = self.is_categorical(var)
+                candidate_non_missing_subset = self._random_state.choice(
+                    candidate_non_missing_ind,
+                    size=self.mean_match_subset[var],
+                    replace=False,
+                )
 
-                if mmc == 0:
-                    model_predict_s = datetime.now()
-                    imp_values = current_model.predict(bachelor_features)
-                    self.time_log.add_time("model_predict", model_predict_s)
-                else:
-                    is_categorical = var in self.categorical_variables
-                    if is_categorical:
-                        candidate_features = candidate_values = None
-                    else:
-                        ind = self.na_where[var] == False
-                        candidate_features = x[ind]
-                        candidate_values = y[ind]
+                predict_s = datetime.now()
+                candidate_preds = current_model.predict(
+                    candidate_features.loc[candidate_non_missing_subset, :]
+                )
+                bachelor_preds = current_model.predict(bachelor_features)
+                self.time_log.add_time("model_predict", predict_s)
+                candidate_values = candidate_target.loc[
+                    candidate_non_missing_subset
+                ].values
 
-                    imp_values = self._mean_match(
-                        model=current_model,
-                        mmc=mmc,
-                        is_categorical=is_categorical,
-                        bachelor_features=bachelor_features,
-                        candidate_features=candidate_features,
-                        candidate_values=candidate_values,
-                    )
-
+                meanmatch_s = datetime.now()
+                imp_values = self.mean_match_function(
+                    mmc=mmc,
+                    candidate_preds=candidate_preds,
+                    bachelor_preds=bachelor_preds,
+                    candidate_values=candidate_values,
+                    random_state=self._random_state,
+                    cat_dtype=self.categorical_dtypes[var] if is_categorical else None,
+                )
+                self.time_log.add_time("mean_match", meanmatch_s)
                 self._insert_new_data(var, imp_values)
+
             logger.log("\n", end="")
+
         self.time_log.add_time("mice", mice_s)
 
     def impute_new_data(
@@ -399,12 +476,23 @@ class KernelDataSet(ImputedDataSet):
         if self.save_models < 1:
             raise ValueError("No models were saved.")
 
+        # User might not be strict about keeping track of their categories.
+        # We don't force these, because we don't want to have to create a new copy
+        # of the dataframe.
+        for cv in self._get_cat_vars():
+            assert (
+                self.categorical_dtypes[cv] == new_data[cv].dtype
+            ), f"{cv} categorical dtype is not consistent. See KernelDataset.categorical_dtypes for required type."
+
         imputed_data_set = ImputedDataSet(
-            new_data,
+            data=new_data,
+            initialization_data=self.data,
             # copied because it can be edited if there are no
             # missing values in the new data response variables
             variable_schema=self.variable_schema.copy(),
             mean_match_candidates=self.mean_match_candidates,
+            mean_match_subset=self.mean_match_subset,
+            mean_match_function=self.mean_match_function,
             save_all_iterations=save_all_iterations,
             random_state=self._random_state,
         )
@@ -412,8 +500,11 @@ class KernelDataSet(ImputedDataSet):
         curr_iters = self.iteration_count()
         iterations = self._default_iteration(iterations)
         iter_range = range(1, iterations + 1)
-        iter_vars = imputed_data_set.response_vars
-        assert isinstance(self.mean_match_candidates, Dict)
+        iter_vars = imputed_data_set.imputation_order
+
+        # mypy
+        assert isinstance(self.mean_match_candidates, dict)
+        assert isinstance(self.mean_match_subset, dict)
 
         for iteration in iter_range:
             logger.log(str(iteration) + " ", end="")
@@ -427,36 +518,52 @@ class KernelDataSet(ImputedDataSet):
             for var in iter_vars:
                 logger.log(" | " + var, end="")
 
+                # Colate bachelor information
                 x, y = imputed_data_set._make_xy(var)
                 kernelx, kernely = self._make_xy(var)
                 bachelor_features = x[imputed_data_set.na_where[var]]
+
+                # Colate candidate information
+                candidate_non_missing_ind = np.where(self.na_where[var] == False)[0]
+                candidate_features = kernelx.iloc[candidate_non_missing_ind, :]
+                candidate_target = kernely.iloc[candidate_non_missing_ind]
                 mmc = self.mean_match_candidates[var]
+                mms = self.mean_match_subset[var]
+                assert isinstance(mmc, int)
+                assert isinstance(mms, int)
+                current_model = self.get_model(var, itergrab)
+                is_categorical = self.is_categorical(var)
 
-                if mmc == 0:
-                    imp_values = self.get_model(var, itergrab).predict(
-                        bachelor_features
-                    )
-                else:
-                    is_categorical = var in self.categorical_variables
-                    if is_categorical:
-                        candidate_features = candidate_values = None
-                    else:
-                        ind = self.na_where[var] == False
-                        candidate_features = kernelx[ind]
-                        candidate_values = kernely[ind]
+                candidate_non_missing_subset = self._random_state.choice(
+                    candidate_non_missing_ind, size=mms, replace=False
+                )
 
-                    imp_values = self._mean_match(
-                        model=self.get_model(var, itergrab),
-                        mmc=mmc,
-                        is_categorical=is_categorical,
-                        bachelor_features=bachelor_features,
-                        candidate_features=candidate_features,
-                        candidate_values=candidate_values,
-                    )
+                predict_s = datetime.now()
+                candidate_preds = current_model.predict(
+                    candidate_features.loc[candidate_non_missing_subset, :]
+                )
+                bachelor_preds = current_model.predict(bachelor_features)
+                self.time_log.add_time("model_predict", predict_s)
+                candidate_values = candidate_target.loc[
+                    candidate_non_missing_subset
+                ].values
 
+                meanmatch_s = datetime.now()
+                imp_values = self.mean_match_function(
+                    mmc=mmc,
+                    candidate_preds=candidate_preds,
+                    bachelor_preds=bachelor_preds,
+                    candidate_values=candidate_values,
+                    random_state=self._random_state,
+                    cat_dtype=self.categorical_dtypes[var] if is_categorical else None,
+                )
+                self.time_log.add_time("mean_match", meanmatch_s)
                 imputed_data_set._insert_new_data(var, imp_values)
+
             logger.log("\n", end="")
+
         self.time_log.add_time("impute_new_data", impute_new_data_s)
+
         return imputed_data_set
 
     def get_feature_importance(self, iteration: int = None) -> DataFrame:
@@ -494,15 +601,20 @@ class KernelDataSet(ImputedDataSet):
             importance_dict = dict(
                 zip(
                     self.variable_schema[ivar],
-                    self.get_model(ivar, iteration).feature_importances_,
+                    self.get_model(ivar, iteration).feature_importance(),
                 )
             )
             for pvar in importance_dict:
-                importance_matrix.loc[ivar, pvar] = np.round(importance_dict[pvar], 3)
+                importance_matrix.loc[ivar, pvar] = importance_dict[pvar]
+
+        importance_matrix.rename_axis("Imputed Variables", axis=0, inplace=True)
+        importance_matrix.rename_axis("Feature Variables", axis=1, inplace=True)
 
         return importance_matrix
 
-    def plot_feature_importance(self, iteration: int = None, **kw_plot):
+    def plot_feature_importance(
+        self, normalize: bool = True, iteration: int = None, **kw_plot
+    ):
         """
         Plot the feature importance. See get_feature_importance()
         for more details.
@@ -511,6 +623,9 @@ class KernelDataSet(ImputedDataSet):
         ----------
         iteration: int
             The iteration to plot the feature importance of.
+        normalize: book
+            Should the values be normalize from 0-1?
+            If False, values are raw from Booster.feature_importance()
         kw_plot
             Additional arguments sent to sns.heatmap()
 
@@ -518,4 +633,19 @@ class KernelDataSet(ImputedDataSet):
         import seaborn as sns
 
         importance_matrix = self.get_feature_importance(iteration=iteration)
-        print(sns.heatmap(importance_matrix, **kw_plot))
+        if normalize:
+            importance_matrix = importance_matrix.divide(
+                importance_matrix.sum(1), 0
+            ).round(2)
+
+        params = {
+            **{
+                "cmap": "coolwarm",
+                "annot": True,
+                "fmt": ".2f",
+                "annot_kws": {"size": 16},
+            },
+            **kw_plot,
+        }
+
+        print(sns.heatmap(importance_matrix, **params))

@@ -16,7 +16,7 @@ Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://an
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 [![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest)
 
-## miceforest: Fast Imputation with Random Forests in Python
+## miceforest: Fast Imputation with lightgbm in Python
 
 <a href='https://github.com/AnotherSamWilson/miceforest'><img src='https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/icon.png' align="right" height="300" /></a>
 
@@ -44,10 +44,14 @@ you can find
         Imputation](https://github.com/AnotherSamWilson/miceforest#Simple-Example-Of-Multiple-Imputation)
       - [Controlling Tree
         Growth](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
-      - [Custom Imputation
-        Schemas](https://github.com/AnotherSamWilson/miceforest#Creating-a-Custom-Imputation-Schema)
+      - [Imputing With Gradient Boosted
+        Trees](https://github.com/AnotherSamWilson/miceforest#Imputing-With-Gradient-Boosted-Trees)
+      - [Customizing the Imputation
+        Process](https://github.com/AnotherSamWilson/miceforest#Customizing-the-Imputation-Process)
       - [Imputing New Data with Existing
         Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
+      - [How to Make the Process
+        Faster](https://github.com/AnotherSamWilson/miceforest#How-to-Make-the-Process-Faster)
   - [Diagnostic
     Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting)
       - [Imputed
@@ -183,27 +187,58 @@ print(kernel)
 
 ### Controlling Tree Growth
 
-A *very* nice thing about random forests is that they are trivially
-parallelizable. We can save a lot of time by setting the `n_jobs`
-parameter in both the fit and predict methods for the random forests:
+Parameters can be passed directly to lightgbm in several different ways.
+Parameters you wish to apply globally to every model can simply be
+passed as kwargs to `mice`:
 
 ``` python
 # Run the MICE algorithm for 2 more iterations on the kernel 
-kernel.mice(2,n_jobs=2)
+kernel.mice(1,n_estimators=50)
 ```
 
-Any other arguments may be passed to either class
-(`RandomForestClassifier`,`RandomForestRegressor`). In our example, we
-may not have saved much (if any) time. This is because there is overhead
-with using multiple cores, and our data is very small.
+You can also pass pass variable-specific arguments to
+`variable_parameters` in mice. For instance, let’s say you noticed the
+imputation of the `[target]` column was taking a little longer, because
+it is multiclass. You could decrease the n\_estimators specifically for
+that column with:
 
-### Creating a Custom Imputation Schema
+``` python
+# Run the MICE algorithm for 2 more iterations on the kernel 
+kernel.mice(1,variable_parameters={'target': {'n_estimators': 25}},n_estimators=50)
+```
 
-It is possible to customize our imputation procedure by variable. By
-passing a named list to `variable_schema`, you can specify the
-predictors for each variable to impute. You can also select which
-variables should be imputed using mean matching, as well as the mean
-matching candidates, by passing a dict to`mean_match_candidates`:
+In this scenario, any parameters specified in `variable_parameters`
+takes presidence over the kwargs.
+
+### Imputing with Gradient Boosted Trees
+
+Since any arbitrary parameters can be passed to `lightgbm.train()`, it
+is possible to change the algrorithm entirely. This can be done simply
+like so:
+
+``` python
+# Create kernel. 
+kds_gbdt = mf.KernelDataSet(
+  iris_amp,
+  save_all_iterations=True,
+  random_state=1991
+)
+
+# We need to add a minimum hessian, or lightgbm will complain:
+kds_gbdt.mice(3, boosting='gbdt', min_sum_hessian_in_leaf=1)
+
+# Return the completed kernel data
+completed_data = kds_gbdt.complete_data()
+```
+
+### Customizing the Imputation Process
+
+It is possible to heavily customize our imputation procedure by
+variable. By passing a named list to `variable_schema`, you can specify
+the predictors for each variable to impute. You can also specify
+`mean_match_candidates` and `mean_match_subset` by variable by passing a
+dict of valid values, with variable names as keys. You can even replace
+the entire default mean matching function if you wish:
 
 ``` python
 var_sch = {
@@ -214,12 +249,33 @@ var_mmc = {
     'sepal width (cm)': 5,
     'petal width (cm)': 0
 }
+var_mms = {
+  'sepal width (cm)': 50
+}
+
+# The mean matching function requires these parameters, even
+# if it does not use them.
+def mmf(
+        mmc,
+        candidate_preds,
+        bachelor_preds,
+        candidate_values,
+        cat_dtype,
+        random_state):
+
+    imp_values = random_state.choice(candidate_values, size=bachelor_preds.shape[0])
+    if cat_dtype is not None:
+        imp_values = cat_dtype.categories[imp_values]
+
+    return imp_values
 
 cust_kernel = mf.MultipleImputedKernel(
     iris_amp,
     datasets=3,
     variable_schema=var_sch,
-    mean_match_candidates=var_mmc
+    mean_match_candidates=var_mmc,
+    mean_match_subset=var_mms,
+    mean_matching_function=mmf
 )
 cust_kernel.mice(2)
 ```
@@ -256,6 +312,30 @@ are pulled from the original kernel dataset. To impute new data, the
 each variable. If `save_models > 1`, the model from each iteration is
 saved. This allows for new data to be imputed in a more similar fashion
 to the original mice procedure.
+
+### How to Make the Process Faster
+
+Multiple Imputation is one of the most robust ways to handle missing
+data - but it can take a long time. There are several strategies you can
+use to decrease the time a process takes to run:
+
+  - Decrease `mean_match_subset`. By default all non-missing datapoints
+    are considered as candidates. This can cause the nearest-neighbors
+    search to take a long time for large data. A subset of these points
+    can be searched instead by using `mean_match_subset`.  
+  - Decrease `mean_match_candidates`. If your data is large, the default
+    mean\_match\_candidates for each variable is 0.001 \* (\#
+    non-missing datapoints). This can grow to be an unweidly large
+    number of neighbors that need to be found.  
+  - Use different lightgbm parameters. lightgbm is usually not the
+    problem, however if a certain variable has a large number of
+    classes, then the max number of trees actually grown is (\# classes)
+    \* (n\_estimators). You can specifically decrease the bagging
+    fraction or n\_estimators for large multi-class variables.  
+  - Use a faster mean matching function. The default mean matching
+    function uses the sklearn.neighbors.NearestNeighbors algorithm.
+    There are faster alternatives out there (faiss), however faiss is
+    only available from conda.
 
 ## Diagnostic Plotting
 
@@ -355,11 +435,13 @@ for iteration in range(kernel.iteration_count()+1):
 print(acclist)
 ```
 
-    ## [0.32, 0.76, 0.78, 0.81, 0.86, 0.86]
+    ## [0.32, 0.86, 0.76, 0.65, 0.78, 0.86]
 
 In this instance, we went from a \~32% accuracy (which is expected with
-random sampling) to an accuracy of \~86%. We managed to replace the
-missing `target` values with a pretty high degree of accuracy\!
+random sampling) to an accuracy of \~86% after the first iteration. The
+accuracy kind of floundered around afterwards. This is typical when the
+data is Missing Completely At Random. If the data were more Missing At
+Random, we might see a more normal convergence of accuracy.
 
 ## The MICE Algorithm
 

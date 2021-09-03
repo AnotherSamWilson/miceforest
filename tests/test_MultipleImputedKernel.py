@@ -61,21 +61,33 @@ def test_mice():
 def test_impute_new():
     schem = {"3": ["2", "5"], "2": ["3", "5"], "5": ["6", "7", "8"]}
     mmc = {"3": 3, "2": 4, "5": 5}
+    def mmf(
+            mmc,
+            candidate_preds,
+            bachelor_preds,
+            candidate_values,
+            cat_dtype,
+            random_state):
+        return random_state.choice(candidate_values, size=bachelor_preds.shape[0])
     kernel = mf.MultipleImputedKernel(
         boston_amp,
         datasets=1,
         variable_schema=schem,
         mean_match_candidates=mmc,
+        mean_match_subset=0.75,
+        mean_match_function=mmf,
         save_all_iterations=True,
         random_state=random_state,
     )
-    kernel.mice(4)
+    kernel.mice(2)
     newdat = boston_amp.iloc[range(25)]
     newdatimp = kernel.impute_new_data(newdat)
     assert isinstance(newdatimp, mf.ImputedDataSet)
     newdatcomp = newdatimp.complete_data()
     assert all(newdatcomp[["3", "2", "5"]].isna().sum() == 0)
 
-    kernel.plot_imputed_distributions()
-    kernel.plot_feature_importance()
-    kernel.plot_mean_convergence()
+    newdat = boston_amp.iloc[[0]]
+    newdatimp = kernel.impute_new_data(newdat)
+    assert isinstance(newdatimp, mf.ImputedDataSet)
+    newdatcomp = newdatimp.complete_data()
+    assert all(newdatcomp[["3", "2", "5"]].isna().sum() == 0)

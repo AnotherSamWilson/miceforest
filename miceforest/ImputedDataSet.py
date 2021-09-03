@@ -1,13 +1,8 @@
 from .ImputationSchema import _ImputationSchema
 import numpy as np
 from pandas import DataFrame
-from .utils import (
-    ensure_rng,
-    _copy_and_remove,
-    _list_union,
-    _var_comparison,
-)
-from typing import Optional, Union, List, Dict
+from .utils import ensure_rng, _list_union, _var_comparison, MeanMatchType, VarSchemType
+from typing import Optional, Union, List, Dict, Callable
 
 
 class ImputedDataSet(_ImputationSchema):
@@ -58,25 +53,32 @@ class ImputedDataSet(_ImputationSchema):
     def __init__(
         self,
         data: DataFrame,
-        variable_schema: Union[List[str], Dict[str, List[str]]] = None,
-        mean_match_candidates: Union[int, Dict[str, int]] = None,
+        initialization_data: DataFrame = None,
+        variable_schema: VarSchemType = None,
+        mean_match_candidates: MeanMatchType = None,
+        mean_match_subset: MeanMatchType = None,
+        mean_match_function: Callable = None,
+        imputation_order: Union[str, List[str]] = "ascending",
         save_all_iterations: bool = True,
         random_state: Union[int, np.random.RandomState] = None,
     ):
 
         super().__init__(
+            validation_data=data,
             variable_schema=variable_schema,
             mean_match_candidates=mean_match_candidates,
-            validation_data=data,
+            mean_match_subset=mean_match_subset,
+            mean_match_function=mean_match_function,
+            imputation_order=imputation_order,
         )
 
-        self._random_state = ensure_rng(random_state)
-
+        # Only keep variables that are used in imputation.
         self.data = data
-        self.save_all_iterations = save_all_iterations
-        self.categorical_variables = list(
-            self.data_dtypes[self.data_dtypes == "category"].keys()
+        initialization_data = (
+            data if initialization_data is None else initialization_data
         )
+        self._random_state = ensure_rng(random_state)
+        self.save_all_iterations = save_all_iterations
 
         # Right now variables are filled in with random draws
         # from their original distribution. Add options in the future.
@@ -86,7 +88,7 @@ class ImputedDataSet(_ImputationSchema):
         for var in self._all_imputed_vars:
             self.imputation_values[var] = {
                 0: self._random_state.choice(
-                    data[var].dropna(), size=self.na_counts[var]
+                    initialization_data[var].dropna(), size=self.na_counts[var]
                 )
             }
 
@@ -159,30 +161,6 @@ save_all_iterations: {self.save_all_iterations}"""
         else:
             return iteration
 
-    def _varfilter(self, vrs, response, predictor) -> List[str]:
-        """
-        Extracts predictor and response variables
-        from a list of variables.
-        """
-        if not response and not predictor:
-            return vrs
-        if response:
-            vrs = _list_union(vrs, self.response_vars)
-        if predictor:
-            vrs = _list_union(vrs, self.predictor_vars)
-        return vrs
-
-    def _get_cat_vars(self, response=True, predictor=False) -> List[str]:
-        cat_vars = self._varfilter(
-            vrs=self.categorical_variables, response=response, predictor=predictor
-        )
-        return cat_vars
-
-    def _get_num_vars(self, response=True, predictor=False):
-        num_vars = [v for v in self.data.columns if v not in self.categorical_variables]
-        num_vars = self._varfilter(vrs=num_vars, response=response, predictor=predictor)
-        return num_vars
-
     def _make_xy(self, var: str, iteration: int = None):
         """
         Make the predictor and response set used to train the model.
@@ -194,11 +172,12 @@ save_all_iterations: {self.save_all_iterations}"""
         """
         xvars = self.variable_schema[var]
         completed_data = self.complete_data(iteration=iteration, all_vars=True)
-        to_convert = _list_union(self.categorical_variables, xvars)
-        for ctc in to_convert:
-            completed_data[ctc] = completed_data[ctc].cat.codes
         x = completed_data[xvars]
-        y = completed_data[var]
+        y = (
+            completed_data[var].cat.codes
+            if self.is_categorical(var)
+            else completed_data[var]
+        )
         return x, y
 
     def _insert_new_data(self, var: str, new_data: np.ndarray):
@@ -238,21 +217,24 @@ save_all_iterations: {self.save_all_iterations}"""
         for var in ret_vars:
             itrn = self._default_iteration(iteration=iteration, var=var)
             imputed_dataframe.loc[self.na_where[var], var] = self[var, itrn]
+            imputed_dataframe[var] = imputed_dataframe[var].astype(
+                self.data_dtypes[var]
+            )
         return imputed_dataframe
 
-    def _cross_check_numeric(self, variables: Optional[List[str]]) -> List[str]:
-
-        numeric_imputed_vars = _copy_and_remove(variables, self.categorical_variables)
-
-        if variables is None:
-            variables = numeric_imputed_vars
-        else:
-            if any([var not in numeric_imputed_vars for var in variables]):
-                raise ValueError(
-                    "Specified variable is not in imputed numeric variables."
-                )
-
-        return variables
+    # def _cross_check_numeric(self, variables: Optional[List[str]]) -> List[str]:
+    #
+    #     numeric_imputed_vars = _copy_and_remove(variables, self.categorical_variables)
+    #
+    #     if variables is None:
+    #         variables = numeric_imputed_vars
+    #     else:
+    #         if any([var not in numeric_imputed_vars for var in variables]):
+    #             raise ValueError(
+    #                 "Specified variable is not in imputed numeric variables."
+    #             )
+    #
+    #     return variables
 
     def get_means(self, variables: List[str] = None):
         """

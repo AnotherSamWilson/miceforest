@@ -1,9 +1,12 @@
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from typing import List, Optional, Union, Any, TYPE_CHECKING
+from typing import List, Optional, Union, TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
     from pandas import DataFrame
+
+
+MeanMatchType = Union[int, float, Dict[str, float], Dict[str, int]]
+VarSchemType = Optional[Union[List[str], Dict[str, List[str]]]]
 
 
 def ampute_data(
@@ -64,52 +67,6 @@ def ensure_rng(
     return random_state
 
 
-# These exist so we can make a default classifier with the same parameters
-# as those that may be passed to **kw_fit
-def _default_rf_classifier(
-    random_state: np.random.RandomState,
-    max_features="sqrt",
-    n_estimators=50,
-    min_samples_leaf=1,
-    bootstrap=True,
-    max_samples=0.632,
-    **kw_fit
-) -> RandomForestClassifier:
-
-    rfc = RandomForestClassifier(
-        random_state=random_state,
-        max_features=max_features,
-        n_estimators=n_estimators,
-        min_samples_leaf=min_samples_leaf,
-        bootstrap=bootstrap,
-        max_samples=max_samples,
-        **kw_fit
-    )
-    return rfc
-
-
-def _default_rf_regressor(
-    random_state: np.random.RandomState,
-    max_features="sqrt",
-    n_estimators=50,
-    min_samples_leaf=5,
-    bootstrap=True,
-    max_samples=0.632,
-    **kw_fit
-) -> RandomForestRegressor:
-
-    rfc = RandomForestRegressor(
-        random_state=random_state,
-        max_features=max_features,
-        n_estimators=n_estimators,
-        min_samples_leaf=min_samples_leaf,
-        bootstrap=bootstrap,
-        max_samples=max_samples,
-        **kw_fit
-    )
-    return rfc
-
-
 def _var_comparison(variables: Optional[List[str]], comparison: List[str]) -> List[str]:
     """
     If variables is None, set it equal to the comparison list
@@ -129,7 +86,7 @@ def _copy_and_remove(lst, elements):
     return lt
 
 
-def _get_default_mmc(candidates=None):
+def _get_default_mmc(candidates=None) -> int:
     if candidates is None:
         return 5
     else:
@@ -137,6 +94,10 @@ def _get_default_mmc(candidates=None):
         minimum = 5
         mean_match_candidates = max(minimum, int(percent * candidates))
         return mean_match_candidates
+
+
+def _get_default_mms(candidates) -> int:
+    return int(candidates)
 
 
 def _list_union(a, b):
@@ -148,3 +109,15 @@ def _setequal(a, b):
         return a == b
     else:
         return set(a) == set(b)
+
+
+# Check for n_estimators aliases that might confuse lightgbm
+disallowed_aliases_n_estimators = [
+    "num_iteration",
+    "n_iter",
+    "num_tree",
+    "num_trees",
+    "num_round",
+    "num_rounds",
+    "num_boost_round",
+]

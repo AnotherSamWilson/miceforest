@@ -4,6 +4,8 @@ from .MultipleImputedDataSet import MultipleImputedDataSet
 from .MultipleImputedKernel import MultipleImputedKernel
 from .KernelDataSet import KernelDataSet
 
+__version__ = "3.0.0"
+
 __all__ = [
     "MultipleImputedKernel",
     "ImputedDataSet",
