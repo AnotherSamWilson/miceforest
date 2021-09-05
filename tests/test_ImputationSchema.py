@@ -17,8 +17,6 @@ boston_amp = mf.ampute_data(boston, variables=[str(i) for i in [0,1,9,3,4]], per
 boston_amp = mf.ampute_data(boston_amp, variables=[str(i) for i in [5,6,7,8]], perc=0.50, random_state=random_state)
 boston_amp = mf.ampute_data(boston_amp, variables=[str(i) for i in [2,10,11,12]], perc=0.90, random_state=random_state)
 
-temp = np.array([1,2,3])
-
 # Ampute only some variables
 somevars = ["1", "2", "5", "10"]
 boston_amp_somevars = mf.ampute_data(

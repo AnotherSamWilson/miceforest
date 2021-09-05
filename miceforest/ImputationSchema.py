@@ -6,7 +6,7 @@ from .utils import (
     MeanMatchType,
     VarSchemType,
     _get_default_mmc,
-    _get_default_mms
+    _get_default_mms,
 )
 from typing import Union, List, TYPE_CHECKING, Callable, Dict
 from pandas import unique
@@ -36,7 +36,7 @@ class _ImputationSchema:
         mean_match_subset: MeanMatchType = None,
         mean_match_function: Callable = None,
         imputation_order: Union[str, List[str]] = "ascending",
-        verbose: bool = False
+        verbose: bool = False,
     ):
 
         # Add strict column enforcements later.
@@ -52,9 +52,16 @@ class _ImputationSchema:
 
         # Enforce types
         kernel_dtypes = kernel_data.dtypes
-        unmatched_types = [var for var in kernel_data.columns if kernel_dtypes[var] != self.data_dtypes[var]]
+        unmatched_types = [
+            var
+            for var in kernel_data.columns
+            if kernel_dtypes[var] != self.data_dtypes[var]
+        ]
         if len(unmatched_types) > 0:
-            raise ValueError(",".join(unmatched_types) + " don't match kernel dtypes. Check categories.")
+            raise ValueError(
+                ",".join(unmatched_types)
+                + " don't match kernel dtypes. Check categories."
+            )
 
         # Formatting of variable_schema.
         if variable_schema is None:
@@ -67,7 +74,9 @@ class _ImputationSchema:
             }
 
         if isinstance(variable_schema, dict):
-            self_impute_attempt = [var for var in list(variable_schema) if var in variable_schema[var]]
+            self_impute_attempt = [
+                var for var in list(variable_schema) if var in variable_schema[var]
+            ]
             if len(self_impute_attempt) > 0:
                 raise ValueError(
                     ",".join(self_impute_attempt)
@@ -110,7 +119,8 @@ class _ImputationSchema:
         # Get a list of variables that are being used to impute
         # other variables, but are not being imputed themselves.
         self.static_predictors = [
-            var for var in self.predictor_vars
+            var
+            for var in self.predictor_vars
             if var in (set(self.vars_with_any_missing) - set(self.response_vars))
         ]
         if verbose and len(self.static_predictors) > 0:
@@ -154,6 +164,7 @@ class _ImputationSchema:
         # Only import sklearn if we really need to.
         if mean_match_function is None:
             from .default_mean_match import default_mean_match
+
             self.mean_match_function = default_mean_match
         else:
             self.mean_match_function = mean_match_function

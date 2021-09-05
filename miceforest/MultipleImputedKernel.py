@@ -132,7 +132,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
                 save_all_iterations=save_all_iterations,
                 save_models=save_models,
                 random_state=random_state,
-            )
+            ),
         )
 
         # Prime with the required number of kernel datasets
@@ -250,8 +250,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         )
         if len(datasets) > 0:
             multiple_imputed_set = MultipleImputedDataSet(
-                kernel_data=self.data,
-                initial_dataset=imputed_data_set
+                kernel_data=self.data, initial_dataset=imputed_data_set
             )
             while len(datasets) > 0:
                 logger.log("Dataset " + str(datasets[0]))

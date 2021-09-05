@@ -183,11 +183,9 @@ class KernelDataSet(ImputedDataSet):
 
         params = {**default_lgb_params, **kwlgb, **vsp}
 
-        assert not any(x in params for x in disallowed_aliases_n_estimators), (
-            "Please use n_estimators "
-            "instead of other aliases to "
-            "control number of trees."
-        )
+        assert not any(
+            x in params for x in disallowed_aliases_n_estimators
+        ), "Please use n_estimators instead of other aliases to control number of trees."
 
         return params
 
@@ -283,10 +281,6 @@ class KernelDataSet(ImputedDataSet):
         )
         vsp = self._format_variable_parameters(variable_parameters)
 
-        # Required to shut mypy up.
-        assert isinstance(self.mean_match_candidates, dict)
-        assert isinstance(self.mean_match_subset, dict)
-
         for iteration in iter_range:
             logger.log(str(iteration) + " ", end="")
             for var in self.imputation_order:
@@ -313,7 +307,6 @@ class KernelDataSet(ImputedDataSet):
 
                 bachelor_features = x[self.na_where[var]]
                 mmc = self.mean_match_candidates[var]
-                assert isinstance(mmc, int)  # mypy
                 is_categorical = self.is_categorical(var)
                 candidate_non_missing_subset = self._random_state.choice(
                     candidate_non_missing_ind,
@@ -339,11 +332,15 @@ class KernelDataSet(ImputedDataSet):
                         bachelor_preds=bachelor_preds,
                         candidate_values=candidate_values,
                         random_state=self._random_state,
-                        cat_dtype=self.categorical_dtypes[var] if is_categorical else None,
+                        cat_dtype=self.categorical_dtypes[var]
+                        if is_categorical
+                        else None,
                     )
                 )
                 self.time_log.add_time("mean_match", meanmatch_s)
-                assert imp_values.shape == (self.na_counts[var],), f'{var} mean matching returned malformed array'
+                assert imp_values.shape == (
+                    self.na_counts[var],
+                ), f"{var} mean matching returned malformed array"
                 self._insert_new_data(var, imp_values)
 
             logger.log("\n", end="")
@@ -420,10 +417,6 @@ class KernelDataSet(ImputedDataSet):
         iter_range = range(1, iterations + 1)
         iter_vars = imputed_data_set.imputation_order
 
-        # mypy
-        assert isinstance(self.mean_match_candidates, dict)
-        assert isinstance(self.mean_match_subset, dict)
-
         for iteration in iter_range:
             logger.log(str(iteration) + " ", end="")
 
@@ -447,8 +440,6 @@ class KernelDataSet(ImputedDataSet):
                 candidate_target = kernely.iloc[candidate_non_missing_ind]
                 mmc = self.mean_match_candidates[var]
                 mms = self.mean_match_subset[var]
-                assert isinstance(mmc, int)
-                assert isinstance(mms, int)
                 current_model = self.get_model(var, itergrab)
                 is_categorical = self.is_categorical(var)
 
