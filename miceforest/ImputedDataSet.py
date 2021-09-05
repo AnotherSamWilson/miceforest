@@ -14,8 +14,11 @@ class ImputedDataSet(_ImputationSchema):
 
     Parameters
     ----------
-    data: DataFrame
-        A pandas DataFrame to impute.
+    kernel_data: DataFrame
+        The data used by the kernel to impute impute_data.
+
+    impute_data: DataFrame
+        The data to be imputed.
 
     variable_schema: None or list or dict
         If None all variables are used to impute all variables which have
@@ -23,27 +26,66 @@ class ImputedDataSet(_ImputationSchema):
         If list all variables are used to impute the variables in the list
         If dict the values will be used to impute the keys.
 
-    mean_match_candidates:  None or int or dict
-        The number of mean matching candidates to use. Mean matching
-        allows the process to impute more realistic values.
-        Candidates are _always_ drawn from a kernel dataset.
+    mean_match_candidates:  None or int or float or dict
+        If float must be 0.0 < mmc <= 1.0. Interpreted as a percentage of available candidates
+        If int must be mmc >= 0. Interpreted as the number of candidates.
+        If dict, keys must be variable names, and values must follow two above rules.
+
+        The number of mean matching candidates to use.
+        Candidates are _always_ drawn from a kernel dataset, even
+        when imputing new data.
+
         Mean matching follows the following rules based on variable type:
             Categorical:
-                If mmc = 0, the predicted class is used. If mmc > 0, return
-                class based on random draw weighted by class probability
-                for each sample.
+                If mmc = 0, the class with the highest probability is chosen.
+                If mmc > 0, return class based on random draw weighted by
+                    class probability for each sample.
             Numeric:
-                If mmc = 0, the predicted value is used. If mmc > 0, obtain
-                the mmc closest candidate predictions and collect the associated
-                real candidate values. Choose 1 randomly.
+                If mmc = 0, the predicted value is used
+                If mmc > 0, obtain the mmc closest candidate
+                    predictions and collect the associated
+                    real candidate values. Choose 1 randomly.
 
         For more information, see:
         https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching
 
-    save_all_iterations: boolean, optional(default=False)
-        Save all iterations that have been imputed, or just the latest.
-        Saving all iterations allows for additional plotting,
-        but may take more memory
+    mean_match_subset: None or int or float or dict.
+        If float must be 0.0 < mms <= 1.0. Interpreted as a percentage of available candidates
+        If int must be mms >= 0. Interpreted as the number of candidates. If 0, no subsetting is done.
+        If dict, keys must be variable names, and values must follow two above rules.
+
+        The number of candidates to search in mean matching. Set
+        to a lower number to speed up mean matching. Must be greater
+        than mean_match_candidates, and above 0. If a float <= 1.0 is
+        passed, it is interpreted as the percentage of the candidates
+        to take as a subset. If an int > 1 is passed, it is interpreted
+        as the count of candidates to take as a subset.
+
+        Mean matching can take a while on larger datasets. It is recommended to carefully
+        select this value for each variable if dealing with very large data.
+
+    mean_match_function: Callable, default = None
+        Must take the following parameters:
+            mmc: int,
+            candidate_preds: np.ndarray,
+            bachelor_preds: np.ndarray,
+            candidate_values: np.ndarray,
+            cat_dtype: CategoricalDtype,
+            random_state: np.random.RandomState,
+
+        A default mean matching function will be used if None.
+
+    imputation_order: str or List[str], default = "ascending"
+        The order the imputations should occur in.
+            ascending: variables are imputed from least to most missing
+            descending: most to least missing
+            roman: from left to right in the dataset
+            arabic: from right to left in the dataset.
+
+    save_all_iterations: boolean, optional(default=True)
+        Save all the imputation values from all iterations, or just
+        the latest. Saving all iterations allows for additional
+        plotting, but may take more memory
 
     random_state: None,int, or numpy.random.RandomState
         Ensures a random state throughout the process

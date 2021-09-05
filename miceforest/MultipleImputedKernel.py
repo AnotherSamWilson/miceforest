@@ -22,6 +22,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
     ----------
     data: DataFrame
         A pandas DataFrame to impute.
+
     datasets: int, optional(default=5)
         The number of kernel datasets to create.
 
@@ -71,7 +72,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         Mean matching can take a while on larger datasets. It is recommended to carefully
         select this value for each variable if dealing with very large data.
 
-    mean_match_function: Calable, default = None
+    mean_match_function: Callable, default = None
         Must take the following parameters:
             mmc: int,
             candidate_preds: np.ndarray,
@@ -81,6 +82,13 @@ class MultipleImputedKernel(MultipleImputedDataSet):
             random_state: np.random.RandomState,
 
         A default mean matching function will be used if None.
+
+    imputation_order: str or List[str], default = "ascending"
+        The order the imputations should occur in.
+            ascending: variables are imputed from least to most missing
+            descending: most to least missing
+            roman: from left to right in the dataset
+            arabic: from right to left in the dataset.
 
     save_all_iterations: boolean, optional(default=True)
         Save all the imputation values from all iterations, or just
@@ -114,6 +122,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         mean_match_candidates: MeanMatchType = None,
         mean_match_subset: MeanMatchType = None,
         mean_match_function: Callable = None,
+        imputation_order: Union[str, List[str]] = "ascending",
         save_all_iterations: bool = False,
         save_models: int = 1,
         random_state=None,
@@ -129,6 +138,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
                 mean_match_candidates=mean_match_candidates,
                 mean_match_subset=mean_match_subset,
                 mean_match_function=mean_match_function,
+                imputation_order=imputation_order,
                 save_all_iterations=save_all_iterations,
                 save_models=save_models,
                 random_state=random_state,
