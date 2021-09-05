@@ -122,6 +122,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         random_state = ensure_rng(random_state)
 
         super().__init__(
+            kernel_data=data,
             initial_dataset=KernelDataSet(
                 data=data,
                 variable_schema=variable_schema,
@@ -249,6 +250,7 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         )
         if len(datasets) > 0:
             multiple_imputed_set = MultipleImputedDataSet(
+                kernel_data=self.data,
                 initial_dataset=imputed_data_set
             )
             while len(datasets) > 0:

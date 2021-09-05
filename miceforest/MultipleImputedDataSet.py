@@ -24,11 +24,12 @@ class MultipleImputedDataSet(_ImputationSchema):
 
     """
 
-    def __init__(self, initial_dataset: ImputedDataSet):
+    def __init__(self, kernel_data: "DataFrame", initial_dataset: ImputedDataSet):
 
         # Inherit schema and other attributes from initial_dataset
         super().__init__(
-            validation_data=initial_dataset.data,
+            kernel_data=kernel_data,
+            impute_data=initial_dataset.data,
             variable_schema=initial_dataset.variable_schema,
             mean_match_candidates=initial_dataset.mean_match_candidates,
             mean_match_subset=initial_dataset.mean_match_subset,

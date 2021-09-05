@@ -52,8 +52,8 @@ class ImputedDataSet(_ImputationSchema):
 
     def __init__(
         self,
-        data: DataFrame,
-        initialization_data: DataFrame = None,
+        kernel_data: "DataFrame",
+        impute_data: "DataFrame",
         variable_schema: VarSchemType = None,
         mean_match_candidates: MeanMatchType = None,
         mean_match_subset: MeanMatchType = None,
@@ -64,7 +64,8 @@ class ImputedDataSet(_ImputationSchema):
     ):
 
         super().__init__(
-            validation_data=data,
+            kernel_data=kernel_data,
+            impute_data=impute_data,
             variable_schema=variable_schema,
             mean_match_candidates=mean_match_candidates,
             mean_match_subset=mean_match_subset,
@@ -73,10 +74,7 @@ class ImputedDataSet(_ImputationSchema):
         )
 
         # Only keep variables that are used in imputation.
-        self.data = data
-        initialization_data = (
-            data if initialization_data is None else initialization_data
-        )
+        self.data = impute_data
         self._random_state = ensure_rng(random_state)
         self.save_all_iterations = save_all_iterations
 
@@ -88,7 +86,7 @@ class ImputedDataSet(_ImputationSchema):
         for var in self._all_imputed_vars:
             self.imputation_values[var] = {
                 0: self._random_state.choice(
-                    initialization_data[var].dropna(), size=self.na_counts[var]
+                    kernel_data[var].dropna(), size=self.na_counts[var]
                 )
             }
 
@@ -221,20 +219,6 @@ save_all_iterations: {self.save_all_iterations}"""
                 self.data_dtypes[var]
             )
         return imputed_dataframe
-
-    # def _cross_check_numeric(self, variables: Optional[List[str]]) -> List[str]:
-    #
-    #     numeric_imputed_vars = _copy_and_remove(variables, self.categorical_variables)
-    #
-    #     if variables is None:
-    #         variables = numeric_imputed_vars
-    #     else:
-    #         if any([var not in numeric_imputed_vars for var in variables]):
-    #             raise ValueError(
-    #                 "Specified variable is not in imputed numeric variables."
-    #             )
-    #
-    #     return variables
 
     def get_means(self, variables: List[str] = None):
         """

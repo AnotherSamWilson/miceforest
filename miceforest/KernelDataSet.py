@@ -119,7 +119,8 @@ class KernelDataSet(ImputedDataSet):
         random_state: Union[int, np.random.RandomState] = None,
     ):
         super().__init__(
-            data=data,
+            kernel_data=data,
+            impute_data=data,
             variable_schema=variable_schema,
             mean_match_candidates=mean_match_candidates,
             mean_match_subset=mean_match_subset,
@@ -130,30 +131,6 @@ class KernelDataSet(ImputedDataSet):
 
         self.save_models = save_models
 
-        # Format mean_match_candidates before priming datasets
-        available_candidates = {
-            var: (-self.data[var].isna()).sum() for var in self.response_vars
-        }
-        mean_match_candidates = self._format_mm(
-            mean_match_candidates, available_candidates, _get_default_mmc
-        )
-        mean_match_subset = self._format_mm(
-            mean_match_subset, available_candidates, _get_default_mms
-        )
-
-        # Ensure mmc and mms make sense:
-        # mmc <= mms <= available candidates for each var
-        for var in self.response_vars:
-            assert (
-                mean_match_candidates[var] <= mean_match_subset[var]
-            ), f"{var} mean_match_candidates > mean_match_subset"
-            assert (
-                mean_match_subset[var] <= available_candidates[var]
-            ), f"{var} mean_match_subset > available candidates"
-
-        self.mean_match_candidates = mean_match_candidates
-        self.mean_match_subset = mean_match_subset
-
         # Initialize models and time_log
         self.models: Dict[str, Dict] = {var: {0: None} for var in self.response_vars}
         self.time_log = TimeLog(_TIMED_EVENTS)
@@ -161,57 +138,6 @@ class KernelDataSet(ImputedDataSet):
     def __repr__(self):
         summary_string = " " * 14 + "Class: KernelDataSet\n" + self._ids_info()
         return summary_string
-
-    def _mm_type_handling(self, mm, available_candidates) -> int:
-        if isinstance(mm, float):
-            assert (mm > 0.0) & (mm <= 1.0)
-            ret = int(mm * available_candidates)
-        elif isinstance(mm, int):
-            assert mm >= 0
-            ret = int(mm)
-        else:
-            raise ValueError(
-                "mean_match_candidates type not recognized. "
-                + "Any supplied values must be a float <= 1.0 or int >= 1"
-            )
-
-        return ret
-
-    def _format_mm(
-        self, mm, available_candidates, defaulting_function
-    ) -> Dict[str, int]:
-        """
-        mean_match_candidates and mean_match_subset both require similar formatting.
-        The only real difference is the default value based on the number of available
-        candidates, which is what the defaulting_function is for.
-        """
-        if mm is None:
-            mm = {
-                var: int(defaulting_function(available_candidates[var]))
-                for var in self.response_vars
-            }
-        # If a static value was passed
-        elif isinstance(mm, (int, float)):
-            mm = {
-                var: self._mm_type_handling(mm, available_candidates[var])
-                for var in self.response_vars
-            }
-        elif isinstance(mm, dict):
-            if not set(mm).issubset(set(self.response_vars)):
-                raise ValueError(
-                    "Some keys in mean_matching aren't being imputed. "
-                    + "Do all variables in variable_schema have missing values?."
-                )
-            mm = {
-                var: self._mm_type_handling(mm[var], available_candidates[var])
-                if var in mm.keys()
-                else int(defaulting_function(available_candidates[var]))
-                for var in self.response_vars
-            }
-        else:
-            raise ValueError("mean_match_candidates couldn't be interpreted.")
-
-        return mm
 
     def _insert_new_model(self, var, model):
         """
@@ -406,15 +332,18 @@ class KernelDataSet(ImputedDataSet):
                 ].values
 
                 meanmatch_s = datetime.now()
-                imp_values = self.mean_match_function(
-                    mmc=mmc,
-                    candidate_preds=candidate_preds,
-                    bachelor_preds=bachelor_preds,
-                    candidate_values=candidate_values,
-                    random_state=self._random_state,
-                    cat_dtype=self.categorical_dtypes[var] if is_categorical else None,
+                imp_values = np.array(
+                    self.mean_match_function(
+                        mmc=mmc,
+                        candidate_preds=candidate_preds,
+                        bachelor_preds=bachelor_preds,
+                        candidate_values=candidate_values,
+                        random_state=self._random_state,
+                        cat_dtype=self.categorical_dtypes[var] if is_categorical else None,
+                    )
                 )
                 self.time_log.add_time("mean_match", meanmatch_s)
+                assert imp_values.shape == (self.na_counts[var],), f'{var} mean matching returned malformed array'
                 self._insert_new_data(var, imp_values)
 
             logger.log("\n", end="")
@@ -473,17 +402,9 @@ class KernelDataSet(ImputedDataSet):
         if self.save_models < 1:
             raise ValueError("No models were saved.")
 
-        # User might not be strict about keeping track of their categories.
-        # We don't force these, because we don't want to have to create a new copy
-        # of the dataframe.
-        for cv in self._get_cat_vars():
-            assert (
-                self.categorical_dtypes[cv] == new_data[cv].dtype
-            ), f"{cv} categorical dtype is not consistent. See KernelDataset.categorical_dtypes for required type."
-
         imputed_data_set = ImputedDataSet(
-            data=new_data,
-            initialization_data=self.data,
+            kernel_data=self.data,
+            impute_data=new_data,
             # copied because it can be edited if there are no
             # missing values in the new data response variables
             variable_schema=self.variable_schema.copy(),
