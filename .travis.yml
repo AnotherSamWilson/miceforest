@@ -18,7 +18,10 @@ before_install:
   - pip install pytest -U
   - pip install pytest-cov -U
   - pip install codecov -U
-  - pip install mypy -U
+  - pip install pandas -U
+  - pip install seaborn -U
+  - pip install matplotlib -U
+  - pip install scipy -U
 install:
   - travis_retry pip install -e .
 script: 

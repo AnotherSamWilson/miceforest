@@ -27,8 +27,7 @@ setup(
             'scipy >= 1.6.0'
         ],
         "Testing": [
-            "pandas",
-            "sklearn"
+            "pandas"
         ],
     },
     url="https://github.com/AnotherSamWilson/miceforest",
