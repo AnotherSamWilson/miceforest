@@ -1,20 +1,19 @@
 import numpy as np
-from typing import List, Optional, Union, TYPE_CHECKING, Dict
-
-if TYPE_CHECKING:
-    from pandas import DataFrame
-
+from typing import List, Optional, Union, Dict, Any
+from .compat import pd_DataFrame
 
 MeanMatchType = Union[int, float, Dict[str, float], Dict[str, int]]
 VarSchemType = Optional[Union[List[str], Dict[str, List[str]]]]
+VarParamType = Dict[Union[str, int], Dict[str, Any]]
+CatFeatType = Union[str, List[str], List[int], Dict[int, dict]]
 
 
 def ampute_data(
-    data: "DataFrame",
-    variables: Optional[List[str]] = None,
+    data: Union[pd_DataFrame, np.ndarray],
+    variables: Optional[List[Union[str, int]]] = None,
     perc: float = 0.1,
     random_state: Optional[Union[int, np.random.RandomState]] = None,
-) -> "DataFrame":
+) -> Union[pd_DataFrame, np.ndarray]:
     """
     Ampute Data
 
@@ -41,13 +40,53 @@ def ampute_data(
     random_state = ensure_rng(random_state)
 
     if variables is None:
-        variables = list(amputed_data.columns)
+        variables = [i for i in range(amputed_data.shape[1])]
 
-    for v in variables:
-        na_ind = random_state.choice(range(nrow), replace=False, size=amp_rows)
-        amputed_data.loc[na_ind, v] = np.NaN
+    if isinstance(amputed_data, pd_DataFrame):
+        for v in variables:
+            na_ind = random_state.choice(range(nrow), replace=False, size=amp_rows)
+            amputed_data.iloc[na_ind, v] = np.NaN
+
+    if isinstance(amputed_data, np.ndarray):
+        amputed_data = amputed_data.astype("float64")
+        for v in variables:
+            na_ind = random_state.choice(range(nrow), replace=False, size=amp_rows)
+            amputed_data[na_ind, v] = np.NaN
 
     return amputed_data
+
+
+def stratified_continuous_folds(y, nfold):
+    """
+    Create primitive stratified folds for continuous data.
+    Should be digestible by lightgbm.cv function.
+    """
+    elements = len(y)
+    assert elements >= nfold, "more splits then elements."
+    sorted = np.argsort(y)
+    val = [sorted[range(i, len(y), nfold)] for i in range(nfold)]
+    for v in val:
+        yield (np.setdiff1d(range(elements), v), v)
+
+
+def stratified_categorical_folds(y, nfold):
+    """
+    Create primitive stratified folds for categorical data.
+    Should be digestible by lightgbm.cv function.
+    """
+    y = y.reshape(
+        y.shape[0],
+    ).copy()
+    elements = len(y)
+    uniq, inv, counts = np.unique(y, return_counts=True, return_inverse=True)
+    assert elements >= nfold, "more splits then elements."
+    if any(counts < nfold):
+        print("Decreasing nfold to lowest categorical level count...")
+        nfold = min(counts)
+    sorted = np.argsort(inv)
+    val = [sorted[range(i, len(y), nfold)] for i in range(nfold)]
+    for v in val:
+        yield (np.setdiff1d(range(elements), v), v)
 
 
 def ensure_rng(
@@ -67,23 +106,18 @@ def ensure_rng(
     return random_state
 
 
-def _var_comparison(variables: Optional[List[str]], comparison: List[str]) -> List[str]:
+def _get_missing_stats(data: np.ndarray):
     """
-    If variables is None, set it equal to the comparison list
-    Else, make sure all of variables are in comparison list.
+    This function is seperate because this data is needed
+    at different times depending on the datatype passed
     """
-    if variables is None:
-        variables = comparison
-    elif any([v not in comparison for v in variables]):
-        raise ValueError("Action not permitted on supplied variables.")
-    return variables
+    na_where = np.isnan(data)
+    data_shape = data.shape
+    na_counts = na_where.sum(0).tolist()
+    na_where = {col: np.where(na_where[:, col])[0] for col in range(data_shape[1])}
+    vars_with_any_missing = [int(col) for col, ind in na_where.items() if len(ind > 0)]
 
-
-def _copy_and_remove(lst, elements):
-    lt = lst.copy()
-    for element in elements:
-        lt.remove(element)
-    return lt
+    return na_where, data_shape, na_counts, vars_with_any_missing
 
 
 def _get_default_mmc(candidates=None) -> int:
@@ -92,16 +126,13 @@ def _get_default_mmc(candidates=None) -> int:
     else:
         percent = 0.001
         minimum = 5
-        mean_match_candidates = max(minimum, int(percent * candidates))
+        maximum = 25
+        mean_match_candidates = min(maximum, max(minimum, int(percent * candidates)))
         return mean_match_candidates
 
 
 def _get_default_mms(candidates) -> int:
     return int(candidates)
-
-
-def _list_union(a, b):
-    return [element for element in a if element in b]
 
 
 def _setequal(a, b):
@@ -111,13 +142,166 @@ def _setequal(a, b):
         return set(a) == set(b)
 
 
-# Check for n_estimators aliases that might confuse lightgbm
-disallowed_aliases_n_estimators = [
-    "num_iteration",
-    "n_iter",
-    "num_tree",
-    "num_trees",
-    "num_round",
-    "num_rounds",
-    "num_boost_round",
-]
+# Not all aliases are stored somewhere retrievable in lightgbm..
+# So they are manually stored here.
+# List can be found at:
+# https://github.com/microsoft/LightGBM/blob/master/src/io/config_auto.cpp
+param_mapping = {
+    "config_file": "config",
+    "task_type": "task",
+    "objective_type": "objective",
+    "app": "objective",
+    "application": "objective",
+    "boosting_type": "boosting",
+    "boost": "boosting",
+    "train": "data",
+    "train_data": "data",
+    "train_data_file": "data",
+    "data_filename": "data",
+    "test": "valid",
+    "valid_data": "valid",
+    "valid_data_file": "valid",
+    "test_data": "valid",
+    "test_data_file": "valid",
+    "valid_filenames": "valid",
+    "num_iteration": "num_iterations",
+    "n_iter": "num_iterations",
+    "num_tree": "num_iterations",
+    "num_trees": "num_iterations",
+    "num_round": "num_iterations",
+    "num_rounds": "num_iterations",
+    "num_boost_round": "num_iterations",
+    "n_estimators": "num_iterations",
+    "shrinkage_rate": "learning_rate",
+    "eta": "learning_rate",
+    "num_leaf": "num_leaves",
+    "max_leaves": "num_leaves",
+    "max_leaf": "num_leaves",
+    "tree": "tree_learner",
+    "tree_type": "tree_learner",
+    "tree_learner_type": "tree_learner",
+    "num_thread": "num_threads",
+    "nthread": "num_threads",
+    "nthreads": "num_threads",
+    "n_jobs": "num_threads",
+    "device": "device_type",
+    "random_seed": "seed",
+    "random_state": "seed",
+    "hist_pool_size": "histogram_pool_size",
+    "min_data_per_leaf": "min_data_in_leaf",
+    "min_data": "min_data_in_leaf",
+    "min_child_samples": "min_data_in_leaf",
+    "min_sum_hessian_per_leaf": "min_sum_hessian_in_leaf",
+    "min_sum_hessian": "min_sum_hessian_in_leaf",
+    "min_hessian": "min_sum_hessian_in_leaf",
+    "min_child_weight": "min_sum_hessian_in_leaf",
+    "sub_row": "bagging_fraction",
+    "subsample": "bagging_fraction",
+    "bagging": "bagging_fraction",
+    "pos_sub_row": "pos_bagging_fraction",
+    "pos_subsample": "pos_bagging_fraction",
+    "pos_bagging": "pos_bagging_fraction",
+    "neg_sub_row": "neg_bagging_fraction",
+    "neg_subsample": "neg_bagging_fraction",
+    "neg_bagging": "neg_bagging_fraction",
+    "subsample_freq": "bagging_freq",
+    "bagging_fraction_seed": "bagging_seed",
+    "sub_feature": "feature_fraction",
+    "colsample_bytree": "feature_fraction",
+    "sub_feature_bynode": "feature_fraction_bynode",
+    "colsample_bynode": "feature_fraction_bynode",
+    "extra_tree": "extra_trees",
+    "early_stopping_rounds": "early_stopping_round",
+    "early_stopping": "early_stopping_round",
+    "n_iter_no_change": "early_stopping_round",
+    "max_tree_output": "max_delta_step",
+    "max_leaf_output": "max_delta_step",
+    "reg_alpha": "lambda_l1",
+    "reg_lambda": "lambda_l2",
+    "lambda": "lambda_l2",
+    "min_split_gain": "min_gain_to_split",
+    "rate_drop": "drop_rate",
+    "topk": "top_k",
+    "mc": "monotone_constraints",
+    "monotone_constraint": "monotone_constraints",
+    "monotone_constraining_method": "monotone_constraints_method",
+    "mc_method": "monotone_constraints_method",
+    "monotone_splits_penalty": "monotone_penalty",
+    "ms_penalty": "monotone_penalty",
+    "mc_penalty": "monotone_penalty",
+    "feature_contrib": "feature_contri",
+    "fc": "feature_contri",
+    "fp": "feature_contri",
+    "feature_penalty": "feature_contri",
+    "fs": "forcedsplits_filename",
+    "forced_splits_filename": "forcedsplits_filename",
+    "forced_splits_file": "forcedsplits_filename",
+    "forced_splits": "forcedsplits_filename",
+    "verbose": "verbosity",
+    "model_input": "input_model",
+    "model_in": "input_model",
+    "model_output": "output_model",
+    "model_out": "output_model",
+    "save_period": "snapshot_freq",
+    "linear_trees": "linear_tree",
+    "subsample_for_bin": "bin_construct_sample_cnt",
+    "data_seed": "data_random_seed",
+    "is_sparse": "is_enable_sparse",
+    "enable_sparse": "is_enable_sparse",
+    "sparse": "is_enable_sparse",
+    "is_enable_bundle": "enable_bundle",
+    "bundle": "enable_bundle",
+    "is_pre_partition": "pre_partition",
+    "two_round_loading": "two_round",
+    "use_two_round_loading": "two_round",
+    "has_header": "header",
+    "label": "label_column",
+    "weight": "weight_column",
+    "group": "group_column",
+    "group_id": "group_column",
+    "query_column": "group_column",
+    "query": "group_column",
+    "query_id": "group_column",
+    "ignore_feature": "ignore_column",
+    "blacklist": "ignore_column",
+    "cat_feature": "categorical_feature",
+    "categorical_column": "categorical_feature",
+    "cat_column": "categorical_feature",
+    "is_save_binary": "save_binary",
+    "is_save_binary_file": "save_binary",
+    "is_predict_raw_score": "predict_raw_score",
+    "predict_rawscore": "predict_raw_score",
+    "raw_score": "predict_raw_score",
+    "is_predict_leaf_index": "predict_leaf_index",
+    "leaf_index": "predict_leaf_index",
+    "is_predict_contrib": "predict_contrib",
+    "contrib": "predict_contrib",
+    "predict_result": "output_result",
+    "prediction_result": "output_result",
+    "predict_name": "output_result",
+    "prediction_name": "output_result",
+    "pred_name": "output_result",
+    "name_pred": "output_result",
+    "convert_model_file": "convert_model",
+    "num_classes": "num_class",
+    "unbalance": "is_unbalance",
+    "unbalanced_sets": "is_unbalance",
+    "metrics": "metric",
+    "metric_types": "metric",
+    "output_freq": "metric_freq",
+    "training_metric": "is_provide_training_metric",
+    "is_training_metric": "is_provide_training_metric",
+    "train_metric": "is_provide_training_metric",
+    "ndcg_eval_at": "eval_at",
+    "ndcg_at": "eval_at",
+    "map_eval_at": "eval_at",
+    "map_at": "eval_at",
+    "num_machine": "num_machines",
+    "local_port": "local_listen_port",
+    "port": "local_listen_port",
+    "machine_list_file": "machine_list_filename",
+    "machine_list": "machine_list_filename",
+    "mlist": "machine_list_filename",
+    "workers": "machines",
+    "nodes": "machines",
+}

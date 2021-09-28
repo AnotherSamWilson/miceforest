@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-from pathlib import Path
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -7,7 +6,6 @@ with open("README.md", "r") as fh:
 
 setup(
     name="miceforest",
-    # version=version,
     author="Samuel Wilson",
     license="MIT",
     author_email="samwilson303@gmail.com",
@@ -16,14 +14,22 @@ setup(
     keywords=['MICE','Imputation','Missing Values','Missing','Random Forest'],
     long_description=long_description,
     long_description_content_type="text/markdown",
-    install_requires=['lightgbm',
-                      'numpy',
-                      'pandas',
-                      'seaborn >= 0.11.0',
-                      'matplotlib >= 3.3.0'
-                      ],
+    install_requires=[
+        'lightgbm',
+        'numpy'
+        ],
     extras_require={
-        "DMM": ["scikit-learn"],
+        "Plotting": [
+            'seaborn >= 0.11.0',
+            'matplotlib >= 3.3.0'
+        ],
+        "Default_MM": [
+            'scipy >= 1.6.0'
+        ],
+        "Testing": [
+            "pandas",
+            "sklearn"
+        ],
     },
     url="https://github.com/AnotherSamWilson/miceforest",
     packages=find_packages(exclude=["tests.*", "tests"]),

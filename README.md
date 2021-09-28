@@ -1,7 +1,6 @@
 
 [![Build
 Status](https://travis-ci.org/AnotherSamWilson/miceforest.svg?branch=master)](https://travis-ci.org/AnotherSamWilson/miceforest)
-[![MyPy](https://img.shields.io/badge/MyPy-passing-success.svg)](https://pypi.org/project/miceforest/)
 [![Documentation
 Status](https://readthedocs.org/projects/miceforest/badge/?version=latest)](https://miceforest.readthedocs.io/en/latest/?badge=latest)
 [![MIT
@@ -36,18 +35,24 @@ you can find
 
   - [Package
     Meta](https://github.com/AnotherSamWilson/miceforest#Package-Meta)
-  - [Using
-    miceforest](https://github.com/AnotherSamWilson/miceforest#Using-miceforest)
+  - [The
+    Basics](https://github.com/AnotherSamWilson/miceforest#The-Basics)
       - [Single
         Imputation](https://github.com/AnotherSamWilson/miceforest#Imputing-A-Single-Dataset)
       - [Multiple
         Imputation](https://github.com/AnotherSamWilson/miceforest#Simple-Example-Of-Multiple-Imputation)
       - [Controlling Tree
         Growth](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
+      - [Preserving Data
+        Assumptions](https://github.com/AnotherSamWilson/miceforest#Preserving-Data-Assumptions)
       - [Imputing With Gradient Boosted
         Trees](https://github.com/AnotherSamWilson/miceforest#Imputing-With-Gradient-Boosted-Trees)
+  - [Advanced
+    Features](https://github.com/AnotherSamWilson/miceforest#Advanced-Features)
       - [Customizing the Imputation
         Process](https://github.com/AnotherSamWilson/miceforest#Customizing-the-Imputation-Process)
+      - [Tuning
+        Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
       - [Imputing New Data with Existing
         Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
       - [How to Make the Process
@@ -74,7 +79,23 @@ you can find
       - [Effects of Mean
         Matching](https://github.com/AnotherSamWilson/miceforest#Effects-of-Mean-Matching)
 
-### Package Meta
+## Package Meta
+
+### News
+
+New major update = 4.0.0.
+
+  - Huge performance improvements, especially if categorical variables
+    were being imputed.
+  - Ability to tune parameters of models, and use best parameters for
+    mice.
+  - Improvements to code layout - got rid of ImputationSchema.
+  - Raw data is now stored as a numpy array to save space and improve
+    indexing.
+  - Numpy arrays can be imputed, if you want to avoid pandas.
+  - Options of multiple build-in mean matching functions.
+
+### Installation
 
 miceforest has 4 main classes which the user will interact with:
 
@@ -110,7 +131,7 @@ first run `conda install pip git`.
 $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
 ```
 
-## Using miceforest
+## The Basics
 
 We will be looking at a few simple examples of imputation. We need to
 load the packages, and define the data:
@@ -141,7 +162,7 @@ kds = mf.KernelDataSet(
 )
 
 # Run the MICE algorithm for 3 iterations
-kds.mice(3)
+kds.mice(2)
 
 # Return the completed kernel data
 completed_data = kds.complete_data()
@@ -155,8 +176,11 @@ datasets is slightly different.
 
 ### Simple Example of Multiple Imputation
 
-We can also create a class which contains multiple `KernelDataSet`s,
-along with easy ways to compare them:
+In statistics, multiple imputation is a process by which the
+uncertainty/other effects caused by missing values can be examined by
+creating multiple different imputed datasets. We can create a class
+which contains multiple `KernelDataSet`s, along with easy ways to
+compare them:
 
 ``` python
 # Create kernel. 
@@ -164,12 +188,20 @@ kernel = mf.MultipleImputedKernel(
   iris_amp,
   datasets=4,
   save_all_iterations=True,
-  random_state=1991
+  random_state=1
 )
 
-# Run the MICE algorithm for 3 iterations on each of the datasets
-kernel.mice(3)
+# Run the MICE algorithm for 2 iterations on each of the datasets
+kernel.mice(2)
+
+# We can subset out MultipleImputedKernel to get access to the different KernelDataSets:
+print(kernel[0])
 ```
+
+    ##               Class: KernelDataSet
+    ##          Iterations: 2
+    ##   Imputed Variables: 5
+    ## save_all_iterations: True
 
 Printing the `MultipleImputedKernel` object will tell you some high
 level information:
@@ -181,7 +213,7 @@ print(kernel)
     ##               Class: MultipleImputedKernel
     ##        Models Saved: Last Iteration
     ##            Datasets: 4
-    ##          Iterations: 3
+    ##          Iterations: 2
     ##   Imputed Variables: 5
     ## save_all_iterations: True
 
@@ -192,7 +224,7 @@ Parameters you wish to apply globally to every model can simply be
 passed as kwargs to `mice`:
 
 ``` python
-# Run the MICE algorithm for 2 more iterations on the kernel 
+# Run the MICE algorithm for 1 more iteration on the kernel with new parameters
 kernel.mice(1,n_estimators=50)
 ```
 
@@ -210,6 +242,27 @@ kernel.mice(1,variable_parameters={'target': {'n_estimators': 25}},n_estimators=
 In this scenario, any parameters specified in `variable_parameters`
 takes presidence over the kwargs.
 
+### Preserving Data Assumptions
+
+If your data contains count data, or any other data which can be
+parameterized by lightgbm, you can simply specify that variable to be
+modeled with the corresponding objective function. For example, let’s
+pretend `sepal width (cm)` is a count field which can be parameterized
+by a Poisson distribution:
+
+``` python
+# Create kernel. 
+cust_kernel = mf.KernelDataSet(
+  iris_amp,
+  save_all_iterations=True,
+  random_state=1
+)
+
+cust_kernel.mice(1, variable_parameters={'sepal width (cm)': {'objective': 'poisson'}})
+```
+
+Other nice parameters like `monotone_constraints` can also be passed.
+
 ### Imputing with Gradient Boosted Trees
 
 Since any arbitrary parameters can be passed to `lightgbm.train()`, it
@@ -224,12 +277,24 @@ kds_gbdt = mf.KernelDataSet(
   random_state=1991
 )
 
-# We need to add a minimum hessian, or lightgbm will complain:
-kds_gbdt.mice(3, boosting='gbdt', min_sum_hessian_in_leaf=1)
+# We need to add a small minimum hessian, or lightgbm will complain:
+kds_gbdt.mice(3, boosting='gbdt', min_sum_hessian_in_leaf=0.01)
 
 # Return the completed kernel data
 completed_data = kds_gbdt.complete_data()
 ```
+
+Note: It is HIGHLY recommended to run parameter tuning if using gradient
+boosted trees. The parameter tuning process returns the optimal number
+of iterations, and usually results in much more useful parameter sets.
+See the section [Tuning
+Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
+for more details.
+
+## Advanced Features
+
+There are many ways to alter the imputation procedure to fit your
+specific dataset.
 
 ### Customizing the Imputation Process
 
@@ -256,16 +321,17 @@ var_mms = {
 # The mean matching function requires these parameters, even
 # if it does not use them.
 def mmf(
-        mmc,
-        candidate_preds,
-        bachelor_preds,
-        candidate_values,
-        cat_dtype,
-        random_state):
+  mmc,
+  mms,
+  model,
+  candidate_features,
+  bachelor_features,
+  candidate_values,
+  random_state
+):
 
+    bachelor_preds = model.predict(bachelor_features)
     imp_values = random_state.choice(candidate_values, size=bachelor_preds.shape[0])
-    if cat_dtype is not None:
-        imp_values = cat_dtype.categories[imp_values]
 
     return imp_values
 
@@ -277,8 +343,80 @@ cust_kernel = mf.MultipleImputedKernel(
     mean_match_subset=var_mms,
     mean_match_function=mmf
 )
-cust_kernel.mice(2)
+cust_kernel.mice(1)
 ```
+
+### Tuning Parameters
+
+`miceforest` allows you to tune the parameters on a kernel dataset.
+These parameters can then be used to build the models in future
+iterations of mice. In its most simple invocation, you can just call the
+function with the desired optimization steps:
+
+``` python
+# Using the first KernelDataSet in kernel to tune parameters
+# with the default settings.
+optimal_parameters, losses = kernel[0].tune_parameters(
+  optimization_steps=5,
+  verbose=True
+)
+```
+
+    ## sepal length (cm) | 0 - 1 - 2 - 3 - 4 - 
+    ## sepal width (cm) | 0 - 1 - 2 - 3 - 4 - 
+    ## petal length (cm) | 0 - 1 - 2 - 3 - 4 - 
+    ## petal width (cm) | 0 - 1 - 2 - 3 - 4 - 
+    ## target | 0 - 1 - 2 - 3 - 4 -
+
+``` python
+kernel.mice(1, variable_parameters=optimal_parameters)
+```
+
+This will perform 10 fold cross validation on random samples of
+parameters. By default, all variables models are tuned. If you are
+curious about the default parameter space that is searched within, check
+out the `miceforest.default_lightgbm_parameters` module.
+
+The parameter tuning is pretty flexible. If you wish to set some model
+parameters static, or to change the bounds that are searched in, you can
+simply pass this information to either the `variable_parameters`
+parameter, `**kwbounds`, or both:
+
+``` python
+# Using a complicated setup:
+optimal_parameters, losses = kernel[0].tune_parameters(
+  variables = ['sepal width (cm)','target','petal width (cm)'],
+  variable_parameters = {
+    'sepal width (cm)': {'bagging_fraction': 0.5},
+    'target': {'bagging_freq': (5,10)}
+  },
+  optimization_steps=5,
+  extra_trees = [True, False]
+)
+
+kernel.mice(1, variable_parameters=optimal_parameters)
+```
+
+In this example, we did a few things - we specified that only `sepal
+width (cm)`, `target`, and `petal width (cm)` should be tuned. We also
+specified some specific parameters in `variable_parameters.` Notice that
+`bagging_fraction` was passed as a scalar, `0.5`. This means that, for
+the variable `sepal width (cm)`, the parameter `bagging_fraction` will
+be set as that number and not be tuned. We did the opposite for
+`bagging_freq`. We specified bounds that the process should search in.
+We also passed the argument `extra_trees` as a list. Since it was passed
+to \*\*kwbounds, this parameter will apply to all variables that are
+being tuned. Passing values as a list tells the process that it should
+randomly sample values from the list, instead of treating them as set of
+counts to search within.
+
+The tuning process follows these rules for different parameter values it
+finds:
+
+  - Scalar: That value is used, and not tuned.  
+  - Tuple: Should be length 2. Treated as the lower and upper bound to
+    search in.  
+  - List: Treated as a distinct list of values to try randomly.
 
 ### Imputing New Data with Existing Models
 
@@ -299,9 +437,9 @@ print(new_data_imputed)
 
     ##               Class: MultipleImputedDataSet
     ##            Datasets: 4
-    ##          Iterations: 5
+    ##          Iterations: 6
     ##   Imputed Variables: 5
-    ## save_all_iterations: False
+    ## save_all_iterations: True
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
@@ -333,9 +471,8 @@ use to decrease the time a process takes to run:
     \* (n\_estimators). You can specifically decrease the bagging
     fraction or n\_estimators for large multi-class variables.  
   - Use a faster mean matching function. The default mean matching
-    function uses the sklearn.neighbors.NearestNeighbors algorithm.
-    There are faster alternatives out there (faiss), however faiss is
-    only available from conda.
+    function uses the scipy.Spatial.KDtree algorithm. There are faster
+    alternatives out there, if you think mean matching is the holdup.
 
 ## Diagnostic Plotting
 
@@ -422,7 +559,7 @@ how well the imputations compare to the original data:
 ``` python
 acclist = []
 for iteration in range(kernel.iteration_count()+1):
-    target_na_count = kernel.na_counts['target']
+    target_na_count = kernel.na_counts[4]
     compdat = kernel.complete_data(dataset=0,iteration=iteration)
     
     # Record the accuract of the imputations of target.
@@ -435,13 +572,12 @@ for iteration in range(kernel.iteration_count()+1):
 print(acclist)
 ```
 
-    ## [0.32, 0.84, 0.81, 0.68, 0.81, 0.86]
+    ## [0.22, 0.65, 0.7, 0.81, 0.78, 0.86, 0.81]
 
 In this instance, we went from a \~32% accuracy (which is expected with
 random sampling) to an accuracy of \~86% after the first iteration. The
-accuracy kind of floundered around afterwards. This is typical when the
-data is Missing Completely At Random. If the data were more Missing At
-Random, we might see a more normal convergence of accuracy.
+accuracy kind of floundered around afterwards. However, notice the
+accuracy we achieved at the last iteration, after parameter tuning.
 
 ## The MICE Algorithm
 

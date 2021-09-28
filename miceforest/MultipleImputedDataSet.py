@@ -1,13 +1,12 @@
 from .ImputedDataSet import ImputedDataSet
-from .ImputationSchema import _ImputationSchema
 import numpy as np
-from pandas import DataFrame
 from itertools import combinations
-from .utils import _var_comparison
+from .utils import VarSchemType, CatFeatType
 from typing import Union, List, Dict
+from .compat import pd_DataFrame, pd_Series
 
 
-class MultipleImputedDataSet(_ImputationSchema):
+class MultipleImputedDataSet(ImputedDataSet):
     """
     A collection of ImputedDataSets with similar schemas.
     Includes methods allowing for easy access and comparisons.
@@ -24,23 +23,24 @@ class MultipleImputedDataSet(_ImputationSchema):
 
     """
 
-    def __init__(self, kernel_data: "DataFrame", initial_dataset: ImputedDataSet):
+    def __init__(
+        self,
+        impute_data: Union[pd_DataFrame, pd_Series, np.ndarray],
+        variable_schema: VarSchemType = None,
+        imputation_order: Union[str, List[Union[str, int]]] = "ascending",
+        categorical_feature: CatFeatType = "auto",
+        save_all_iterations: bool = True,
+    ):
 
-        # Inherit schema and other attributes from initial_dataset
+        self.imputed_data_sets: Dict[int, ImputedDataSet] = {}
+
         super().__init__(
-            kernel_data=kernel_data,
-            impute_data=initial_dataset.data,
-            variable_schema=initial_dataset.variable_schema,
-            mean_match_candidates=initial_dataset.mean_match_candidates,
-            mean_match_subset=initial_dataset.mean_match_subset,
-            mean_match_function=initial_dataset.mean_match_function,
-            imputation_order=initial_dataset.imputation_order,
+            impute_data,
+            variable_schema,
+            imputation_order,
+            categorical_feature,
+            save_all_iterations,
         )
-        self.data = getattr(initial_dataset, "data")
-        self.save_all_iterations = getattr(initial_dataset, "save_all_iterations")
-        self._prep_multi_plot = getattr(initial_dataset, "_prep_multi_plot")
-        self._default_iteration = getattr(initial_dataset, "_default_iteration")
-        self.imputed_data_sets = {0: initial_dataset}
 
     def __getitem__(self, key):
         return self.imputed_data_sets[key]
@@ -50,6 +50,9 @@ class MultipleImputedDataSet(_ImputationSchema):
 
     def __delitem__(self, key):
         del self.imputed_data_sets[key]
+
+    def __len__(self):
+        return len(self.imputed_data_sets)
 
     def items(self):
         return self.imputed_data_sets.items()
@@ -69,30 +72,10 @@ class MultipleImputedDataSet(_ImputationSchema):
         return summary_string
 
     def _mids_info(self) -> str:
-        summary_string = f"""\
-           Datasets: {self.dataset_count()}
-         Iterations: {self.iteration_count()}
-  Imputed Variables: {self.n_imputed_vars}
-save_all_iterations: {self.save_all_iterations}"""
+        summary_string = (
+            " " * 11 + f"Datasets: {self.dataset_count()}" + "\n" + self._ids_info()
+        )
         return summary_string
-
-    def _ensure_dataset_fidelity(self, new_set: ImputedDataSet):
-        """
-        To be consistent with the original, an imputed dataset must
-        have the same:
-            1) schema
-            2) data
-            3) number of iterations
-            4) save_all_iterations
-
-        Datasets can be updated internally, but cannot be
-        added to the dict unless they are consistent.
-        """
-
-        assert self.equal_schemas(new_set)
-        assert self.data.equals(new_set.data)
-        assert new_set.iteration_count() == self.iteration_count()
-        assert new_set.save_all_iterations == self.save_all_iterations
 
     def append(self, imputed_data_set: ImputedDataSet):
         """
@@ -104,9 +87,12 @@ save_all_iterations: {self.save_all_iterations}"""
             The dataset to add
 
         """
-        self._ensure_dataset_fidelity(imputed_data_set)
-        curr_count = self.dataset_count()
-        self[curr_count] = imputed_data_set
+        self._check_appendable(imputed_data_set)
+        if isinstance(imputed_data_set, ImputedDataSet):
+            self[self.dataset_count()] = imputed_data_set
+        elif isinstance(imputed_data_set, MultipleImputedDataSet):
+            for ds in range(imputed_data_set.dataset_count()):
+                self[self.dataset_count()] = imputed_data_set[ds]
 
     def remove(self, datasets: Union[int, List[int]]):
         """
@@ -136,7 +122,7 @@ save_all_iterations: {self.save_all_iterations}"""
         """
         Returns the number of datasets being stored
         """
-        return len(self.imputed_data_sets)
+        return len(self)
 
     def get_correlations(
         self, variables: List[str]
@@ -195,7 +181,7 @@ save_all_iterations: {self.save_all_iterations}"""
         return correlation_dict
 
     # Helper methods that reach into self.imputed_data_sets
-    def iteration_count(self, dataset: int = None, var: str = None):
+    def iteration_count(self, dataset: int = None, var: str = None):  # type: ignore
         """
         Return iterations for the entire dataset, or a specific variable
 
@@ -214,10 +200,15 @@ save_all_iterations: {self.save_all_iterations}"""
         int
             The iterations run so far.
         """
+
         if dataset is not None:
             self[dataset].iteration_count(var=var)
         else:
-            # Get iterations for all imputed data sets.
+
+            # Return 0 if this dataset contains no imputed data sets.
+            if len(self) == 0:
+                return 0
+
             ids_iterations = np.unique(
                 [ids.iteration_count(var=var) for key, ids in self.items()]
             )
@@ -227,8 +218,8 @@ save_all_iterations: {self.save_all_iterations}"""
                 return next(iter(ids_iterations))
 
     def complete_data(
-        self, dataset: int, iteration: int = None, all_vars: bool = False
-    ) -> DataFrame:
+        self, dataset: int, iteration: int = None, cast: str = "original"
+    ) -> Union[pd_DataFrame, np.ndarray]:  # type: ignore
         """
         Calls complete_data() from the specified stored dataset. See
         ImputedDataSet.complete_data().
@@ -247,10 +238,9 @@ save_all_iterations: {self.save_all_iterations}"""
 
         Returns
         -------
-        pandas DataFrame
-            The completed data
+        The completed data.
         """
-        compdat = self[dataset].complete_data(iteration=iteration, all_vars=all_vars)
+        compdat = self[dataset].complete_data(iteration=iteration, cast=cast)
         return compdat
 
     def plot_mean_convergence(self, variables: List[str] = None, **adj_args):
@@ -271,11 +261,10 @@ save_all_iterations: {self.save_all_iterations}"""
         if self.iteration_count() < 2:
             raise ValueError("There is only one iteration.")
 
-        num_vars = self._get_num_vars()
-        variables = _var_comparison(variables, num_vars)
+        num_vars = self._get_num_vars(variables)
 
-        mean_dict = {key: ds.get_means(variables=variables) for key, ds in self.items()}
-        plots, plotrows, plotcols = self._prep_multi_plot(variables)
+        mean_dict = {key: ds.get_means(variables=num_vars) for key, ds in self.items()}
+        plots, plotrows, plotcols = self._prep_multi_plot(num_vars)
         gs = gridspec.GridSpec(plotrows, plotcols)
         fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
@@ -314,25 +303,24 @@ save_all_iterations: {self.save_all_iterations}"""
         from matplotlib import gridspec
 
         iteration = self._default_iteration(iteration)
-        num_vars = self._get_num_vars()
-        variables = _var_comparison(variables, num_vars)
+        num_vars = self._get_num_vars(variables)
 
-        plots, plotrows, plotcols = self._prep_multi_plot(variables)
+        plots, plotrows, plotcols = self._prep_multi_plot(num_vars)
         gs = gridspec.GridSpec(plotrows, plotcols)
         fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
         for v in range(plots):
-            var = variables[v]
+            var = num_vars[v]
             axr, axc = next(iter(gs[v].rowspan)), next(iter(gs[v].colspan))
             iteration_level_imputations = {
                 key: dataset[var, iteration] for key, dataset in self.items()
             }
             plt.sca(ax[axr, axc])
-            ax[axr, axc] = sns.kdeplot(
-                self.data[var].dropna(), color="red", linewidth=2
-            )
+            dat = np.delete(self.data[:, var], self.na_where[var])
+            ax[axr, axc] = sns.kdeplot(dat, color="red", linewidth=2)
             for imparray in iteration_level_imputations.values():
                 ax[axr, axc] = sns.kdeplot(imparray, color="black", linewidth=1)
+            ax[axr, axc].set(xlabel=self._get_column_name(var))
 
         plt.subplots_adjust(**adj_args)
 
@@ -349,16 +337,20 @@ save_all_iterations: {self.save_all_iterations}"""
             Additional arguments passed to plt.subplots_adjust()
 
         """
-        import matplotlib.pyplot as plt
-        from matplotlib import gridspec
+
+        # Move this to .compat at some point.
+        try:
+            import matplotlib.pyplot as plt
+            from matplotlib import gridspec
+        except ImportError:
+            raise ImportError("matplotlib must be installed to plot importance")
 
         if self.dataset_count() < 4:
             raise ValueError("Not enough datasets to make box plot")
 
-        num_vars = self._get_num_vars()
-        variables = _var_comparison(variables, num_vars)
-        plots, plotrows, plotcols = self._prep_multi_plot(variables)
-        correlation_dict = self.get_correlations(variables=variables)
+        num_vars = self._get_num_vars(variables)
+        plots, plotrows, plotcols = self._prep_multi_plot(num_vars)
+        correlation_dict = self.get_correlations(variables=num_vars)
         gs = gridspec.GridSpec(plotrows, plotcols)
         fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
 
