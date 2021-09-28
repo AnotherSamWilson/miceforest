@@ -69,6 +69,27 @@ def test_cust_schema_pandas():
     assert kernel[0].models[1][nround].params['num_iterations'] == 15
     assert kernel[0].models[2][nround].params['num_iterations'] == 10
 
+    # Test the ability to tune parameters with custom
+    optimization_steps = 2
+    op, ol = kernel[0].tune_parameters(
+        optimization_steps=optimization_steps,
+        variable_parameters={1: {"bagging_fraction": 0.9, "feature_fraction_bynode": (0.85, 0.9)}},
+        bagging_fraction=0.8,
+        feature_fraction_bynode=(0.70,0.75)
+    )
+    assert op[1]["bagging_fraction"] == 0.9
+    assert op[2]["bagging_fraction"] == 0.8
+    assert (op[1]["feature_fraction_bynode"] >= 0.85) and (op[1]["feature_fraction_bynode"] <= 0.9)
+    assert (op[2]["feature_fraction_bynode"] >= 0.70) and (op[2]["feature_fraction_bynode"] <= 0.75)
+    kernel.mice(1, variable_parameters=op)
+    model_2_params = kernel[0].models[2][nround + 1].params
+    model_1_params = kernel[0].models[1][nround + 1].params
+    assert model_2_params["bagging_fraction"] == 0.8
+    assert model_1_params["bagging_fraction"] == 0.9
+    assert (model_2_params["feature_fraction_bynode"] >= 0.70) and (model_2_params["feature_fraction_bynode"] <= 0.75)
+    assert (model_1_params["feature_fraction_bynode"] >= 0.85) and (model_1_params["feature_fraction_bynode"] <= 0.9)
+
+
     compdat = kernel.complete_data(0)
     assert all(compdat[["1","2","3"]].isnull().sum() == 0)
 
@@ -81,7 +102,7 @@ def test_cust_schema_pandas():
         save_all_iterations=True,
         random_state=random_state
     )
-    kernel2.mice(nround)
+    kernel2.mice(nround + 1)
     kernel.append(kernel2)
     kernel.mice(1)
 
@@ -141,6 +162,27 @@ def test_cust_schema_numpy():
     assert kernel[0].models[1][nround].params['num_iterations'] == 15
     assert kernel[0].models[2][nround].params['num_iterations'] == 10
 
+    # Test the ability to tune parameters with custom
+    optimization_steps = 2
+    op, ol = kernel[0].tune_parameters(
+        optimization_steps=optimization_steps,
+        variable_parameters={1: {"bagging_fraction": 0.9, "feature_fraction_bynode": (0.85, 0.9)}},
+        bagging_fraction=0.8,
+        feature_fraction_bynode=(0.70,0.75)
+    )
+    assert op[1]["bagging_fraction"] == 0.9
+    assert op[2]["bagging_fraction"] == 0.8
+    assert (op[1]["feature_fraction_bynode"] >= 0.85) and (op[1]["feature_fraction_bynode"] <= 0.9)
+    assert (op[2]["feature_fraction_bynode"] >= 0.70) and (op[2]["feature_fraction_bynode"] <= 0.75)
+    kernel.mice(1, variable_parameters=op)
+    model_2_params = kernel[0].models[2][nround + 1].params
+    model_1_params = kernel[0].models[1][nround + 1].params
+    assert model_2_params["bagging_fraction"] == 0.8
+    assert model_1_params["bagging_fraction"] == 0.9
+    assert (model_2_params["feature_fraction_bynode"] >= 0.70) and (model_2_params["feature_fraction_bynode"] <= 0.75)
+    assert (model_1_params["feature_fraction_bynode"] >= 0.85) and (model_1_params["feature_fraction_bynode"] <= 0.9)
+
+
     compdat = kernel.complete_data(0)
     assert isinstance(compdat, np.ndarray)
     assert np.isnan(compdat[:,[1,2,3]]).sum() == 0
@@ -154,7 +196,7 @@ def test_cust_schema_numpy():
         save_all_iterations=True,
         random_state=random_state
     )
-    kernel2.mice(nround)
+    kernel2.mice(nround + 1)
     kernel.append(kernel2)
     kernel.mice(1)
 
