@@ -182,6 +182,8 @@ class KernelDataSet(ImputedDataSet):
         self.initialization = initialization
         self.save_models = save_models
         self.models: Dict[str, Dict] = {var: {0: None} for var in self.imputation_order}
+        self.optimal_parameters = {var: {} for var in self.imputation_order}
+        self.optimal_parameter_losses = {var: np.Inf for var in self.imputation_order}
         self.time_log = TimeLog(
             self.column_names, _TIMED_GLOBAL_EVENTS, _TIMED_VARIABLE_EVENTS
         )
@@ -710,8 +712,6 @@ class KernelDataSet(ImputedDataSet):
                 **default_tuning_space,
             )
 
-        optimal_parameters = {var: {} for var in variables}
-        optimal_parameter_losses = {var: np.Inf for var in variables}
         self.time_log.add_global_time("other", s_init)
 
         if parameter_sampling_method == "random":
@@ -766,17 +766,17 @@ class KernelDataSet(ImputedDataSet):
                         else:
                             non_learners += 1
 
-                    if loss < optimal_parameter_losses[var]:
+                    if loss < self.optimal_parameter_losses[var]:
                         sampling_point["num_iterations"] = best_iteration
-                        optimal_parameters[var] = sampling_point
-                        optimal_parameter_losses[var] = loss
+                        self.optimal_parameters[var] = sampling_point
+                        self.optimal_parameter_losses[var] = loss
 
                     logger.log(" - ", end="")
 
                 logger.log("\n", end="")
                 self.time_log.add_variable_time(var, "tuning", s_tune)
 
-            return optimal_parameters, optimal_parameter_losses
+            return self.optimal_parameters, self.optimal_parameter_losses
 
     def impute_new_data(
         self,
