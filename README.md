@@ -8,7 +8,7 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-3.1.1-blue.svg)](https://pypi.org/project/miceforest/)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-4.0.2-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![Conda
 Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
@@ -93,24 +93,9 @@ New major update = 4.0.0.
   - Raw data is now stored as a numpy array to save space and improve
     indexing.
   - Numpy arrays can be imputed, if you want to avoid pandas.
-  - Options of multiple build-in mean matching functions.
+  - Options of multiple built-in mean matching functions.
 
 ### Installation
-
-miceforest has 4 main classes which the user will interact with:
-
-  - `KernelDataSet` - a kernel data set is a dataset on which the mice
-    algorithm is performed. Models are saved inside the instance, which
-    can also be called on to impute new data. Several plotting methods
-    are included to run diagnostics on the imputed data.  
-  - `MultipleImputedKernel` - a collection of `KernelDataSet`s. Has
-    additional methods for accessing and comparing multiple kernel
-    datasets together.  
-  - `ImputedDataSet` - a single dataset that has been imputed. These are
-    returned after `impute_new_data()` is called.
-  - `MultipleImputedDataSet` - A collection of datasets that have been
-    imputed. Has additional methods for comparing the imputations
-    between datasets.
 
 This package can be installed using either pip or conda, through
 conda-forge:
@@ -130,6 +115,28 @@ first run `conda install pip git`.
 ``` bash
 $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
 ```
+
+### Classes
+
+miceforest has 4 main classes which the user will interact with:
+
+  - `KernelDataSet` - a kernel data set is a dataset on which the MICE
+    algorithm is performed. Models are saved inside the instance, which
+    can also be called on to impute new data. Several plotting methods
+    are included to run diagnostics on the imputed data. A
+    `KernelDataSet` represents a single imputed dataset.  
+  - `MultipleImputedKernel` - a collection of `KernelDataSet`s. Has
+    additional methods for accessing and comparing multiple kernel
+    datasets together. Subsetting a `MultipleImputedKernel` will result
+    in a `KernelDataSet`. Methods of this class tend to affect all of
+    the kernel datasets contained within, unless a certain dataset is
+    specified.  
+  - `ImputedDataSet` - a single dataset that has been imputed. These are
+    returned after `impute_new_data()` is called. Has some plotting
+    functionality, but contains no models.  
+  - `MultipleImputedDataSet` - A collection of datasets that have been
+    imputed. Has additional methods for comparing the imputations
+    between datasets.
 
 ## The Basics
 
@@ -357,20 +364,17 @@ function with the desired optimization steps:
 # Using the first KernelDataSet in kernel to tune parameters
 # with the default settings.
 optimal_parameters, losses = kernel[0].tune_parameters(
-  optimization_steps=5,
-  verbose=True
+  optimization_steps=5
 )
-```
 
-    ## sepal length (cm) | 0 - 1 - 2 - 3 - 4 - 
-    ## sepal width (cm) | 0 - 1 - 2 - 3 - 4 - 
-    ## petal length (cm) | 0 - 1 - 2 - 3 - 4 - 
-    ## petal width (cm) | 0 - 1 - 2 - 3 - 4 - 
-    ## target | 0 - 1 - 2 - 3 - 4 -
-
-``` python
+# Run mice with our newly tuned parameters.
 kernel.mice(1, variable_parameters=optimal_parameters)
+
+# The optimal parameters are kept in KernelDataSet.optimal_parameters:
+print(kernel[0].optimal_parameters)
 ```
+
+    ## {0: {'boosting': 'gbdt', 'max_depth': 8, 'num_leaves': 13, 'min_data_in_leaf': 5, 'min_sum_hessian_in_leaf': 0.0001, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.37682973025732225, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.547703450726179, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 636898, 'learning_rate': 0.05, 'num_iterations': 80}, 1: {'boosting': 'gbdt', 'max_depth': 8, 'num_leaves': 44, 'min_data_in_leaf': 7, 'min_sum_hessian_in_leaf': 0.0001, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9446955888574227, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.9736751332478455, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 995364, 'learning_rate': 0.05, 'num_iterations': 98}, 2: {'boosting': 'gbdt', 'max_depth': 8, 'num_leaves': 46, 'min_data_in_leaf': 16, 'min_sum_hessian_in_leaf': 0.0001, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9418843111072678, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.8549603507783645, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 417328, 'learning_rate': 0.05, 'num_iterations': 101}, 3: {'boosting': 'gbdt', 'max_depth': 8, 'num_leaves': 42, 'min_data_in_leaf': 15, 'min_sum_hessian_in_leaf': 0.0001, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.5508856111545465, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.7566610407113622, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 687630, 'learning_rate': 0.05, 'num_iterations': 168}, 4: {'boosting': 'gbdt', 'max_depth': 8, 'num_leaves': 25, 'min_data_in_leaf': 32, 'min_sum_hessian_in_leaf': 0.0001, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9782829438066223, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.5178493607898189, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 517288, 'learning_rate': 0.05, 'num_iterations': 137}}
 
 This will perform 10 fold cross validation on random samples of
 parameters. By default, all variables models are tuned. If you are
@@ -575,9 +579,9 @@ print(acclist)
     ## [0.22, 0.65, 0.7, 0.81, 0.78, 0.86, 0.81]
 
 In this instance, we went from a \~32% accuracy (which is expected with
-random sampling) to an accuracy of \~86% after the first iteration. The
-accuracy kind of floundered around afterwards. However, notice the
-accuracy we achieved at the last iteration, after parameter tuning.
+random sampling) to an accuracy of \~65% after the first iteration. This
+isn’t the best example, since our kernel so far has been abused to show
+the flexability of the imputation procedure.
 
 ## The MICE Algorithm
 
