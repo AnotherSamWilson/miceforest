@@ -90,7 +90,10 @@ def default_mean_match(
             # Need it to be shape (n,1)
             bachelor_preds = bachelor_preds.reshape(-1, 1)
             candidate_preds = candidate_preds.reshape(-1, 1)
-            kd_tree = KDTree(candidate_preds, leafsize=16)
+
+            # balanced_tree = False fixes a recursion issue for some reason.
+            # https://github.com/scipy/scipy/issues/14799
+            kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
             _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
 
             # We can skip the random selection process if mmc == 1
@@ -209,7 +212,7 @@ def mean_match_kdtree_classification(
             # Need it to be shape (n,1)
             bachelor_preds = bachelor_preds.reshape(-1, 1)
             candidate_preds = candidate_preds.reshape(-1, 1)
-            kd_tree = KDTree(candidate_preds, leafsize=16)
+            kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
             _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
 
             # We can skip the random selection process if mmc == 1
@@ -234,7 +237,7 @@ def mean_match_kdtree_classification(
             else:
                 candidate_preds = model.predict(candidate_features)
 
-            kd_tree = KDTree(candidate_preds, leafsize=16)
+            kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
             _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
             ind = random_state.randint(mmc, size=(knn_indices.shape[0]))
             index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
