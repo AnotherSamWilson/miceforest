@@ -168,21 +168,22 @@ class MultipleImputedKernel(MultipleImputedDataSet):
 
         # Prime with the required number of kernel datasets
         while self.dataset_count() < datasets:
-            self.append(
-                KernelDataSet(
-                    data=data,
-                    variable_schema=variable_schema,
-                    mean_match_candidates=mean_match_candidates,
-                    mean_match_subset=mean_match_subset,
-                    mean_match_function=mean_match_function,
-                    imputation_order=imputation_order,
-                    categorical_feature=categorical_feature,
-                    initialization=initialization,
-                    save_all_iterations=save_all_iterations,
-                    save_models=save_models,
-                    random_state=self.random_state,
-                )
+            kds = KernelDataSet(
+                data=data,
+                variable_schema=variable_schema,
+                mean_match_candidates=mean_match_candidates,
+                mean_match_subset=mean_match_subset,
+                mean_match_function=mean_match_function,
+                imputation_order=imputation_order,
+                categorical_feature=categorical_feature,
+                initialization=initialization,
+                save_all_iterations=save_all_iterations,
+                save_models=save_models,
+                random_state=self.random_state,
             )
+            kds.data = self.data
+            kds.na_where = self.na_where
+            self.append(kds)
 
         self.save_models = save_models
         self.mean_match_candidates = getattr(self[0], "mean_match_candidates")
