@@ -204,7 +204,7 @@ class ImputedDataSet:
                         column_names.index(var) for var in variable_schema
                     ]
                 variable_schema = {
-                    var: list(np.setdiff1d(range(data_shape[1]),[var]))
+                    var: list(np.setdiff1d(range(data_shape[1]), [var]))
                     for var in variable_schema
                 }
 
