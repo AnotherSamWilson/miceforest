@@ -131,8 +131,7 @@ class ImputedData:
             # Collect category counts.
             category_counts = {}
             for var in categorical_variables:
-                uniq = np.unique(self.working_data.iloc[:, var])
-                uniq = uniq[~np.isnan(uniq)]
+                uniq = self.working_data.iloc[:, var].dropna().unique()
                 category_counts[var] = len(uniq)
 
             # self.cast_dtype = self.working_data.dtypes
