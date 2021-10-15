@@ -39,7 +39,8 @@ def default_mean_match(
         used to train the model.
     candidate_values:  pd.Series or np.ndarray
         The real (not predicted) values of the candidates from the original dataset.
-        Will be 1D
+        Will be 1D.
+        If the feature is pandas categorical, this will be the category codes.
     random_state: np.random.RandomState
         The random state from the process calling this function is passed.
 
@@ -163,6 +164,7 @@ def mean_match_kdtree_classification(
     candidate_values:  pd.Series or np.ndarray
         The real (not predicted) values of the candidates from the original dataset.
         Will be 1D
+        If the feature is pandas categorical, this will be the category codes.
     random_state: np.random.RandomState
         The random state from the process calling this function is passed.
 

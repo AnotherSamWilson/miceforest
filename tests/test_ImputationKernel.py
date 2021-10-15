@@ -24,7 +24,8 @@ def test_defaults_pandas():
     s = datetime.now()
     kernel = mf.ImputationKernel(
         data=boston_amp,
-        datasets=3
+        datasets=3,
+        mean_match_function=mean_match_kdtree_classification
     )
 
     kernel.mice(iterations=2)

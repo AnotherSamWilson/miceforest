@@ -708,15 +708,13 @@ class ImputationKernel(ImputedData):
 
                     # lightgbm requires integers for label. Categories won't work.
                     if candidate_values.dtype.name == "category":
-                        candidate_target = candidate_values.cat.codes
-                    else:
-                        candidate_target = candidate_values
+                        candidate_values = candidate_values.cat.codes
 
                     lgbpars = self._get_lgb_params(var, vsp[var], **kwlgb)
                     num_iterations = lgbpars.pop("num_iterations")
                     train_pointer = Dataset(
                         data=candidate_features,
-                        label=candidate_target,
+                        label=candidate_values,
                         categorical_feature=feature_cat_index,
                         free_raw_data=False,
                         silent=True,
@@ -1078,6 +1076,9 @@ class ImputationKernel(ImputedData):
                             subset_count=self.data_subset[var],
                             return_cat=False,
                         )
+                        # lightgbm requires integers for label. Categories won't work.
+                        if candidate_values.dtype.name == "category":
+                            candidate_values = candidate_values.cat.codes
                     else:
                         candidate_features = candidate_values = None
 

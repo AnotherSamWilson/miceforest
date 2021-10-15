@@ -6,7 +6,7 @@ from .KernelDataSet import KernelDataSet
 from .ImputedData import ImputedData
 from .ImputationKernel import ImputationKernel
 
-__version__ = "5.0.1"
+__version__ = "5.0.2"
 
 __all__ = [
     "ImputedData",
