@@ -1,26 +1,21 @@
-from .ImputedDataSet import ImputedDataSet
-from .TimeLog import TimeLog
-from datetime import datetime
+from .ImputedData import ImputedData
 from .utils import (
     _get_default_mmc,
     _get_default_mms,
     param_mapping,
-    MeanMatchType,
-    VarSchemType,
-    VarParamType,
-    CatFeatType,
+    _ensure_iterable,
     ensure_rng,
     stratified_continuous_folds,
     stratified_categorical_folds,
+    _subset_data,
+    _slice,
+    _is_int,
 )
 import numpy as np
-from typing import Union, Dict, Callable, List
 from .logger import Logger
 from lightgbm import train, Dataset, cv
 from .compat import pd_DataFrame, pd_Series
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
-import warnings
-
 
 _TIMED_VARIABLE_EVENTS = [
     "mice",
@@ -34,7 +29,7 @@ _TIMED_VARIABLE_EVENTS = [
 _TIMED_GLOBAL_EVENTS = ["initialization", "other"]
 
 
-class KernelDataSet(ImputedDataSet):
+class ImputationKernel(ImputedData):
     """
     Creates a kernel dataset. This dataset can:
         - Perform MICE on itself
@@ -45,7 +40,7 @@ class KernelDataSet(ImputedDataSet):
     data: np.ndarray or pandas DataFrame.
         The data to be imputed.
 
-    variable_schema: None or list or dict
+    variable_schema: None or ist or dict, default=None
         If None all variables are used to impute all variables which have
         missing values.
         If list all columns in data are used to impute the variables in the list
@@ -53,42 +48,32 @@ class KernelDataSet(ImputedDataSet):
         indices or names (if data is a pd.DataFrame).
 
     mean_match_candidates:  None or int or float or dict
-        If float must be 0.0 < mmc <= 1.0. Interpreted as a percentage of available candidates
-        If int must be mmc >= 0. Interpreted as the number of candidates.
-        If dict, keys must be variable names, and values must follow two above rules.
-
         The number of mean matching candidates to use.
         Candidates are _always_ drawn from a kernel dataset, even
         when imputing new data.
 
-        Mean matching follows the following rules based on variable type:
-            Categorical:
-                If mmc = 0, the class with the highest probability is chosen.
-                If mmc > 0, return class based on random draw weighted by
-                    class probability for each sample.
-            Numeric:
-                If mmc = 0, the predicted value is used
-                If mmc > 0, obtain the mmc closest candidate
-                    predictions and collect the associated
-                    real candidate values. Choose 1 randomly.
+        If float must be 0.0 < mmc <= 1.0. Interpreted as a percentage of available candidates
+        If int must be mmc >= 0. Interpreted as the number of candidates.
+        If dict, keys must be variable names or indexes, and values must follow two above rules.
 
         For more information, see:
         https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching
 
-    mean_match_subset: None or int or float or dict.
-        If float must be 0.0 < mms <= 1.0. Interpreted as a percentage of available candidates
-        If int must be mms >= 0. Interpreted as the number of candidates. If 0, no subsetting is done.
+    data_subset: None or int or float or dict.
+        Subsets the data used in each iteration, which can save a significant amount of time.
+        This can also help with memory consumption, as the candidate data must be copied to
+        make a feature dataset for lightgbm.
+
+        The number of rows used for each variable is (# rows in raw data) - (# missing variable values)
+        for each variable. data_subset takes a random sample of this.
+
+        If float, must be 0.0 < data_subset <= 1.0. Interpreted as a percentage of available candidates
+        If int must be data_subset >= 0. Interpreted as the number of candidates.
+        If 0, no subsetting is done.
         If dict, keys must be variable names, and values must follow two above rules.
 
-        The number of candidates to search in mean matching. Set
-        to a lower number to speed up mean matching. Must be greater
-        than mean_match_candidates, and above 0. If a float <= 1.0 is
-        passed, it is interpreted as the percentage of the candidates
-        to take as a subset. If an int > 1 is passed, it is interpreted
-        as the count of candidates to take as a subset.
-
-        Mean matching can take a while on larger datasets. It is recommended to carefully
-        select this value for each variable if dealing with very large data.
+        It is recommended to carefully select this value for each variable if dealing
+        with very large data that barely fits into memory.
 
     mean_match_function: Callable, default = None
         Must take the following parameters:
@@ -100,33 +85,60 @@ class KernelDataSet(ImputedDataSet):
             random_state: np.random.RandomState,
 
         A default mean matching function will be used if None.
+        There are multiple built-in functions available. See the miceforest.mean_matching_functions module.
+        The built in behavior is as follows, for each function:
 
-    imputation_order: str or List[str], default = "ascending"
-        The order the imputations should occur in. Must be a list or a string
-        - If a list is passed, must be compatible with variable_schema. The
-            variables will be imputed in the order of the list.
-        - If a string is passed, must be one of the following:
-            - ascending: variables are imputed from least to most missing
-            - descending: most to least missing
-            - roman: from left to right in the dataset
-            - arabic: from right to left in the dataset.
+        - default_mean_match (default, if mean_match_function is None):
+            This function is very fast, but may be less accurate for categorical variables.
 
-    categorical_feature: str or list or dict
+            Categorical:
+                If mmc = 0, the class with the highest probability is chosen.
+                If mmc > 0, return class based on random draw weighted by
+                    class probability for each sample.
+            Numeric or binary:
+                If mmc = 0, the predicted value is used
+                If mmc > 0, obtain the mmc closest candidate
+                    predictions and collect the associated
+                    real candidate values. Choose 1 randomly.
+
+        - mean_match_kdtree_classification
+            This function is slower for categorical datatypes, but results in better imputations.
+
+            Categorical:
+                If mmc = 0, the class with the highest probability is chosen.
+                If mmc > 0, get N nearest neighbors from class probabilities.
+                    Select 1 at random.
+            Numeric:
+                If mmc = 0, the predicted value is used
+                If mmc > 0, obtain the mmc closest candidate
+                    predictions and collect the associated
+                    real candidate values. Choose 1 randomly.
+
+    imputation_order: str, list[str], list[int], default="ascending"
+        The order the imputations should occur in.
+            ascending: variables are imputed from least to most missing
+            descending: most to least missing
+            roman: from left to right in the dataset
+            arabic: from right to left in the dataset.
+
+        If a list is provided, the variables will be imputed in that order.
+
+    categorical_feature: str or list, default="auto"
         The categorical features in the dataset. This handling depends on class of impute_data:
+
             pandas DataFrame:
                 - "auto": categorical information is inferred from any columns with
                     datatype category or object.
                 - list of column names (or indices): Useful if all categorical columns
                     have already been cast to numeric encodings of some type, otherwise you
-                    should just use "auto". If columns are specified in this list, they will
-                    be treated as categorical, no matter their apparent form in the data.
-                - Dict of mappings: For internal purposes. This is how categorical information
-                    is passed from the kernel to the new imputed dataset.
+                    should just use "auto". Will throw an error if a list is provided AND
+                    categorical dtypes exist in data. If a list is provided, values in the
+                    columns must be consecutive integers starting at 0, as required by lightgbm.
+
             numpy ndarray:
                 - "auto": no categorical information is stored.
-                - list of column indices: Specified columns are treated as categorical
-                - Dict of mappings: For internal purposes. This is how categorical information
-                    is passed from the kernel to the new imputed dataset.
+                - list of column indices: Specified columns are treated as categorical. Column
+                    values must be consecutive integers starting at 0, as required by lightgbm.
 
     initialization: str
         "random" - missing values will be filled in randomly from existing values.
@@ -151,6 +163,19 @@ class KernelDataSet(ImputedDataSet):
                 This allows for imputations that most closely resemble those
                 that would have been obtained in mice.
 
+    copy_data: boolean (default = False)
+        Should the dataset be referenced directly? If False, this will cause
+        the dataset to be altered in place. If a copy is created, it is saved
+        in self.working_data. There are different ways in which the dataset
+        can be altered:
+
+        1) complete_data() will fill in missing values
+        2) To save space, mice() references and manipulates self.working_data directly.
+            If self.working_data is a reference to the original dataset, the original
+            dataset will undergo these manipulations during the mice process.
+            At the end of the mice process, missing values will be set back to np.NaN
+            where they were originally missing.
+
     random_state: None,int, or numpy.random.RandomState
         Ensures a random state throughout the process
 
@@ -158,43 +183,43 @@ class KernelDataSet(ImputedDataSet):
 
     def __init__(
         self,
-        data: Union[pd_DataFrame, np.ndarray],
-        variable_schema: VarSchemType = None,
-        mean_match_candidates: MeanMatchType = None,
-        mean_match_subset: MeanMatchType = None,
-        mean_match_function: Callable = None,
-        imputation_order: Union[str, List[Union[str, int]]] = "ascending",
-        categorical_feature: CatFeatType = "auto",
-        initialization: str = "random",
-        save_all_iterations: bool = True,
-        save_models: int = 1,
-        random_state: Union[int, np.random.RandomState] = None,
+        data,
+        datasets=5,
+        variable_schema=None,
+        mean_match_candidates=None,
+        data_subset=None,
+        mean_match_function=None,
+        imputation_order="ascending",
+        categorical_feature="auto",
+        initialization="random",
+        save_all_iterations=True,
+        save_models=1,
+        copy_data=True,
+        random_state=None,
     ):
-
-        warnings.warn(
-            "KernelDataSet is depreciated as of version 5.0.0 in favor "
-            + "of the more efficient ImputationKernel, and will be removed in a "
-            + "future release."
-        )
-
-        s_init = datetime.now()
 
         super().__init__(
             impute_data=data,
+            datasets=datasets,
             variable_schema=variable_schema,
             imputation_order=imputation_order,
             categorical_feature=categorical_feature,
             save_all_iterations=save_all_iterations,
+            copy_data=copy_data,
         )
 
         self.initialization = initialization
         self.save_models = save_models
-        self.models: Dict[str, Dict] = {var: {0: None} for var in self.imputation_order}
-        self.optimal_parameters = {var: {} for var in self.imputation_order}
-        self.optimal_parameter_losses = {var: np.Inf for var in self.imputation_order}
-        self.time_log = TimeLog(
-            self.column_names, _TIMED_GLOBAL_EVENTS, _TIMED_VARIABLE_EVENTS
-        )
+        self.models = {
+            ds: {var: {0: None} for var in self.imputation_order}
+            for ds in range(datasets)
+        }
+        self.optimal_parameters = {
+            ds: {var: {} for var in self.imputation_order} for ds in range(datasets)
+        }
+        self.optimal_parameter_losses = {
+            ds: {var: np.Inf for var in self.imputation_order} for ds in range(datasets)
+        }
 
         # Format mean_match_candidates before priming datasets
         available_candidates = {
@@ -204,8 +229,8 @@ class KernelDataSet(ImputedDataSet):
         mean_match_candidates = self._format_mm(
             mean_match_candidates, available_candidates, _get_default_mmc
         )
-        mean_match_subset = self._format_mm(
-            mean_match_subset, available_candidates, _get_default_mms
+        data_subset = self._format_mm(
+            data_subset, available_candidates, _get_default_mms
         )
 
         # Ensure mmc and mms make sense:
@@ -213,32 +238,30 @@ class KernelDataSet(ImputedDataSet):
         for var in self.imputation_order:
 
             assert (
-                mean_match_candidates[var] <= mean_match_subset[var]
-            ), f"{var} mean_match_candidates > mean_match_subset"
+                mean_match_candidates[var] <= data_subset[var]
+            ), f"{var} mean_match_candidates > data_subset"
+
             assert (
-                mean_match_subset[var] <= available_candidates[var]
-            ), f"{var} mean_match_subset > available candidates"
+                data_subset[var] <= available_candidates[var]
+            ), f"{var} data_subset > available candidates"
 
         self.mean_match_candidates = mean_match_candidates
-        self.mean_match_subset = mean_match_subset
+        self.data_subset = data_subset
 
-        # Only import sklearn if we really need to.
+        # Get mean matching function
         if mean_match_function is None:
-
             from .mean_matching_functions import default_mean_match
 
             self.mean_match_function = default_mean_match
 
         else:
-
             self.mean_match_function = mean_match_function
 
         self._random_state = ensure_rng(random_state)
         self._initialize_dataset(self)
-        self.time_log.add_global_time("initialization", s_init)
 
     def __repr__(self):
-        summary_string = " " * 14 + "Class: KernelDataSet\n" + self._ids_info()
+        summary_string = " " * 14 + "Class: ImputationKernel\n" + self._ids_info()
         return summary_string
 
     def _mm_type_handling(self, mm, available_candidates) -> int:
@@ -264,11 +287,9 @@ class KernelDataSet(ImputedDataSet):
 
         return ret
 
-    def _format_mm(
-        self, mm, available_candidates, defaulting_function
-    ) -> Dict[str, int]:
+    def _format_mm(self, mm, available_candidates, defaulting_function):
         """
-        mean_match_candidates and mean_match_subset both require similar formatting.
+        mean_match_candidates and data_subset both require similar formatting.
         The only real difference is the default value based on the number of available
         candidates, which is what the defaulting_function is for.
         """
@@ -301,37 +322,59 @@ class KernelDataSet(ImputedDataSet):
 
         return mm
 
-    def _insert_new_model(self, var, model):
+    def _insert_new_model(self, dataset, variable_index, model):
         """
         Inserts a new model if save_mdoels > 0.
         Deletes the prior one if save_models == 1.
         """
-        current_iter = self.iteration_count(var)
+        current_variable_iteration = self.iteration_count(
+            datasets=dataset, variables=variable_index
+        )
         if self.save_models == 0:
             return
         else:
-            self.models[var][current_iter + 1] = model
+            self.models[dataset][variable_index][current_variable_iteration + 1] = model
         if self.save_models == 1:
-            del self.models[var][current_iter]
+            del self.models[dataset][variable_index][current_variable_iteration]
 
-    def _initialize_dataset(self, dataset: ImputedDataSet):
-        assert not dataset.initialized, "dataset has already been initialized"
+    def _initialize_dataset(self, imputed_data):
+        """
+        Sets initial imputation values for iteration 0.
+        If "random", draw values from the kernel at random.
+        If "empty", keep the values missing, since missing values
+        can be handled natively by lightgbm.
+        """
+
+        assert not imputed_data.initialized, "dataset has already been initialized"
+
         if self.initialization == "random":
-            for var in list(dataset.variable_schema):
-                ind = self.na_where[var]
-                dataset.imputation_values[var][0] = self._random_state.choice(
-                    np.delete(self.data[:, var], ind), size=dataset.na_counts[var]
-                )
+
+            for ds in range(imputed_data.dataset_count()):
+
+                for var in imputed_data.imputation_order:
+
+                    ind = np.setdiff1d(range(self.data_shape[0]), self.na_where[var])
+                    candidates = _subset_data(
+                        self.working_data, ind, var, return_1d=True
+                    )
+                    imputed_data[ds, var, 0] = self._random_state.choice(
+                        candidates, size=imputed_data.na_counts[var]
+                    )
+
         elif self.initialization == "empty":
-            for var in list(dataset.variable_schema):
-                dataset.imputation_values[var][0] = np.array(np.nan).repeat(
-                    dataset.na_counts[var]
-                )
+
+            for var in imputed_data.imputation_order:
+
+                # Saves space, since np.nan will be broadcast.
+                imputed_data.imputation_values[var][0] = np.nan
+
         else:
             raise ValueError("initialization parameter not recognized.")
-        dataset.initialized = True
+
+        imputed_data.initialized = True
 
     def _fix_parameter_aliases(self, parameters):
+        """Replaces aliases with true names in lightgbm parameters."""
         for par in list(parameters):
             if par in param_mapping.keys():
                 parameters[param_mapping[par]] = parameters.pop(par)
@@ -440,12 +483,57 @@ class KernelDataSet(ImputedDataSet):
         loss = np.min(lgbcv[loss_metric_key])
         return loss, best_iteration
 
-    def get_model(self, var: Union[int, str], iteration=None):
+    def _make_xy(self, variable, subset_count, return_cat=False):
         """
-        Return the model for a specific variable, iteration.
+        Make the predictor and response set used to train the model.
+        Must be defined in ImputedData because this method is called
+        directly in ImputationKernel.impute_new_data()
+        """
+        var = self._get_variable_index(variable)
+        assert _is_int(var)
+        xvars = self.variable_schema[var]
+
+        non_missing_ind = self._get_working_data_nonmissing_indx(var)
+
+        # Only get subset indices if we need to.
+        if subset_count < len(non_missing_ind):
+            candidate_subset = self._random_state.choice(
+                non_missing_ind, size=subset_count
+            )
+        else:
+            candidate_subset = non_missing_ind
+
+        if self.original_data_class == "pd_DataFrame":
+            x = _subset_data(
+                self.working_data, row_ind=candidate_subset, col_ind=xvars + [var]
+            ).reset_index(drop=True)
+            y = x.pop(self._get_variable_name(var))
+
+        elif self.original_data_class == "np_ndarray":
+            # Don't think we can get around subsetting twice. Luckily numpy has fast indexing.
+            x = _subset_data(self.working_data, row_ind=candidate_subset, col_ind=xvars)
+            y = _subset_data(
+                self.working_data, row_ind=candidate_subset, col_ind=var, return_1d=True
+            )
+        else:
+            raise ValueError("Unknown data class.")
+
+        if return_cat:
+            cat = [
+                xvars.index(var) for var in self.categorical_variables if var in xvars
+            ]
+            return x, y, cat
+        else:
+            return x, y
+
+    def get_model(self, dataset, variable, iteration=None):
+        """
+        Return the model for a specific dataset, variable, iteration.
 
         Parameters
         ----------
+        dataset: int
+            The dataset to return the model for.
         var: str
             The variable that was imputed
         iteration: int
@@ -454,43 +542,97 @@ class KernelDataSet(ImputedDataSet):
                 - save_models == 1, only the last model iteration is saved
                 - save_models == 2, all model iterations are saved
 
-        Returns: RandomForestRegressor or RandomForestClassifier
+        Returns: lightgbm.Booster
             The model used to impute this specific variable, iteration.
 
         """
 
-        iteration = self._default_iteration(iteration)
-        var = self._get_variable_index(var)
+        var_indx = self._get_variable_index(variable)
+        itrn = (
+            self.iteration_count(datasets=dataset, variables=var_indx)
+            if iteration is None
+            else iteration
+        )
         try:
-            return self.models[var][iteration]
+            return self.models[dataset][var_indx][itrn]
         except Exception:
-            raise ValueError("Model was not saved for this iteration.")
+            raise ValueError("Could not find model.")
 
-    def get_raw_prediction(self, var: Union[str, int], iteration=None):
+    def get_raw_prediction(
+        self,
+        variable,
+        imp_dataset=0,
+        imp_iteration=None,
+        model_dataset=None,
+        model_iteration=None,
+    ):
         """
-        Gets the raw prediction for every row in the kernel dataset.
+        Get the raw predictions for variable.
+
+        The data is pulled from the imp_dataset dataset, at the imp_iteration iteration.
+        The model is pulled from model_dataset dataset, at the model_iteration iteration.
+
+        So, for example, it is possible to get predictions using the imputed values for
+        dataset 3, at iteration 2, using the model obtained from dataset 10, at iteration
+        6. This is assuming desired iterations and models have been saved.
 
         Parameters
         ----------
-        var: The variable for which to get predictions
-        iteration: The iteration of model to get. If None,
-        the latest iteration is grabbed.
+        variable: int or str
+            The variable to get the raw predictions for.
+            Can be an index or variable name.
+
+        imp_dataset: int
+            The imputation dataset to use when creating the feature dataset.
+
+        imp_iteration: int
+            The iteration from which to draw the imputation values when
+            creating the feature dataset. If None, the latest iteration
+            is used.
+
+        model_dataset: int
+            The dataset from which to pull the trained model for this variable.
+            If None, it is selected to be the same as imp_dataset.
+
+        model_iteration: int
+            The iteration from which to pull the trained model for this variable
+            If None, it is selected to be the same as imp_iteration.
 
         Returns
         -------
-        np.ndarray
+        np.ndarray of raw predictions.
 
         """
-        var = self._get_variable_index(var)
-        x, y = self._make_xy(var, iteration=iteration, return_cat=False)
-        return self.get_model(var, iteration=iteration).predict(x)
+
+        var_indx = self._get_variable_index(variable)
+        predictor_variables = self.variable_schema[var_indx]
+
+        # Get the latest imputation iteration if imp_iteration was not specified
+        if imp_iteration is None:
+            imp_iteration = self.iteration_count(
+                datasets=imp_dataset, variables=var_indx
+            )
+
+        # If model dataset / iteration wasn't specified, assume it is from the same
+        # dataset / iteration we are pulling the imputation values from
+        model_iteration = imp_iteration if model_iteration is None else model_iteration
+        model_dataset = imp_dataset if model_dataset is None else model_dataset
+
+        # Get our internal dataset ready
+        self.complete_data(dataset=imp_dataset, iteration=imp_iteration, inplace=True)
+
+        features = _subset_data(self.working_data, col_ind=predictor_variables)
+
+        return self.get_model(
+            model_dataset, var_indx, iteration=model_iteration
+        ).predict(features)
 
     # Models are updated here, and only here.
     def mice(
         self,
-        iterations: int = 5,
-        verbose: bool = False,
-        variable_parameters: VarParamType = None,
+        iterations=5,
+        verbose=False,
+        variable_parameters=None,
         **kwlgb,
     ):
         """
@@ -507,7 +649,7 @@ class KernelDataSet(ImputedDataSet):
 
         For detailed usage information, see this project's
         README on the github repository:
-        https://github.com/AnotherSamWilson/miceforest#The-MICE-Algorithm
+        https://github.com/AnotherSamWilson/miceforest
 
         Parameters
         ----------
@@ -534,72 +676,98 @@ class KernelDataSet(ImputedDataSet):
         )
         vsp = self._format_variable_parameters(variable_parameters)
 
-        for iteration in iter_range:
-            logger.log(str(iteration) + " ", end="")
-            for var in self.imputation_order:
-                logger.log(" | " + self._get_column_name(var), end="")
-                mice_s = datetime.now()
-                mms = self.mean_match_subset[var]
-                x, y, cat = self._make_xy(var=var, return_cat=True)
-                self.time_log.add_variable_time(var, "make_xy", mice_s)
-                non_missing_ind = np.setdiff1d(
-                    range(self.data_shape[0]), self.na_where[var]
-                )
-                if mms < len(non_missing_ind):
-                    non_missing_ind = self._random_state.choice(
-                        non_missing_ind, size=mms
+        for ds in range(self.dataset_count()):
+
+            logger.log("Dataset " + str(ds))
+
+            # set self.imputed_data to the most current iteration.
+            self.complete_data(dataset=ds, inplace=True)
+
+            for iteration in iter_range:
+
+                logger.log(str(iteration) + " ", end="")
+
+                for var in self.imputation_order:
+
+                    logger.log(" | " + self._get_variable_name(var), end="")
+                    predictor_variables = self.variable_schema[var]
+
+                    # These are necessary for building model in mice.
+                    (
+                        candidate_features,
+                        candidate_values,
+                        feature_cat_index,
+                    ) = self._make_xy(
+                        variable=var,
+                        subset_count=self.data_subset[var],
+                        return_cat=True,
                     )
-                candidate_features = x[non_missing_ind, :]
-                candidate_target = y[non_missing_ind]
-
-                lgbpars = self._get_lgb_params(var, vsp[var], **kwlgb)
-                num_iterations = lgbpars.pop("num_iterations")
-                train_pointer = Dataset(
-                    data=candidate_features,
-                    label=candidate_target,
-                    categorical_feature=cat,
-                )
-                fit_s = datetime.now()
-                current_model = train(
-                    params=lgbpars,
-                    train_set=train_pointer,
-                    num_boost_round=num_iterations,
-                    categorical_feature=cat,
-                    verbose_eval=False,
-                )
-                self.time_log.add_variable_time(var, "model_fit", fit_s)
-                self._insert_new_model(var=var, model=current_model)
-
-                bachelor_features = x[self.na_where[var], :]
-
-                meanmatch_s = datetime.now()
-                imp_values = np.array(
-                    self.mean_match_function(
-                        mmc=self.mean_match_candidates[var],
-                        model=current_model,
-                        candidate_features=candidate_features,
-                        bachelor_features=bachelor_features,
-                        candidate_values=candidate_target,
-                        random_state=self._random_state,
+                    feature_cat_index = (
+                        "auto" if len(feature_cat_index) == 0 else feature_cat_index
                     )
-                )
-                self.time_log.add_variable_time(var, "mean_match", meanmatch_s)
-                assert imp_values.shape == (
-                    self.na_counts[var],
-                ), f"{var} mean matching returned malformed array"
-                self._insert_new_data(var, imp_values)
-                self.time_log.add_variable_time(var, "mice", mice_s)
 
-            logger.log("\n", end="")
+                    # lightgbm requires integers for label. Categories won't work.
+                    if candidate_values.dtype.name == "category":
+                        candidate_target = candidate_values.cat.codes
+                    else:
+                        candidate_target = candidate_values
+
+                    lgbpars = self._get_lgb_params(var, vsp[var], **kwlgb)
+                    num_iterations = lgbpars.pop("num_iterations")
+                    train_pointer = Dataset(
+                        data=candidate_features,
+                        label=candidate_target,
+                        categorical_feature=feature_cat_index,
+                        free_raw_data=False,
+                        silent=True,
+                    )
+                    current_model = train(
+                        params=lgbpars,
+                        train_set=train_pointer,
+                        num_boost_round=num_iterations,
+                        categorical_feature=feature_cat_index,
+                        verbose_eval=False,
+                    )
+                    self._insert_new_model(
+                        dataset=ds, variable_index=var, model=current_model
+                    )
+                    bachelor_features = _subset_data(
+                        self.working_data,
+                        row_ind=self.na_where[var],
+                        col_ind=predictor_variables,
+                    )
+                    imp_values = np.array(
+                        self.mean_match_function(
+                            mmc=self.mean_match_candidates[var],
+                            model=current_model,
+                            candidate_features=candidate_features,
+                            bachelor_features=bachelor_features,
+                            candidate_values=candidate_values,
+                            random_state=self._random_state,
+                        )
+                    )
+                    assert imp_values.shape == (
+                        self.na_counts[var],
+                    ), f"{var} mean matching returned malformed array"
+
+                    self._insert_new_data(
+                        dataset=ds, variable_index=var, new_data=imp_values
+                    )
+                    self.iterations[ds, self.imputation_order.index(var)] += 1
+
+                logger.log("\n", end="")
+
+        self._ampute_original_data()
 
     def tune_parameters(
         self,
-        variables: List[Union[str, int]] = None,
-        variable_parameters: VarParamType = None,
-        parameter_sampling_method: str = "random",
-        nfold: int = 10,
-        optimization_steps: int = 5,
-        verbose: bool = False,
+        dataset,
+        variables=None,
+        variable_parameters=None,
+        parameter_sampling_method="random",
+        nfold=10,
+        optimization_steps=5,
+        verbose=False,
         **kwbounds,
     ):
         """
@@ -608,7 +776,7 @@ class KernelDataSet(ImputedDataSet):
             - Underlying models will now be gradient boosted trees by default (or any
                 other boosting type compatible with lightgbm.cv).
             - The parameters are tuned on the data that would currently be returned by
-                complete_data(). It is usually a good idea to run at least 1 iteration
+                complete_data(dataset). It is usually a good idea to run at least 1 iteration
                 of mice with the default parameters to get a more accurate idea of the
                 real optimal parameters, since Missing At Random (MAR) data imputations
                 tend to converge over time.
@@ -617,7 +785,7 @@ class KernelDataSet(ImputedDataSet):
                 is the best_iteration returned by lightgbm.cv. num_iterations can be passed to
                 limit the boosting rounds, but the returned value will always be obtained
                 from best_iteration.
-            - Parameters are chosen in the following order of priority:
+            - lightgbm parameters are chosen in the following order of priority:
                 1) Anything specified in variable_parameters
                 2) Parameters specified globally in **kwbounds
                 3) Default tuning space (miceforest.default_lightgbm_parameters.make_default_tuning_space)
@@ -629,6 +797,11 @@ class KernelDataSet(ImputedDataSet):
 
         Parameters
         ----------
+
+        dataset: int (required)
+            The dataset to run parameter tuning on. Tuning parameters on 1 dataset usually results
+            in acceptable parameters for all datasets. However, tuning results are still stored
+            seperately for each dataset.
 
         variables: None or list
             - If None, default hyper-parameter spaces are selected based on kernel data, and
@@ -696,7 +869,6 @@ class KernelDataSet(ImputedDataSet):
 
         """
 
-        s_init = datetime.now()
         logger = Logger(verbose=verbose)
         self._fix_parameter_aliases(kwbounds)
 
@@ -711,10 +883,8 @@ class KernelDataSet(ImputedDataSet):
         for var in variables:
 
             default_tuning_space = make_default_tuning_space(
-                len(self.categorical_mapping[var])
-                if var in self.categorical_variables
-                else 1,
-                int((self.data.shape[0] - len(self.na_where[var])) / 3),
+                self.category_counts[var] if var in self.categorical_variables else 1,
+                int((self.data_shape[0] - len(self.na_where[var])) / 10),
             )
 
             variable_parameter_space[var] = self._get_lgb_params(
@@ -723,21 +893,20 @@ class KernelDataSet(ImputedDataSet):
                 **default_tuning_space,
             )
 
-        self.time_log.add_global_time("other", s_init)
-
         if parameter_sampling_method == "random":
 
-            for var, parameters in variable_parameter_space.items():
+            for var, parameter_space in variable_parameter_space.items():
 
-                s_tune = datetime.now()
-                logger.log(self._get_column_name(var) + " | ", end="")
+                logger.log(self._get_variable_name(var) + " | ", end="")
 
-                x, y, cat = self._make_xy(var=var, return_cat=True)
-                non_missing_ind = np.setdiff1d(
-                    range(self.data_shape[0]), self.na_where[var]
+                candidate_features, candidate_values, feature_cat_index = self._make_xy(
+                    variable=var, subset_count=self.data_subset[var], return_cat=True
                 )
-                candidate_features = x[non_missing_ind, :]
-                candidate_target = y[non_missing_ind]
+
+                # lightgbm requires integers for label. Categories won't work.
+                if candidate_values.dtype.name == "category":
+                    candidate_values = candidate_values.cat.codes
+
                 is_categorical = var in self.categorical_variables
 
                 for step in range(optimization_steps):
@@ -752,22 +921,26 @@ class KernelDataSet(ImputedDataSet):
                         # Pointer and folds need to be re-initialized after every run.
                         train_pointer = Dataset(
                             data=candidate_features,
-                            label=candidate_target,
-                            categorical_feature=cat,
+                            label=candidate_values,
+                            categorical_feature=feature_cat_index,
+                            free_raw_data=False,
+                            silent=True,
                         )
                         if is_categorical:
                             folds = stratified_categorical_folds(
-                                candidate_target, nfold
+                                candidate_values, nfold
                             )
                         else:
-                            folds = stratified_continuous_folds(candidate_target, nfold)
-                        sampling_point = self._get_random_sample(parameters=parameters)
+                            folds = stratified_continuous_folds(candidate_values, nfold)
+                        sampling_point = self._get_random_sample(
+                            parameters=parameter_space
+                        )
                         try:
                             loss, best_iteration = self._get_oof_performance(
-                                parameters=sampling_point,
+                                parameters=sampling_point.copy(),
                                 folds=folds,
                                 train_pointer=train_pointer,
-                                categorical_feature=cat,
+                                categorical_feature=feature_cat_index,
                             )
                         except:
                             loss, best_iteration = np.Inf, 0
@@ -777,25 +950,29 @@ class KernelDataSet(ImputedDataSet):
                         else:
                             non_learners += 1
 
-                    if loss < self.optimal_parameter_losses[var]:
+                    if loss < self.optimal_parameter_losses[dataset][var]:
                         sampling_point["num_iterations"] = best_iteration
-                        self.optimal_parameters[var] = sampling_point
-                        self.optimal_parameter_losses[var] = loss
+                        self.optimal_parameters[dataset][var] = sampling_point
+                        self.optimal_parameter_losses[dataset][var] = loss
 
                     logger.log(" - ", end="")
 
                 logger.log("\n", end="")
-                self.time_log.add_variable_time(var, "tuning", s_tune)
 
-            return self.optimal_parameters, self.optimal_parameter_losses
+            return (
+                self.optimal_parameters[dataset],
+                self.optimal_parameter_losses[dataset],
+            )
 
     def impute_new_data(
         self,
-        new_data: Union[pd_DataFrame, np.ndarray, pd_Series],
-        iterations: int = None,
-        save_all_iterations: bool = True,
-        verbose: bool = False,
-    ) -> ImputedDataSet:
+        new_data,
+        datasets=None,
+        iterations=None,
+        save_all_iterations=True,
+        copy_data=True,
+        verbose=False,
+    ):
         """
         Impute a new dataset
 
@@ -810,119 +987,134 @@ class KernelDataSet(ImputedDataSet):
         the number of iterations run so far using mice, the last model
         is used for each additional iteration.
 
+        Type checking is not done. It is up to the user to ensure that the
+        kernel data matches the new data being imputed.
+
         Parameters
         ----------
-        new_data: pandas DataFrame / Series or np.ndarray
-            The new data to impute. Needs to be compatible with
-            the original kernel data.
-        iterations: None, int
-            The iterations to run. If None, the same number
-            of iterations in the kernel are used. If iterations
-            is greater than the number of MICE iterations, the
-            latest model will be used for any additional iterations.
+        new_data: pandas DataFrame or numpy ndarray
+            The new data to impute
+
+        datasets: int or List[int] (default = None)
+            The datasets from the kernel to use to impute the new data.
+            If None, all datasets from the kernel are used.
+
+        iterations: int
+            The number of iterations to run.
+            If None, the same number of iterations run so far in mice is used.
+
         save_all_iterations: bool
-            Whether to save about all of the imputed values
-            in every iteration, or just the last iteration.
-        verbose: bool
-            Print progress
+            Should the imputation values of all iterations be archived?
+            If False, only the latest imputation values are saved.
+
+        copy_data: boolean
+            Should the dataset be referenced directly? This will cause the dataset to be altered
+            in place. If a copy is created, it is saved in self.working_data. There are different
+            ways in which the dataset can be altered:
+
+            1) complete_data() will fill in missing values
+            2) To save space, mice() references and manipulates self.working_data directly.
+                If self.working_data is a reference to the original dataset, the original
+                dataset will undergo these manipulations during the mice process.
+
+        verbose: boolean
+            Should information about the process be printed?
 
         Returns
         -------
-        ImputedDataSet
 
         """
 
-        s_ind = datetime.now()
         logger = Logger(verbose)
-        new_data = new_data.copy()
+        datasets = (
+            range(self.dataset_count())
+            if datasets is None
+            else _ensure_iterable(datasets)
+        )
 
         if self.save_models < 1:
             raise ValueError("No models were saved.")
 
-        if isinstance(new_data, pd_DataFrame):
-            assert (
-                self.original_data_class == "pd_DataFrame"
-            ), "Cannot impute a new pd.DataFrame unless kernel dataset was also pd.DataFrame"
-            if new_data.shape[1] != self.data.shape[1]:
-                raise ValueError("Columns are not the same as kernel data")
-            self._enforce_pandas_types(new_data)
-        elif isinstance(new_data, pd_Series):
-            assert (
-                self.original_data_class == "pd_DataFrame"
-            ), "Cannot impute a new pd.Series unless kernel dataset was a pd.DataFrame"
-            assert (
-                new_data.index.tolist() == self.column_names
-            ), "Series index not consistent with original column names."
-            new_data = new_data.to_frame().T
-            self._enforce_pandas_types(new_data)
-
-        imputed_data_set = ImputedDataSet(
+        imputed_data = ImputedData(
             impute_data=new_data,
+            datasets=len(datasets),
             variable_schema=self.variable_schema.copy(),
-            imputation_order=self.imputation_order.copy(),
-            categorical_feature=self.categorical_mapping,
+            imputation_order=self.imputation_order,
+            categorical_feature="auto",
             save_all_iterations=save_all_iterations,
+            copy_data=copy_data,
         )
-        self._initialize_dataset(imputed_data_set)
+        self._initialize_dataset(imputed_data)
 
-        curr_iters = self.iteration_count()
-        iterations = self._default_iteration(iterations)
+        kernel_iterations = self.iteration_count()
+        iterations = kernel_iterations if iterations is None else iterations
         iter_range = range(1, iterations + 1)
-        iter_vars = imputed_data_set.imputation_order
-        self.time_log.add_global_time("other", s_ind)
 
-        for iteration in iter_range:
-            logger.log(str(iteration) + " ", end="")
+        for ds in datasets:
 
-            # Determine which model iteration to grab
-            if self.save_models == 1 or iteration > curr_iters:
-                itergrab = curr_iters
-            else:
-                itergrab = iteration
+            logger.log("Dataset " + str(ds))
 
-            for var in iter_vars:
-                logger.log(" | " + self._get_column_name(var), end="")
-                impute_new_data_s = datetime.now()
+            for iteration in iter_range:
 
-                current_model = self.get_model(var, itergrab)
-                mms = self.mean_match_subset[var]
+                logger.log(str(iteration) + " ", end="")
 
-                # Collect bachelor information
-                x, y = imputed_data_set._make_xy(var, return_cat=False)
-                bachelor_features = x[imputed_data_set.na_where[var], :]
-                candidate_features, candidate_target = self._make_xy(
-                    var, return_cat=False
-                )
-                non_missing_ind = np.setdiff1d(
-                    range(self.data_shape[0]), self.na_where[var]
-                )
-                if mms < len(non_missing_ind):
-                    non_missing_ind = self._random_state.choice(
-                        non_missing_ind, size=mms
+                # Determine which model iteration to grab
+                if self.save_models == 1 or iteration > kernel_iterations:
+                    model_iteration = kernel_iterations
+                else:
+                    model_iteration = iteration
+
+                for var in imputed_data.imputation_order:
+
+                    logger.log(" | " + self._get_variable_name(var), end="")
+
+                    predictor_variables = self.variable_schema[var]
+                    mmc = self.mean_match_candidates[var]
+
+                    # We don't need these if imputing new data and mmc == 0
+                    if mmc > 0:
+                        candidate_features, candidate_values = self._make_xy(
+                            variable=var,
+                            subset_count=self.data_subset[var],
+                            return_cat=False,
+                        )
+                    else:
+                        candidate_features = candidate_values = None
+
+                    # Create copy of data bachelors
+                    bachelor_features = _subset_data(
+                        imputed_data.working_data,
+                        row_ind=imputed_data.na_where[var],
+                        col_ind=predictor_variables,
                     )
-
-                meanmatch_s = datetime.now()
-                imp_values = np.array(
-                    self.mean_match_function(
-                        mmc=self.mean_match_candidates[var],
-                        model=current_model,
-                        candidate_features=candidate_features,
-                        bachelor_features=bachelor_features,
-                        candidate_values=candidate_target,
-                        random_state=self._random_state,
+                    # Select our model.
+                    current_model = self.get_model(
+                        variable=var, dataset=ds, iteration=model_iteration
                     )
-                )
-                self.time_log.add_variable_time(var, "mean_match", meanmatch_s)
-                imputed_data_set._insert_new_data(var, imp_values)
-                self.time_log.add_variable_time(
-                    var, "impute_new_data", impute_new_data_s
-                )
+                    imp_values = np.array(
+                        self.mean_match_function(
+                            mmc=self.mean_match_candidates[var],
+                            model=current_model,
+                            candidate_features=candidate_features,
+                            bachelor_features=bachelor_features,
+                            candidate_values=candidate_values,
+                            random_state=self._random_state,
+                        )
+                    )
+                    imputed_data._insert_new_data(
+                        dataset=ds, variable_index=var, new_data=imp_values
+                    )
+                    imputed_data.iterations[
+                        ds, imputed_data.imputation_order.index(var)
+                    ] += 1
 
-            logger.log("\n", end="")
+                logger.log("\n", end="")
 
-        return imputed_data_set
+        imputed_data._ampute_original_data()
 
-    def get_feature_importance(self, iteration: int = None) -> np.ndarray:
+        return imputed_data
+
+    def get_feature_importance(self, dataset, iteration=None) -> np.ndarray:
         """
         Return a matrix of feature importance. The cells
         represent the normalized feature importance of the
@@ -931,6 +1123,8 @@ class KernelDataSet(ImputedDataSet):
 
         Parameters
         ----------
+        dataset: int
+            The dataset to get the feature importance for.
         iteration: int
             The iteration to return the feature importance for.
             Right now, the model must be saved to return importance
@@ -941,10 +1135,9 @@ class KernelDataSet(ImputedDataSet):
         columns are predictor variables.
 
         """
-        # Should change this to save importance as models are updated, so
-        # we can still get feature importance even if models are not saved.
 
-        iteration = self._default_iteration(iteration)
+        if iteration is None:
+            iteration = self.iteration_count(datasets=dataset)
 
         importance_matrix = np.full(
             shape=(len(self.imputation_order), len(self.predictor_vars)),
@@ -955,7 +1148,7 @@ class KernelDataSet(ImputedDataSet):
             importance_dict = dict(
                 zip(
                     self.variable_schema[ivar],
-                    self.get_model(ivar, iteration).feature_importance(),
+                    self.get_model(dataset, ivar, iteration).feature_importance(),
                 )
             )
             for pvar in importance_dict:
@@ -967,7 +1160,7 @@ class KernelDataSet(ImputedDataSet):
         return importance_matrix
 
     def plot_feature_importance(
-        self, normalize: bool = True, iteration: int = None, **kw_plot
+        self, dataset, normalize: bool = True, iteration: int = None, **kw_plot
     ):
         """
         Plot the feature importance. See get_feature_importance()
@@ -975,6 +1168,8 @@ class KernelDataSet(ImputedDataSet):
 
         Parameters
         ----------
+        dataset: int
+            The dataset to plot the feature importance for.
         iteration: int
             The iteration to plot the feature importance of.
         normalize: book
@@ -991,17 +1186,19 @@ class KernelDataSet(ImputedDataSet):
         except ImportError:
             raise ImportError("seaborn must be installed to plot importance")
 
-        importance_matrix = self.get_feature_importance(iteration=iteration)
+        importance_matrix = self.get_feature_importance(
+            dataset=dataset, iteration=iteration
+        )
         if normalize:
             importance_matrix = (
                 importance_matrix / np.nansum(importance_matrix, 1).reshape(-1, 1)
             ).round(2)
 
         imputed_var_names = [
-            self._get_column_name(int(i)) for i in np.sort(self.imputation_order)
+            self._get_variable_name(int(i)) for i in np.sort(self.imputation_order)
         ]
         predictor_var_names = [
-            self._get_column_name(int(i)) for i in np.sort(self.predictor_vars)
+            self._get_variable_name(int(i)) for i in np.sort(self.predictor_vars)
         ]
 
         params = {

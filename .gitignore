@@ -1,3 +1,4 @@
+.gitignore
 *.egg-info/
 dist/
 build/
@@ -16,3 +17,4 @@ setupdev.py
 */_build/
 *.bat
 release_commands.txt
+dev/

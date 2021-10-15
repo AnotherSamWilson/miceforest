@@ -4,6 +4,7 @@ from miceforest.utils import _get_default_mmc
 from sklearn.datasets import load_boston
 import pandas as pd
 import numpy as np
+from matplotlib.pyplot import close
 
 # Set random state and load data from sklearn
 random_state = np.random.RandomState(1991)
@@ -32,7 +33,6 @@ def test_cust_schema_pandas():
 
     def mmf(
             mmc,
-            mms,
             model,
             candidate_features,
             bachelor_features,
@@ -112,14 +112,21 @@ def test_cust_schema_pandas():
 
     # Plotting on multiple imputed dataset
     new_imp_dat.plot_mean_convergence()
+    close()
     new_imp_dat.plot_imputed_distributions()
+    close()
     new_imp_dat.plot_correlations()
+    close()
 
     # Plotting on Multiple Imputed Kernel
     kernel.plot_correlations()
+    close()
     kernel.plot_feature_importance()
+    close()
     kernel.plot_mean_convergence()
+    close()
     kernel.plot_imputed_distributions()
+    close()
 
 
 def test_cust_schema_numpy():
@@ -129,7 +136,6 @@ def test_cust_schema_numpy():
 
     def mmf(
             mmc,
-            mms,
             model,
             candidate_features,
             bachelor_features,
@@ -206,11 +212,18 @@ def test_cust_schema_numpy():
 
     # Plotting on multiple imputed dataset
     new_imp_dat.plot_mean_convergence()
+    close()
     new_imp_dat.plot_imputed_distributions()
+    close()
     new_imp_dat.plot_correlations()
+    close()
 
     # Plotting on Multiple Imputed Kernel
     kernel.plot_correlations()
+    close()
     kernel.plot_feature_importance()
+    close()
     kernel.plot_mean_convergence()
+    close()
     kernel.plot_imputed_distributions()
+    close()

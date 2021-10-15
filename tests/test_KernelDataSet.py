@@ -37,7 +37,6 @@ def test_cust_schem_1():
 
     def mmf(
             mmc,
-            mms,
             model,
             candidate_features,
             bachelor_features,

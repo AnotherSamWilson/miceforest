@@ -15,15 +15,17 @@ boston_amp = mf.ampute_data(boston, perc=0.25, random_state=random_state)
 new_data = boston_amp.loc[range(10),:]
 
 
-# Pre-tuning
-pre_tune_iterations = 2
-kernel = mf.KernelDataSet(boston_amp, random_state=random_state)
+kernel = mf.ImputationKernel(boston_amp, random_state=random_state)
+iterations = 2
 kernel.mice(
-    pre_tune_iterations,
+    iterations,
     boosting='random_forest',
-    num_iterations = 100,
-    num_leaves = 31
+    num_iterations=50,
+    num_leaves=31
 )
+
+def mse(x, y):
+    return np.mean((x-y) ** 2)
 
 def test_classification_defaults():
     # Commented out because this binary variable is extremely unbalanced
@@ -44,19 +46,19 @@ def test_classification_defaults():
     assert roc > 0.7
 
 
-def test_regression_defaults():
+def test_regression_defaults_pretune():
     # Square error of the model predictions should be less than
     # if we just predicted the mean every time.
     imputed_errors = {}
     modeled_errors = {}
+    random_sample_error = {}
     for col in [0,1,2,4,5,6,7,9,10,11,12]:
         ind = kernel.na_where[col]
         nonmissind = np.delete(range(boston.shape[0]), ind)
         preds = kernel.get_raw_prediction(col)
-        imps = kernel[col, pre_tune_iterations]
-        random_sample_error = np.mean((boston.iloc[ind, col] - np.mean(boston.iloc[nonmissind, col])).values ** 2)
-        modeled_errors[col] = np.mean((boston.iloc[ind, col] - preds[ind]).values ** 2)
-        imputed_errors[col] = np.mean((boston.iloc[ind, col] - imps).values ** 2)
-        assert random_sample_error > modeled_errors[col]
-        assert random_sample_error > imputed_errors[col]
-
+        imps = kernel[0, col, iterations]
+        random_sample_error[col] = mse(boston.iloc[ind, col], np.mean(boston.iloc[nonmissind, col]))
+        modeled_errors[col] = mse(boston.iloc[ind, col], preds[ind])
+        imputed_errors[col] = mse(boston.iloc[ind, col], imps)
+        assert random_sample_error[col] > modeled_errors[col]
+        assert random_sample_error[col] > imputed_errors[col]

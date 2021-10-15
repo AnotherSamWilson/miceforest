@@ -1,5 +1,6 @@
 import numpy as np
 from lightgbm import Booster
+from .utils import _ensure_np_array
 
 try:
     from scipy.spatial import KDTree
@@ -10,13 +11,12 @@ except ImportError:
 
 
 def default_mean_match(
-    mmc: int,
-    mms: int,
+    mmc,
     model: Booster,
-    candidate_features: np.ndarray,
-    bachelor_features: np.ndarray,
-    candidate_values: np.ndarray,
-    random_state: np.random.RandomState,
+    candidate_features,
+    bachelor_features,
+    candidate_values,
+    random_state,
 ):
     """
     The default mean matching function that comes with miceforest. This can be replaced.
@@ -26,18 +26,30 @@ def default_mean_match(
 
     Parameters
     ----------
-    mmc: The number of mean matching candidates (derived from mean_match_candidates parameter)
-    mms: The number of samples to include in mean matching (derived from mean_match_subset parameter)
-    model: The model that was trained.
-    candidate_features: The features used to train the model.
-    bachelor_features: The features corresponding to the missing values of the response variable
+    mmc: int
+        The number of mean matching candidates (derived from mean_match_candidates
+        parameter)
+    model: lgb.Booster
+        The model that was trained.
+    candidate_features: pd.DataFrame or np.ndarray
+        The features used to train the model.
+        If mmc == 0, this will be None.
+    bachelor_features: pd.DataFrame or np.ndarray
+        The features corresponding to the missing values of the response variable
         used to train the model.
-    candidate_values: The real (not predicted) values of the candidates from the original dataset.
-    random_state: The random state from the process calling this function is passed.
+    candidate_values:  pd.Series or np.ndarray
+        The real (not predicted) values of the candidates from the original dataset.
+        Will be 1D
+    random_state: np.random.RandomState
+        The random state from the process calling this function is passed.
 
     Returns
     -------
     The imputation values
+    Must be np.ndarray or shape (n,), where n is the length of dimension 1 of
+    bachelor_features.
+    If the feature is categorical, return its category code (integer corresponding
+    to its category).
     """
 
     objective = model.params["objective"]
@@ -53,6 +65,14 @@ def default_mean_match(
         "tweedie",
         "gamma",
     ]
+    assert objective in regressive_objectives + [
+        "binary",
+        "multiclass",
+        "multiclassova",
+    ], (
+        "lightgbm objective not recognized - please check for aliases or "
+        + "define a custom mean matching function to handle this objective."
+    )
 
     # Need these no matter what.
     bachelor_preds = model.predict(bachelor_features)
@@ -63,28 +83,21 @@ def default_mean_match(
 
             imp_values = bachelor_preds
 
-        elif objective == "binary":
+        else:
 
-            imp_values = np.floor(bachelor_preds + 0.5)
+            if objective == "binary":
 
-        elif objective in ["multiclass", "multiclassova"]:
+                imp_values = np.floor(bachelor_preds + 0.5)
 
-            imp_values = np.argmax(bachelor_preds, axis=1)
+            elif objective in ["multiclass", "multiclassova"]:
+
+                imp_values = np.argmax(bachelor_preds, axis=1)
 
     else:
 
         if objective in regressive_objectives:
 
-            # If we need to subset
-            candidate_count = len(candidate_values)
-            if mms < candidate_count:
-                candidate_subset = random_state.choice(
-                    range(candidate_count), size=mms, replace=False
-                )
-                candidate_preds = model.predict(candidate_features[candidate_subset, :])
-                candidate_values = candidate_values[candidate_subset]
-            else:
-                candidate_preds = model.predict(candidate_features)
+            candidate_preds = model.predict(candidate_features)
 
             # lightgbm predict for regression is shape (n,).
             # Need it to be shape (n,1)
@@ -103,7 +116,7 @@ def default_mean_match(
                 ind = random_state.randint(mmc, size=(knn_indices.shape[0]))
                 index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
 
-            imp_values = candidate_values[index_choice]
+            imp_values = _ensure_np_array(candidate_values)[index_choice]
 
         elif objective == "binary":
 
@@ -119,24 +132,16 @@ def default_mean_match(
                 for i in range(bachelor_preds.shape[0])
             ]
 
-        else:
-
-            raise ValueError(
-                "lightgbm objective not recognized - please check for aliases or "
-                + "define a custom mean matching function to handle this objective."
-            )
-
     return imp_values
 
 
 def mean_match_kdtree_classification(
-    mmc: int,
-    mms: int,
+    mmc,
     model: Booster,
-    candidate_features: np.ndarray,
-    bachelor_features: np.ndarray,
-    candidate_values: np.ndarray,
-    random_state: np.random.RandomState,
+    candidate_features,
+    bachelor_features,
+    candidate_values,
+    random_state,
 ):
     """
     This mean matching function selects categorical features by performing nearest
@@ -145,18 +150,25 @@ def mean_match_kdtree_classification(
 
     Parameters
     ----------
-    mmc: The number of mean matching candidates (derived from mean_match_candidates parameter)
-    mms: The number of samples to include in mean matching (derived from mean_match_subset parameter)
-    model: The model that was trained.
-    candidate_features: The features used to train the model.
-    bachelor_features: The features corresponding to the missing values of the response variable
-        used to train the model.
-    candidate_values: The real (not predicted) values of the candidates from the original dataset.
-    random_state: The random state from the process calling this function is passed.
+    mmc: int
+        The number of mean matching candidates (derived from mean_match_candidates parameter)
+    model: lgb.Booster
+        The model that was trained.
+    candidate_features: pd.DataFrame or np.ndarray
+        The features used to train the model.
+        If mmc == 0, this will be None.
+    bachelor_features: pd.DataFrame or np.ndarray
+        The features corresponding to the missing values of the response variable used to train
+        the model.
+    candidate_values:  pd.Series or np.ndarray
+        The real (not predicted) values of the candidates from the original dataset.
+        Will be 1D
+    random_state: np.random.RandomState
+        The random state from the process calling this function is passed.
 
     Returns
     -------
-    The imputation values
+
     """
 
     objective = model.params["objective"]
@@ -172,6 +184,14 @@ def mean_match_kdtree_classification(
         "tweedie",
         "gamma",
     ]
+    assert objective in regressive_objectives + [
+        "binary",
+        "multiclass",
+        "multiclassova",
+    ], (
+        "lightgbm objective not recognized - please check for aliases or "
+        + "define a custom mean matching function to handle this objective."
+    )
 
     # Need these no matter what.
     bachelor_preds = model.predict(bachelor_features)
@@ -184,9 +204,6 @@ def mean_match_kdtree_classification(
 
         elif objective == "binary":
 
-            # Fastest method I could find.
-            # Beats transpose + np.argmax (like multiclass)
-            # Beats np.round somehow.
             imp_values = np.floor(bachelor_preds + 0.5)
 
         elif objective in ["multiclass", "multiclassova"]:
@@ -197,16 +214,7 @@ def mean_match_kdtree_classification(
 
         if objective in regressive_objectives + ["binary"]:
 
-            # If we need to subset
-            candidate_count = len(candidate_values)
-            if mms < candidate_count:
-                candidate_subset = random_state.choice(
-                    range(candidate_count), size=mms, replace=False
-                )
-                candidate_preds = model.predict(candidate_features[candidate_subset, :])
-                candidate_values = candidate_values[candidate_subset]
-            else:
-                candidate_preds = model.predict(candidate_features)
+            candidate_preds = model.predict(candidate_features)
 
             # lightgbm predict for regression is shape (n,).
             # Need it to be shape (n,1)
@@ -222,32 +230,16 @@ def mean_match_kdtree_classification(
                 ind = random_state.randint(mmc, size=(knn_indices.shape[0]))
                 index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
 
-            imp_values = candidate_values[index_choice]
+            imp_values = _ensure_np_array(candidate_values)[index_choice]
 
         elif objective in ["multiclass", "multiclassova"]:
 
-            # Perform nearest neighbors on class probabilities (accurate)
-            candidate_count = len(candidate_values)
-            if mms < candidate_count:
-                candidate_subset = random_state.choice(
-                    range(candidate_count), size=mms, replace=False
-                )
-                candidate_preds = model.predict(candidate_features[candidate_subset, :])
-                candidate_values = candidate_values[candidate_subset]
-            else:
-                candidate_preds = model.predict(candidate_features)
+            candidate_preds = model.predict(candidate_features)
 
             kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
             _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
             ind = random_state.randint(mmc, size=(knn_indices.shape[0]))
             index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
             imp_values = candidate_values[index_choice]
-
-        else:
-
-            raise ValueError(
-                "lightgbm objective not recognized - please check for aliases or "
-                + "define a custom mean matching function to handle this objective."
-            )
 
     return imp_values

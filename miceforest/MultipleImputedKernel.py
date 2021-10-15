@@ -6,6 +6,7 @@ from .utils import ensure_rng, MeanMatchType, VarSchemType, VarParamType
 from .logger import Logger
 import numpy as np
 from .compat import pd_DataFrame, pd_Series
+import warnings
 
 
 class MultipleImputedKernel(MultipleImputedDataSet):
@@ -155,6 +156,12 @@ class MultipleImputedKernel(MultipleImputedDataSet):
         save_models: int = 1,
         random_state: Union[int, np.random.RandomState] = None,
     ):
+
+        warnings.warn(
+            "MultipleImputedKernel is depreciated as of version 5.0.0 in favor "
+            + "of the more efficient ImputationKernel, and will be removed in a "
+            + "future release."
+        )
 
         self.random_state = ensure_rng(random_state)
 

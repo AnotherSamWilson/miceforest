@@ -24,9 +24,10 @@ def make_default_tuning_space(min_samples, max_samples):
         "learning_rate": 0.05,
         "num_iterations": 5000,
         "min_data_in_leaf": (min_samples, max_samples),
-        "min_sum_hessian_in_leaf": 0.0001,
-        "num_leaves": (2, 50),
+        "min_sum_hessian_in_leaf": 0.1,
+        "num_leaves": (2, 25),
         "bagging_fraction": (0.1, 1.0),
         "feature_fraction_bynode": (0.1, 1.0),
+        "cat_smooth": (0, 25),
     }
     return space

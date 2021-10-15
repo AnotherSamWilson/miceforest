@@ -1,6 +1,6 @@
 import numpy as np
 from typing import List, Optional, Union, Dict, Any
-from .compat import pd_DataFrame
+from .compat import pd_DataFrame, pd_Series
 
 MeanMatchType = Union[int, float, Dict[str, float], Dict[str, int]]
 VarSchemType = Optional[Union[List[str], Dict[str, List[str]]]]
@@ -61,6 +61,8 @@ def stratified_continuous_folds(y, nfold):
     Create primitive stratified folds for continuous data.
     Should be digestible by lightgbm.cv function.
     """
+    if isinstance(y, pd_Series):
+        y = y.values
     elements = len(y)
     assert elements >= nfold, "more splits then elements."
     sorted = np.argsort(y)
@@ -74,6 +76,8 @@ def stratified_categorical_folds(y, nfold):
     Create primitive stratified folds for categorical data.
     Should be digestible by lightgbm.cv function.
     """
+    if isinstance(y, pd_Series):
+        y = y.values
     y = y.reshape(
         y.shape[0],
     ).copy()
@@ -126,9 +130,26 @@ def _get_default_mmc(candidates=None) -> int:
     else:
         percent = 0.001
         minimum = 5
-        maximum = 25
+        maximum = 10
         mean_match_candidates = min(maximum, max(minimum, int(percent * candidates)))
         return mean_match_candidates
+
+
+def _ensure_iterable(x):
+    """
+    If the object is iterable, return the object.
+    Else, return the object in a length 1 list.
+    """
+    return x if hasattr(x, "__iter__") else [x]
+
+
+def _ensure_np_array(x):
+    if isinstance(x, np.ndarray):
+        return x
+    if isinstance(x, pd_DataFrame) | isinstance(x, pd_Series):
+        return x.values
+    else:
+        raise ValueError("Can't cast to numpy array")
 
 
 def _get_default_mms(candidates) -> int:
@@ -140,6 +161,59 @@ def _setequal(a, b):
         return a == b
     else:
         return set(a) == set(b)
+
+
+def _is_int(x):
+    return isinstance(x, int) | isinstance(x, np.int_)
+
+
+def _slice(dat, row_slice=slice(None), col_slice=slice(None)):
+    """
+    Returns a view of the subset data if possible.
+    """
+
+    if isinstance(dat, pd_DataFrame):
+        return dat.iloc[row_slice, col_slice]
+    elif isinstance(dat, np.ndarray):
+        return dat[row_slice, col_slice]
+    else:
+        raise ValueError("Unknown data class passed.")
+
+
+def _assign_col_values_without_copy(dat, row_ind, col_ind, val):
+    """
+    Insert values into different data frame objects.
+    """
+
+    row_ind = _ensure_iterable(row_ind)
+
+    if isinstance(dat, pd_DataFrame):
+        dat.iloc[row_ind, col_ind] = val
+    elif isinstance(dat, np.ndarray):
+        dat[row_ind, col_ind] = val
+    else:
+        raise ValueError("Unknown data class passed.")
+
+
+def _subset_data(dat, row_ind=None, col_ind=None, return_1d=False):
+    """
+    Can subset data along 2 axis.
+    Explicitly returns a copy.
+    """
+
+    row_ind = range(dat.shape[0]) if row_ind is None else row_ind
+    col_ind = range(dat.shape[1]) if col_ind is None else col_ind
+
+    if isinstance(dat, pd_DataFrame):
+        data_copy = dat.iloc[row_ind, col_ind]
+        return data_copy.to_numpy().flatten() if return_1d else data_copy
+    elif isinstance(dat, np.ndarray):
+        row_ind = _ensure_iterable(row_ind)
+        col_ind = _ensure_iterable(col_ind)
+        data_copy = dat[np.ix_(row_ind, col_ind)]
+        return data_copy.flatten() if return_1d else data_copy
+    else:
+        raise ValueError("Unknown data class passed.")
 
 
 # Not all aliases are stored somewhere retrievable in lightgbm..

@@ -3,10 +3,14 @@ from .ImputedDataSet import ImputedDataSet
 from .MultipleImputedDataSet import MultipleImputedDataSet
 from .MultipleImputedKernel import MultipleImputedKernel
 from .KernelDataSet import KernelDataSet
+from .ImputedData import ImputedData
+from .ImputationKernel import ImputationKernel
 
-__version__ = "4.0.4"
+__version__ = "5.0.0"
 
 __all__ = [
+    "ImputedData",
+    "ImputationKernel",
     "MultipleImputedKernel",
     "ImputedDataSet",
     "MultipleImputedDataSet",
