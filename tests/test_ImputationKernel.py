@@ -13,7 +13,7 @@ from matplotlib.pyplot import close
 random_state = np.random.RandomState(5)
 boston = pd.DataFrame(load_boston(return_X_y=True)[0])
 boston.columns = [str(i) for i in boston.columns]
-boston["3"] = boston["3"].astype("category")
+boston["3"] = boston["3"].map({0: 'a', 1: 'b'}).astype('category')
 boston["8"] = boston["8"].astype("category")
 boston_amp = mf.ampute_data(boston, perc=0.25, random_state=random_state)
 
