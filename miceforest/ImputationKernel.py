@@ -349,14 +349,15 @@ class ImputationKernel(ImputedData):
 
         if self.initialization == "random":
 
-            for ds in range(imputed_data.dataset_count()):
+            for var in imputed_data.imputation_order:
 
-                for var in imputed_data.imputation_order:
+                ind = np.setdiff1d(np.arange(self.data_shape[0]), self.na_where[var])
+                candidates = _subset_data(
+                    self.working_data, ind, var, return_1d=True
+                )
 
-                    ind = np.setdiff1d(range(self.data_shape[0]), self.na_where[var])
-                    candidates = _subset_data(
-                        self.working_data, ind, var, return_1d=True
-                    )
+                for ds in range(imputed_data.dataset_count()):
+
                     imputed_data[ds, var, 0] = self._random_state.choice(
                         candidates, size=imputed_data.na_counts[var]
                     )

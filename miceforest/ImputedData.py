@@ -361,7 +361,7 @@ save_all_iterations: {self.save_all_iterations}"""
         return indx
 
     def _get_working_data_nonmissing_indx(self, var):
-        non_missing_ind = np.setdiff1d(range(self.data_shape[0]), self.na_where[var])
+        non_missing_ind = np.setdiff1d(np.arange(self.data_shape[0]), self.na_where[var])
         return non_missing_ind
 
     def _insert_new_data(self, dataset, variable_index, new_data):
