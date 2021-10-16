@@ -9,11 +9,11 @@ CatFeatType = Union[str, List[str], List[int], Dict[int, dict]]
 
 
 def ampute_data(
-    data: Union[pd_DataFrame, np.ndarray],
-    variables: Optional[List[Union[str, int]]] = None,
-    perc: float = 0.1,
-    random_state: Optional[Union[int, np.random.RandomState]] = None,
-) -> Union[pd_DataFrame, np.ndarray]:
+    data,
+    variables=None,
+    perc=0.1,
+    random_state=None,
+):
     """
     Ampute Data
 
@@ -35,23 +35,32 @@ def ampute_data(
         The amputed data
     """
     amputed_data = data.copy()
-    nrow = amputed_data.shape[0]
-    amp_rows = int(perc * nrow)
+    data_shape = amputed_data.shape
+    amp_rows = int(perc * data_shape[0])
     random_state = ensure_rng(random_state)
 
-    if variables is None:
-        variables = [i for i in range(amputed_data.shape[1])]
+    if len(data_shape) > 1:
+        if variables is None:
+            variables = [i for i in range(amputed_data.shape[1])]
+        elif isinstance(variables, list):
+            if isinstance(variables[0], str):
+                variables = [data.columns.tolist().index(i) for i in variables]
 
-    if isinstance(amputed_data, pd_DataFrame):
-        for v in variables:
-            na_ind = random_state.choice(range(nrow), replace=False, size=amp_rows)
-            amputed_data.iloc[na_ind, v] = np.NaN
+        if isinstance(amputed_data, pd_DataFrame):
+            for v in variables:
+                na_ind = random_state.choice(np.arange(data_shape[0]), replace=False, size=amp_rows)
+                amputed_data.iloc[na_ind, v] = np.NaN
 
-    if isinstance(amputed_data, np.ndarray):
-        amputed_data = amputed_data.astype("float64")
-        for v in variables:
-            na_ind = random_state.choice(range(nrow), replace=False, size=amp_rows)
-            amputed_data[na_ind, v] = np.NaN
+        if isinstance(amputed_data, np.ndarray):
+            amputed_data = amputed_data.astype("float64")
+            for v in variables:
+                na_ind = random_state.choice(np.arange(data_shape[0]), replace=False, size=amp_rows)
+                amputed_data[na_ind, v] = np.NaN
+
+    else:
+
+        na_ind = random_state.choice(np.arange(data_shape[0]), replace=False, size=amp_rows)
+        amputed_data[na_ind] = np.NaN
 
     return amputed_data
 
