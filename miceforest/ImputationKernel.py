@@ -352,9 +352,7 @@ class ImputationKernel(ImputedData):
             for var in imputed_data.imputation_order:
 
                 ind = np.setdiff1d(np.arange(self.data_shape[0]), self.na_where[var])
-                candidates = _subset_data(
-                    self.working_data, ind, var, return_1d=True
-                )
+                candidates = _subset_data(self.working_data, ind, var, return_1d=True)
 
                 for ds in range(imputed_data.dataset_count()):
 
@@ -1038,8 +1036,8 @@ class ImputationKernel(ImputedData):
             impute_data=new_data,
             datasets=len(datasets),
             variable_schema=self.variable_schema.copy(),
-            imputation_order=self.imputation_order,
-            categorical_feature="auto",
+            imputation_order=self.imputation_order.copy(),
+            categorical_feature=self.categorical_feature,
             save_all_iterations=save_all_iterations,
             copy_data=copy_data,
         )

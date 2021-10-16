@@ -143,6 +143,8 @@ class ImputedData:
             vars_with_any_missing = [
                 int(col) for col, ind in na_where.items() if len(ind > 0)
             ]
+            if len(vars_with_any_missing) == 0:
+                raise ValueError("No missing values to impute.")
 
         elif isinstance(self.working_data, np.ndarray):
 
@@ -266,6 +268,7 @@ class ImputedData:
         )
 
         self.column_names = column_names
+        self.categorical_feature = categorical_feature
         self.categorical_variables = categorical_variables
         self.category_counts = category_counts
         self.original_data_class = original_data_class
@@ -361,7 +364,9 @@ save_all_iterations: {self.save_all_iterations}"""
         return indx
 
     def _get_working_data_nonmissing_indx(self, var):
-        non_missing_ind = np.setdiff1d(np.arange(self.data_shape[0]), self.na_where[var])
+        non_missing_ind = np.setdiff1d(
+            np.arange(self.data_shape[0]), self.na_where[var]
+        )
         return non_missing_ind
 
     def _insert_new_data(self, dataset, variable_index, new_data):
