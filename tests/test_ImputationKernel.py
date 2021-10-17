@@ -21,28 +21,39 @@ def test_defaults_pandas():
 
     new_data = boston_amp.loc[range(10), :].copy()
 
-    s = datetime.now()
     kernel = mf.ImputationKernel(
         data=boston_amp,
-        datasets=3,
+        datasets=2,
         mean_match_function=mean_match_kdtree_classification
     )
-
     kernel.mice(iterations=2)
+
+    kernel2 = mf.ImputationKernel(
+        data=boston_amp,
+        datasets=1,
+        mean_match_function=mean_match_kdtree_classification
+    )
+    kernel2.mice(iterations=2)
+
+    # Test appending and then test kernel.
+    kernel.append(kernel2)
+
+    # Test mice after appendage
+    kernel.mice(1)
+
     kernel.complete_data(0, inplace=True)
     assert all(kernel.working_data.isnull().sum() == 0)
-    assert kernel.models[0][0][2].params['objective'] == 'regression'
-    assert kernel.models[0][3][2].params['objective'] == 'binary'
-    assert kernel.models[0][8][2].params['objective'] == 'multiclass'
+    assert kernel.models[0][0][3].params['objective'] == 'regression'
+    assert kernel.models[0][3][3].params['objective'] == 'binary'
+    assert kernel.models[0][8][3].params['objective'] == 'multiclass'
 
     # Make sure we didn't touch the original data
     assert all(boston_amp.isnull().sum() > 0)
 
     imp_ds = kernel.impute_new_data(new_data)
-    imp_ds.complete_data(0,inplace=True)
+    imp_ds.complete_data(2,inplace=True)
     assert all(imp_ds.working_data.isnull().sum(0) == 0)
     assert new_data.isnull().sum().sum() > 0
-    print(datetime.now() - s)
 
 
 def test_complex_pandas():
@@ -82,7 +93,17 @@ def test_complex_pandas():
 
     kernel = mf.ImputationKernel(
         data=working_set,
-        datasets=3,
+        datasets=2,
+        variable_schema=vs,
+        mean_match_candidates=mmc,
+        data_subset=ds,
+        mean_match_function=mmf,
+        categorical_feature=[3,8],
+        copy_data=False
+    )
+    kernel2 = mf.ImputationKernel(
+        data=working_set,
+        datasets=1,
         variable_schema=vs,
         mean_match_candidates=mmc,
         data_subset=ds,
@@ -98,6 +119,8 @@ def test_complex_pandas():
 
     nround = 2
     kernel.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
+    kernel2.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
+    kernel.append(kernel2)
     assert kernel.models[0][1][nround - 1].params['num_iterations'] == 15
     assert kernel.models[0][2][nround - 1].params['num_iterations'] == 10
     kernel.mice(1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
@@ -240,7 +263,18 @@ def test_complex_numpy():
 
     kernel = mf.ImputationKernel(
         data=working_set,
-        datasets=3,
+        datasets=2,
+        variable_schema=vs,
+        mean_match_candidates=mmc,
+        data_subset=ds,
+        mean_match_function=mmf,
+        categorical_feature=[3,8],
+        copy_data=False
+    )
+
+    kernel2 = mf.ImputationKernel(
+        data=working_set,
+        datasets=1,
         variable_schema=vs,
         mean_match_candidates=mmc,
         data_subset=ds,
@@ -256,6 +290,8 @@ def test_complex_numpy():
 
     nround = 2
     kernel.mice(nround - 1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
+    kernel2.mice(nround - 1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
+    kernel.append(kernel2)
     assert kernel.models[0][1][nround - 1].params['num_iterations'] == 15
     assert kernel.models[0][2][nround - 1].params['num_iterations'] == 10
     kernel.mice(1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)

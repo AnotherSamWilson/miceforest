@@ -8,13 +8,11 @@ from .utils import (
     stratified_continuous_folds,
     stratified_categorical_folds,
     _subset_data,
-    _slice,
     _is_int,
 )
 import numpy as np
 from .logger import Logger
 from lightgbm import train, Dataset, cv
-from .compat import pd_DataFrame, pd_Series
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
 
 _TIMED_VARIABLE_EVENTS = [
@@ -524,6 +522,59 @@ class ImputationKernel(ImputedData):
             return x, y, cat
         else:
             return x, y
+
+    def append(self, imputation_kernel):
+        """
+        Combine two imputation kernels together.
+
+        For compatibility, the following attributes of each must be equal:
+            - working_data
+            - iteration_count
+            - categorical_feature
+            - mean_match_function
+            - variable_schema
+            - imputation_order
+            - save_models
+            - save_all_iterations
+
+        Only cursory checks are done to ensure working_data is equal.
+        Appending a kernel with different working_data could ruin this kernel.
+
+        Parameters
+        ----------
+        imputation_kernel: ImputationKernel
+            The kernel to merge.
+
+        Returns
+        -------
+
+        """
+        assert self.working_data.shape == imputation_kernel.working_data.shape
+        assert self.iteration_count() == imputation_kernel.iteration_count()
+        assert self.mean_match_function.__code__.co_code == imputation_kernel.mean_match_function.__code__.co_code
+        assert self.variable_schema == imputation_kernel.variable_schema
+        assert self.imputation_order == imputation_kernel.imputation_order
+        assert self.categorical_feature == imputation_kernel.categorical_feature
+        assert self.save_models == imputation_kernel.save_models
+        assert self.save_all_iterations == imputation_kernel.save_all_iterations
+
+        current_datasets = self.dataset_count()
+        new_datasets = imputation_kernel.dataset_count()
+
+        # Combine dicts
+        for ds in range(new_datasets):
+            insert_index = current_datasets + ds
+            self.imputation_values[insert_index] = imputation_kernel.imputation_values[ds]
+            self.models[insert_index] = imputation_kernel.models[ds]
+            self.optimal_parameters[insert_index] = imputation_kernel.optimal_parameters[ds]
+            self.optimal_parameter_losses[insert_index] = imputation_kernel.optimal_parameter_losses[ds]
+
+        # Append iterations
+        self.iterations = np.append(
+            self.iterations,
+            imputation_kernel.iterations,
+            axis=0
+        )
 
     def get_model(self, dataset, variable, iteration=None):
         """
