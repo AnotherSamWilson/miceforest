@@ -80,6 +80,7 @@ class ImputedData:
         datasets=5,
         variable_schema=None,
         imputation_order="ascending",
+        train_nonmissing=False,
         categorical_feature="auto",
         save_all_iterations=True,
         copy_data=True,
@@ -193,12 +194,13 @@ class ImputedData:
 
             raise ValueError("impute_data not recognized.")
 
+        self.column_names = column_names
+
         # Formatting of variable_schema.
         if variable_schema is None:
-            variable_schema = vars_with_any_missing
             variable_schema = {
                 var: list(np.setdiff1d(range(data_shape[1]), [var]))
-                for var in variable_schema
+                for var in np.arange(data_shape[1])
             }
         else:
             if isinstance(variable_schema, list):
@@ -228,21 +230,16 @@ class ImputedData:
                         + " variables cannot be used to impute itself."
                     )
 
-            not_imputable = [
-                var for var in list(variable_schema) if var not in vars_with_any_missing
-            ]
-            for rnm in not_imputable:
-                del variable_schema[rnm]
-
         # Format imputation order
         if isinstance(imputation_order, list):
-            # subset because response vars can be removed if imputing new data with no missing values.
-            assert set(variable_schema).issubset(
-                imputation_order
-            ), "imputation_order does not include all variables to be imputed."
-            imputation_order = self._get_variable_index(
-                [i for i in imputation_order if i in list(variable_schema)]
-            )
+            imputation_order = self._get_variable_index(imputation_order)
+            assert set(imputation_order).issubset(
+                variable_schema
+            ), "variable_schema does not include all variables to be imputed."
+            imputation_order = [
+                i for i in self._get_variable_index(imputation_order)
+                if na_counts[i] > 0
+            ]
         elif isinstance(imputation_order, str):
             if imputation_order in ["ascending", "descending"]:
                 imputation_order = (
@@ -251,43 +248,50 @@ class ImputedData:
                     else np.argsort(na_counts)[::-1]
                 )
                 imputation_order = [
-                    int(i) for i in imputation_order if i in list(variable_schema)
+                    int(i) for i in imputation_order
+                    if na_counts[i] > 0 and i in list(variable_schema)
                 ]
             elif imputation_order == "roman":
-                imputation_order = list(variable_schema)
+                imputation_order = list(variable_schema).copy()
             elif imputation_order == "arabic":
-                imputation_order = list(variable_schema)
+                imputation_order = list(variable_schema).copy()
                 imputation_order.reverse()
             else:
                 raise ValueError("imputation_order not recognized.")
 
-        # Get distinct predictor variables
+        self.variable_schema = variable_schema
+        self.imputation_order = list(imputation_order)
+        self.unimputed_variables = list(np.setdiff1d(np.arange(data_shape[1]), imputation_order))
+        if train_nonmissing:
+            self.variable_training_order = [
+                v for v in self.imputation_order + self.unimputed_variables
+                if v in list(self.variable_schema)
+            ]
+        else:
+            self.variable_training_order = self.imputation_order
         predictor_vars = [prd for prd in variable_schema.values()]
         self.predictor_vars = list(
             dict.fromkeys([item for sublist in predictor_vars for item in sublist])
         )
-
-        self.column_names = column_names
         self.categorical_feature = categorical_feature
         self.categorical_variables = categorical_variables
         self.category_counts = category_counts
         self.original_data_class = original_data_class
         self.save_all_iterations = save_all_iterations
-        self.variable_schema = variable_schema
-        self.imputation_order = imputation_order
         self.data_shape = data_shape
         self.na_counts = na_counts
         self.na_where = na_where
         self.vars_with_any_missing = vars_with_any_missing
         self.imputed_variable_count = len(imputation_order)
+        self.modeled_variable_count = len(self.variable_training_order)
         self.iterations = np.zeros(
-            shape=(datasets, self.imputed_variable_count)
+            shape=(datasets, self.modeled_variable_count)
         ).astype(int)
 
         # Create structure to store imputation values.
         # These will be initialized by an ImputationKernel.
         self.imputation_values = {
-            ds: {var: dict() for var in list(variable_schema)} for ds in range(datasets)
+            ds: {var: dict() for var in self.imputation_order} for ds in range(datasets)
         }
         self.initialized = False
 
@@ -449,14 +453,14 @@ save_all_iterations: {self.save_all_iterations}"""
         )
 
         if variables is None:
-            var = self.imputation_order
+            var = self.variable_training_order
         else:
             variables = _ensure_iterable(variables)
             var = self._get_variable_index(variables)
 
-        assert set(var).issubset(self.imputation_order)
+        assert set(var).issubset(self.variable_training_order)
 
-        iter_indx = [self.imputation_order.index(v) for v in var]
+        iter_indx = [self.variable_training_order.index(v) for v in var]
         ds_uniq = np.unique(self.iterations[np.ix_(ds, iter_indx)])
         if len(ds_uniq) > 1:
             raise ValueError(

@@ -33,7 +33,7 @@ Fast, memory efficient Multiple Imputation by Chained Equations (MICE) with ligh
   * **Fast** Uses lightgbm as a backend, and has efficient mean matching solutions.
   * **Memory Efficient** Capable of performing multiple imputation without copying the dataset. If the dataset can fit in memory, it can (probably) be imputed.
   * **Flexible** Can handle pandas DataFrames and numpy arrays. The imputation process can be completely customized. Can handle categorical data automatically.
-  * **Used In Production** Kernels can be saved and impute new, unseen datasets. Imputing new data is often orders of magnitude faster than including the new data in a new `mice` procedure. New data can also be imputed in place. 
+  * **Used In Production** Kernels can be saved and impute new, unseen datasets. Imputing new data is often orders of magnitude faster than including the new data in a new `mice` procedure. Imputation models can be built off of a kernel dataset, even if there are no missing values. New data can also be imputed in place.
   
 
 
@@ -51,8 +51,9 @@ This document contains a thorough walkthrough of the package, benchmarks, and an
     + [Imputing With Gradient Boosted Trees](https://github.com/AnotherSamWilson/miceforest#Imputing-With-Gradient-Boosted-Trees)
 * [Advanced Features](https://github.com/AnotherSamWilson/miceforest#Advanced-Features)
     + [Customizing the Imputation Process](https://github.com/AnotherSamWilson/miceforest#Customizing-the-Imputation-Process)
-    + [Tuning Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
     + [Imputing New Data with Existing Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
+    + [Building Models on Nonmissing Data](https://github.com/AnotherSamWilson/miceforest#Building-Models-on-Nonmissing-Data)
+    + [Tuning Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
     + [How to Make the Process Faster](https://github.com/AnotherSamWilson/miceforest#How-to-Make-the-Process-Faster)
     + [Imputing Data In Place](https://github.com/AnotherSamWilson/miceforest#Imputing-Data-In-Place)
 * [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting)
@@ -120,7 +121,8 @@ import numpy as np
 
 # Load data and introduce missing values
 iris = pd.concat(load_iris(as_frame=True,return_X_y=True),axis=1)
-iris['target'] = iris['target'].astype('category')
+iris.rename({"target": "species"}, inplace=True, axis=1)
+iris['species'] = iris['species'].astype('category')
 iris_amp = mf.ampute_data(iris,perc=0.25,random_state=1991)
 ```
 
@@ -177,10 +179,10 @@ Parameters can be passed directly to lightgbm in several different ways. Paramet
 kernel.mice(iterations=1,n_estimators=50)
 ```
 
-You can also pass pass variable-specific arguments to `variable_parameters` in mice. For instance, let's say you noticed the imputation of the `[target]` column was taking a little longer, because it is multiclass. You could decrease the n_estimators specifically for that column with:
+You can also pass pass variable-specific arguments to `variable_parameters` in mice. For instance, let's say you noticed the imputation of the `[species]` column was taking a little longer, because it is multiclass. You could decrease the n_estimators specifically for that column with:
 ``` {python TREEGROWTH2}
 # Run the MICE algorithm for 2 more iterations on the kernel 
-kernel.mice(iterations=1,variable_parameters={'target': {'n_estimators': 25}},n_estimators=50)
+kernel.mice(iterations=1,variable_parameters={'species': {'n_estimators': 25}},n_estimators=50)
 ```
 
 In this scenario, any parameters specified in `variable_parameters` takes presidence over the kwargs. 
@@ -232,8 +234,8 @@ can even replace the entire default mean matching function if you wish:
 
 ``` {python CUSTOMSCHEMA}
 var_sch = {
-    'sepal width (cm)': ['target','petal width (cm)'],
-    'petal width (cm)': ['target','sepal length (cm)']
+    'sepal width (cm)': ['species','petal width (cm)'],
+    'petal width (cm)': ['species','sepal length (cm)']
 }
 var_mmc = {
     'sepal width (cm)': 5,
@@ -270,49 +272,6 @@ cust_kernel = mf.ImputationKernel(
 cust_kernel.mice(1)
 ```
   
-### Tuning Parameters
-`miceforest` allows you to tune the parameters on a kernel dataset. These parameters can then be used to build the models in future iterations of mice. In its most simple invocation, you can just call the function with the desired optimization steps:
-``` {python TUNEPARAMETERS}
-# Using the first ImputationKernel in kernel to tune parameters
-# with the default settings.
-optimal_parameters, losses = kernel.tune_parameters(
-  dataset=0,
-  optimization_steps=5
-)
-
-# Run mice with our newly tuned parameters.
-kernel.mice(1, variable_parameters=optimal_parameters)
-
-# The optimal parameters are kept in ImputationKernel.optimal_parameters:
-print(optimal_parameters)
-```
-This will perform 10 fold cross validation on random samples of parameters. By default, all variables models are tuned. If you are curious about the default parameter space that is searched within, check out the `miceforest.default_lightgbm_parameters` module.  
-
-The parameter tuning is pretty flexible. If you wish to set some model parameters static, or to change the bounds that are searched in, you can simply pass this information to either the `variable_parameters` parameter, `**kwbounds`, or both:
-``` {python TUNEPARAMETERS2}
-# Using a complicated setup:
-optimal_parameters, losses = kernel.tune_parameters(
-  dataset=0,
-  variables = ['sepal width (cm)','target','petal width (cm)'],
-  variable_parameters = {
-    'sepal width (cm)': {'bagging_fraction': 0.5},
-    'target': {'bagging_freq': (5,10)}
-  },
-  optimization_steps=5,
-  extra_trees = [True, False]
-)
-
-kernel.mice(1, variable_parameters=optimal_parameters)
-
-```
-In this example, we did a few things - we specified that only `sepal width (cm)`, `target`, and `petal width (cm)` should be tuned. We also specified some specific parameters in `variable_parameters.` Notice that `bagging_fraction` was passed as a scalar, `0.5`. This means that, for the variable `sepal width (cm)`, the parameter `bagging_fraction` will be set as that number and not be tuned. We did the opposite for `bagging_freq`. We specified bounds that the process should search in. We also passed the argument `extra_trees` as a list. Since it was passed to **kwbounds, this parameter will apply to all variables that are being tuned. Passing values as a list tells the process that it should randomly sample values from the list, instead of treating them as set of counts to search within.
-
-The tuning process follows these rules for different parameter values it finds:  
- 
-* Scalar: That value is used, and not tuned.  
-* Tuple: Should be length 2. Treated as the lower and upper bound to search in.  
-* List: Treated as a distinct list of values to try randomly.  
-
 ### Imputing New Data with Existing Models
 
 Multiple Imputation can take a long time. If you wish to impute a
@@ -341,6 +300,91 @@ the ```save_models``` parameter in ```ImputationKernel``` must be > 0. If
 ```save_models == 1```, the model from the latest iteration is saved for each variable.
 If ```save_models > 1```, the model from each iteration is saved. This allows for new
 data to be imputed in a more similar fashion to the original mice procedure.
+
+### Building Models on Nonmissing Data  
+The MICE process itself is used to impute missing data in a dataset. However, sometimes a variable can be fully recognized in the training data, but needs to be imputed later on in a different dataset. It is possible to train models to impute variables even if they have no missing values by setting `train_nonmissing=True`. In this case, `variable_schema` is treated as the list of variables to train models on. `imputation_order` only affects which variables actually have their values imputed, it does not affect which variables have models trained:
+``` {python TRAIN_NONMISSING}
+orig_missing_cols = ["sepal length (cm)", "sepal width (cm)"]
+new_missing_cols = ["sepal length (cm)", "sepal width (cm)", "species"]
+
+# Training data only contains 2 columns with missing data
+iris_amp2 = iris.copy()
+iris_amp2[orig_missing_cols] = mf.ampute_data(
+  iris_amp2[orig_missing_cols],
+  perc=0.25,
+  random_state=1991
+)
+
+# Specify that models should also be trained for species column
+var_sch = new_missing_cols
+
+cust_kernel = mf.ImputationKernel(
+    iris_amp2,
+    datasets=1,
+    variable_schema=var_sch,
+    train_nonmissing=True
+)
+cust_kernel.mice(1)
+
+# New data has missing values in species column
+iris_amp2_new = iris.iloc[range(10),:].copy()
+iris_amp2_new[new_missing_cols] = mf.ampute_data(
+  iris_amp2_new[new_missing_cols],
+  perc=0.25,
+  random_state=1991
+)
+
+# Species column can still be imputed
+iris_amp2_new_imp = cust_kernel.impute_new_data(iris_amp2_new)
+iris_amp2_new_imp.complete_data(0).isnull().sum()
+```
+
+Here, we knew that the species column in our new data would need to be imputed. Therefore, we specified that a model should be built for all 3 variables in the `variable_schema` (passing a dict of target - feature pairs would also have worked).
+
+
+### Tuning Parameters
+`miceforest` allows you to tune the parameters on a kernel dataset. These parameters can then be used to build the models in future iterations of mice. In its most simple invocation, you can just call the function with the desired optimization steps:
+``` {python TUNEPARAMETERS}
+# Using the first ImputationKernel in kernel to tune parameters
+# with the default settings.
+optimal_parameters, losses = kernel.tune_parameters(
+  dataset=0,
+  optimization_steps=5
+)
+
+# Run mice with our newly tuned parameters.
+kernel.mice(1, variable_parameters=optimal_parameters)
+
+# The optimal parameters are kept in ImputationKernel.optimal_parameters:
+print(optimal_parameters)
+```
+This will perform 10 fold cross validation on random samples of parameters. By default, all variables models are tuned. If you are curious about the default parameter space that is searched within, check out the `miceforest.default_lightgbm_parameters` module.  
+
+The parameter tuning is pretty flexible. If you wish to set some model parameters static, or to change the bounds that are searched in, you can simply pass this information to either the `variable_parameters` parameter, `**kwbounds`, or both:
+``` {python TUNEPARAMETERS2}
+# Using a complicated setup:
+optimal_parameters, losses = kernel.tune_parameters(
+  dataset=0,
+  variables = ['sepal width (cm)','species','petal width (cm)'],
+  variable_parameters = {
+    'sepal width (cm)': {'bagging_fraction': 0.5},
+    'species': {'bagging_freq': (5,10)}
+  },
+  optimization_steps=5,
+  extra_trees = [True, False]
+)
+
+kernel.mice(1, variable_parameters=optimal_parameters)
+
+```
+In this example, we did a few things - we specified that only `sepal width (cm)`, `species`, and `petal width (cm)` should be tuned. We also specified some specific parameters in `variable_parameters.` Notice that `bagging_fraction` was passed as a scalar, `0.5`. This means that, for the variable `sepal width (cm)`, the parameter `bagging_fraction` will be set as that number and not be tuned. We did the opposite for `bagging_freq`. We specified bounds that the process should search in. We also passed the argument `extra_trees` as a list. Since it was passed to **kwbounds, this parameter will apply to all variables that are being tuned. Passing values as a list tells the process that it should randomly sample values from the list, instead of treating them as set of counts to search within.
+
+The tuning process follows these rules for different parameter values it finds:  
+ 
+* Scalar: That value is used, and not tuned.  
+* Tuple: Should be length 2. Treated as the lower and upper bound to search in.  
+* List: Treated as a distinct list of values to try randomly.  
+
 
 ### How to Make the Process Faster  
 Multiple Imputation is one of the most robust ways to handle missing data - but it can take a long time. There are several strategies you can use to decrease the time a process takes to run:  
@@ -444,12 +488,12 @@ compare to the original data:
 ```{python IMP_PERFORMANCE}
 acclist = []
 for iteration in range(kernel.iteration_count()+1):
-    target_na_count = kernel.na_counts[4]
+    species_na_count = kernel.na_counts[4]
     compdat = kernel.complete_data(dataset=0,iteration=iteration)
     
-    # Record the accuract of the imputations of target.
+    # Record the accuract of the imputations of species.
     acclist.append(
-      round(1-sum(compdat['target'] != iris['target'])/target_na_count,2)
+      round(1-sum(compdat['species'] != iris['species'])/species_na_count,2)
     )
 
 # acclist shows the accuracy of the imputations

@@ -38,12 +38,54 @@ class ImputationKernel(ImputedData):
     data: np.ndarray or pandas DataFrame.
         The data to be imputed.
 
-    variable_schema: None or ist or dict, default=None
-        If None all variables are used to impute all variables which have
-        missing values.
-        If list all columns in data are used to impute the variables in the list
-        If dict the values will be used to impute the keys. Either can be column
-        indices or names (if data is a pd.DataFrame).
+    variable_schema: None or list or dict, default=None
+        Specifies the feature - target relationships used to train models.
+        This parameter also controls which models are built. Models can be built
+        even if a variable contains no missing values, or is not being imputed
+        (train_nonmissing must be set to True).
+
+            - If None, all columns will be used as features in the training of each model.
+            - If list, all columns in data are used to impute the variables in the list
+            - If dict the values will be used to impute the keys. Can be either column
+                indices or names (if data is a pd.DataFrame).
+
+        No models will be trained for variables not specified by variable_schema
+        (either by None, a list, or in dict keys).
+
+    imputation_order: str, list[str], list[int], default="ascending"
+        The order the imputations should occur in. If a string from the
+        items below, all variables specified by variable_schema with
+        missing data are imputed:
+            ascending: variables are imputed from least to most missing
+            descending: most to least missing
+            roman: from left to right in the dataset
+            arabic: from right to left in the dataset.
+
+        If a list is provided:
+            - the variables will be imputed in that order.
+            - only variables with missing values should be included in the list.
+            - must be a subset of variables specified by variable_schema.
+
+        If a variable with missing values is in variable_schema, but not in
+        imputation_order, then models to impute that variable will be trained,
+        but the actual values will not be imputed. See examples for details.
+
+    train_nonmissing: boolean
+        Should models be trained for variables with no missing values? Useful if you
+        expect you will need to impute new data which will have missing values, but
+        the training data is fully recognized.
+
+        If True, parameters are interpreted like so:
+            - models are run for all variables specified by variable_schema
+            - if variable_schema is None, models are run for all variables
+            - each iteration, models build for fully recognized variables are
+                always trained after the models trained during mice.
+            - imputation_order does not have any affect on fully recognized
+                variable model training.
+
+        WARNING: Setting this to True without specifying a variable schema will build
+        models for all variables in the dataset, whether they have missing values or
+        not. This may or may not be what you want.
 
     mean_match_candidates:  None or int or float or dict
         The number of mean matching candidates to use.
@@ -112,15 +154,6 @@ class ImputationKernel(ImputedData):
                     predictions and collect the associated
                     real candidate values. Choose 1 randomly.
 
-    imputation_order: str, list[str], list[int], default="ascending"
-        The order the imputations should occur in.
-            ascending: variables are imputed from least to most missing
-            descending: most to least missing
-            roman: from left to right in the dataset
-            arabic: from right to left in the dataset.
-
-        If a list is provided, the variables will be imputed in that order.
-
     categorical_feature: str or list, default="auto"
         The categorical features in the dataset. This handling depends on class of impute_data:
 
@@ -177,6 +210,13 @@ class ImputationKernel(ImputedData):
     random_state: None,int, or numpy.random.RandomState
         Ensures a random state throughout the process
 
+
+    Examples
+    --------
+
+
+
+
     """
 
     def __init__(
@@ -184,10 +224,11 @@ class ImputationKernel(ImputedData):
         data,
         datasets=5,
         variable_schema=None,
+        imputation_order="ascending",
+        train_nonmissing=False,
         mean_match_candidates=None,
         data_subset=None,
         mean_match_function=None,
-        imputation_order="ascending",
         categorical_feature="auto",
         initialization="random",
         save_all_iterations=True,
@@ -201,28 +242,30 @@ class ImputationKernel(ImputedData):
             datasets=datasets,
             variable_schema=variable_schema,
             imputation_order=imputation_order,
+            train_nonmissing=train_nonmissing,
             categorical_feature=categorical_feature,
             save_all_iterations=save_all_iterations,
             copy_data=copy_data,
         )
 
         self.initialization = initialization
+        self.train_nonmissing = train_nonmissing
         self.save_models = save_models
         self.models = {
-            ds: {var: {0: None} for var in self.imputation_order}
+            ds: {var: {0: None} for var in self.variable_training_order}
             for ds in range(datasets)
         }
         self.optimal_parameters = {
-            ds: {var: {} for var in self.imputation_order} for ds in range(datasets)
+            ds: {var: {} for var in self.variable_training_order} for ds in range(datasets)
         }
         self.optimal_parameter_losses = {
-            ds: {var: np.Inf for var in self.imputation_order} for ds in range(datasets)
+            ds: {var: np.Inf for var in self.variable_training_order} for ds in range(datasets)
         }
 
         # Format mean_match_candidates before priming datasets
         available_candidates = {
             var: (self.data_shape[0] - self.na_counts[var])
-            for var in self.imputation_order
+            for var in self.variable_training_order
         }
         mean_match_candidates = self._format_mm(
             mean_match_candidates, available_candidates, _get_default_mmc
@@ -295,14 +338,14 @@ class ImputationKernel(ImputedData):
 
             mm = {
                 var: int(defaulting_function(available_candidates[var]))
-                for var in self.imputation_order
+                for var in self.variable_training_order
             }
 
         elif isinstance(mm, (int, float)):
 
             mm = {
                 var: self._mm_type_handling(mm, available_candidates[var])
-                for var in self.imputation_order
+                for var in self.variable_training_order
             }
 
         elif isinstance(mm, dict):
@@ -311,7 +354,7 @@ class ImputationKernel(ImputedData):
                 var: self._mm_type_handling(mm[var], available_candidates[var])
                 if var in mm.keys()
                 else defaulting_function(available_candidates[var])
-                for var in self.imputation_order
+                for var in self.variable_training_order
             }
         else:
             raise ValueError(
@@ -384,7 +427,7 @@ class ImputationKernel(ImputedData):
         """
         if variable_parameters is None:
 
-            vsp = {var: {} for var in self.imputation_order}
+            vsp = {var: {} for var in self.variable_training_order}
 
         else:
 
@@ -392,11 +435,11 @@ class ImputationKernel(ImputedData):
             vsp_vars = set(variable_parameters)
 
             assert vsp_vars.issubset(
-                self.imputation_order
-            ), "Some variable_parameters are not being imputed."
+                self.variable_training_order
+            ), "Some variable_parameters are not associated with models being trained."
             vsp = {
                 var: variable_parameters[var] if var in vsp_vars else {}
-                for var in self.imputation_order
+                for var in self.variable_training_order
             }
 
         return vsp
@@ -554,6 +597,7 @@ class ImputationKernel(ImputedData):
         assert self.mean_match_function.__code__.co_code == imputation_kernel.mean_match_function.__code__.co_code
         assert self.variable_schema == imputation_kernel.variable_schema
         assert self.imputation_order == imputation_kernel.imputation_order
+        assert self.variable_training_order == imputation_kernel.variable_training_order
         assert self.categorical_feature == imputation_kernel.categorical_feature
         assert self.save_models == imputation_kernel.save_models
         assert self.save_all_iterations == imputation_kernel.save_all_iterations
@@ -737,7 +781,7 @@ class ImputationKernel(ImputedData):
 
                 logger.log(str(iteration) + " ", end="")
 
-                for var in self.imputation_order:
+                for var in self.variable_training_order:
 
                     logger.log(" | " + self._get_variable_name(var), end="")
                     predictor_variables = self.variable_schema[var]
@@ -779,29 +823,32 @@ class ImputationKernel(ImputedData):
                     self._insert_new_model(
                         dataset=ds, variable_index=var, model=current_model
                     )
-                    bachelor_features = _subset_data(
-                        self.working_data,
-                        row_ind=self.na_where[var],
-                        col_ind=predictor_variables,
-                    )
-                    imp_values = np.array(
-                        self.mean_match_function(
-                            mmc=self.mean_match_candidates[var],
-                            model=current_model,
-                            candidate_features=candidate_features,
-                            bachelor_features=bachelor_features,
-                            candidate_values=candidate_values,
-                            random_state=self._random_state,
+                    # Only perform mean matching and insertion if variable
+                    # is being imputed.
+                    if var in self.imputation_order:
+                        bachelor_features = _subset_data(
+                            self.working_data,
+                            row_ind=self.na_where[var],
+                            col_ind=predictor_variables,
                         )
-                    )
-                    assert imp_values.shape == (
-                        self.na_counts[var],
-                    ), f"{var} mean matching returned malformed array"
+                        imp_values = np.array(
+                            self.mean_match_function(
+                                mmc=self.mean_match_candidates[var],
+                                model=current_model,
+                                candidate_features=candidate_features,
+                                bachelor_features=bachelor_features,
+                                candidate_values=candidate_values,
+                                random_state=self._random_state,
+                            )
+                        )
+                        assert imp_values.shape == (
+                            self.na_counts[var],
+                        ), f"{var} mean matching returned malformed array"
 
-                    self._insert_new_data(
-                        dataset=ds, variable_index=var, new_data=imp_values
-                    )
-                    self.iterations[ds, self.imputation_order.index(var)] += 1
+                        self._insert_new_data(
+                            dataset=ds, variable_index=var, new_data=imp_values
+                        )
+                    self.iterations[ds, self.variable_training_order.index(var)] += 1
 
                 logger.log("\n", end="")
 
@@ -1087,7 +1134,8 @@ class ImputationKernel(ImputedData):
             impute_data=new_data,
             datasets=len(datasets),
             variable_schema=self.variable_schema.copy(),
-            imputation_order=self.imputation_order.copy(),
+            imputation_order=self.variable_training_order.copy(),
+            train_nonmissing=self.train_nonmissing,
             categorical_feature=self.categorical_feature,
             save_all_iterations=save_all_iterations,
             copy_data=copy_data,

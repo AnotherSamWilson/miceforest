@@ -8,7 +8,7 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-5.0.3-blue.svg)](https://pypi.org/project/miceforest/)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-5.1.0-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![Conda
 Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
@@ -35,8 +35,9 @@ with lightgbm. The R version of this package may be found
     categorical data automatically.
   - **Used In Production** Kernels can be saved and impute new, unseen
     datasets. Imputing new data is often orders of magnitude faster than
-    including the new data in a new `mice` procedure. New data can also
-    be imputed in place.
+    including the new data in a new `mice` procedure. Imputation models
+    can be built off of a kernel dataset, even if there are no missing
+    values. New data can also be imputed in place.
 
 This document contains a thorough walkthrough of the package,
 benchmarks, and an introduction to multiple imputation. More information
@@ -62,10 +63,12 @@ you can find
     Features](https://github.com/AnotherSamWilson/miceforest#Advanced-Features)
       - [Customizing the Imputation
         Process](https://github.com/AnotherSamWilson/miceforest#Customizing-the-Imputation-Process)
-      - [Tuning
-        Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
       - [Imputing New Data with Existing
         Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
+      - [Building Models on Nonmissing
+        Data](https://github.com/AnotherSamWilson/miceforest#Building-Models-on-Nonmissing-Data)
+      - [Tuning
+        Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
       - [How to Make the Process
         Faster](https://github.com/AnotherSamWilson/miceforest#How-to-Make-the-Process-Faster)
       - [Imputing Data In
@@ -162,7 +165,8 @@ import numpy as np
 
 # Load data and introduce missing values
 iris = pd.concat(load_iris(as_frame=True,return_X_y=True),axis=1)
-iris['target'] = iris['target'].astype('category')
+iris.rename({"target": "species"}, inplace=True, axis=1)
+iris['species'] = iris['species'].astype('category')
 iris_amp = mf.ampute_data(iris,perc=0.25,random_state=1991)
 ```
 
@@ -229,7 +233,7 @@ print(completed_dataset.isnull().sum(0))
     ## sepal width (cm)     0
     ## petal length (cm)    0
     ## petal width (cm)     0
-    ## target               0
+    ## species              0
     ## dtype: int64
 
 Using `inplace=False` returns a copy of the completed data. Since the
@@ -245,7 +249,7 @@ print(kernel.working_data.isnull().sum(0))
     ## sepal width (cm)     0
     ## petal length (cm)    0
     ## petal width (cm)     0
-    ## target               0
+    ## species              0
     ## dtype: int64
 
 ### Controlling Tree Growth
@@ -261,13 +265,13 @@ kernel.mice(iterations=1,n_estimators=50)
 
 You can also pass pass variable-specific arguments to
 `variable_parameters` in mice. For instance, let’s say you noticed the
-imputation of the `[target]` column was taking a little longer, because
+imputation of the `[species]` column was taking a little longer, because
 it is multiclass. You could decrease the n\_estimators specifically for
 that column with:
 
 ``` python
 # Run the MICE algorithm for 2 more iterations on the kernel 
-kernel.mice(iterations=1,variable_parameters={'target': {'n_estimators': 25}},n_estimators=50)
+kernel.mice(iterations=1,variable_parameters={'species': {'n_estimators': 25}},n_estimators=50)
 ```
 
 In this scenario, any parameters specified in `variable_parameters`
@@ -339,8 +343,8 @@ entire default mean matching function if you wish:
 
 ``` python
 var_sch = {
-    'sepal width (cm)': ['target','petal width (cm)'],
-    'petal width (cm)': ['target','sepal length (cm)']
+    'sepal width (cm)': ['species','petal width (cm)'],
+    'petal width (cm)': ['species','sepal length (cm)']
 }
 var_mmc = {
     'sepal width (cm)': 5,
@@ -377,6 +381,98 @@ cust_kernel = mf.ImputationKernel(
 cust_kernel.mice(1)
 ```
 
+### Imputing New Data with Existing Models
+
+Multiple Imputation can take a long time. If you wish to impute a
+dataset using the MICE algorithm, but don’t have time to train new
+models, it is possible to impute new datasets using a `ImputationKernel`
+object. The `impute_new_data()` function uses the random forests
+collected by `ImputationKernel` to perform multiple imputation without
+updating the random forest at each iteration:
+
+``` python
+# Our 'new data' is just the first 15 rows of iris_amp
+from datetime import datetime
+
+# Define our new data as the first 15 rows
+new_data = iris_amp.iloc[range(15)]
+
+start_t = datetime.now()
+new_data_imputed = kernel.impute_new_data(new_data=new_data)
+print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
+```
+
+    ## New Data imputed in 0.705159 seconds
+
+All of the imputation parameters (variable\_schema,
+mean\_match\_candidates, etc) will be carried over from the original
+`ImputationKernel` object. When mean matching, the candidate values are
+pulled from the original kernel dataset. To impute new data, the
+`save_models` parameter in `ImputationKernel` must be \> 0. If
+`save_models == 1`, the model from the latest iteration is saved for
+each variable. If `save_models > 1`, the model from each iteration is
+saved. This allows for new data to be imputed in a more similar fashion
+to the original mice procedure.
+
+### Building Models on Nonmissing Data
+
+The MICE process itself is used to impute missing data in a dataset.
+However, sometimes a variable can be fully recognized in the training
+data, but needs to be imputed later on in a different dataset. It is
+possible to train models to impute variables even if they have no
+missing values by setting `train_nonmissing=True`. In this case,
+`variable_schema` is treated as the list of variables to train models
+on. `imputation_order` only affects which variables actually have their
+values imputed, it does not affect which variables have models trained:
+
+``` python
+orig_missing_cols = ["sepal length (cm)", "sepal width (cm)"]
+new_missing_cols = ["sepal length (cm)", "sepal width (cm)", "species"]
+
+# Training data only contains 2 columns with missing data
+iris_amp2 = iris.copy()
+iris_amp2[orig_missing_cols] = mf.ampute_data(
+  iris_amp2[orig_missing_cols],
+  perc=0.25,
+  random_state=1991
+)
+
+# Specify that models should also be trained for species column
+var_sch = new_missing_cols
+
+cust_kernel = mf.ImputationKernel(
+    iris_amp2,
+    datasets=1,
+    variable_schema=var_sch,
+    train_nonmissing=True
+)
+cust_kernel.mice(1)
+
+# New data has missing values in species column
+iris_amp2_new = iris.iloc[range(10),:].copy()
+iris_amp2_new[new_missing_cols] = mf.ampute_data(
+  iris_amp2_new[new_missing_cols],
+  perc=0.25,
+  random_state=1991
+)
+
+# Species column can still be imputed
+iris_amp2_new_imp = cust_kernel.impute_new_data(iris_amp2_new)
+iris_amp2_new_imp.complete_data(0).isnull().sum()
+```
+
+    ## sepal length (cm)    0
+    ## sepal width (cm)     0
+    ## petal length (cm)    0
+    ## petal width (cm)     0
+    ## species              0
+    ## dtype: int64
+
+Here, we knew that the species column in our new data would need to be
+imputed. Therefore, we specified that a model should be built for all 3
+variables in the `variable_schema` (passing a dict of target - feature
+pairs would also have worked).
+
 ### Tuning Parameters
 
 `miceforest` allows you to tune the parameters on a kernel dataset.
@@ -399,7 +495,7 @@ kernel.mice(1, variable_parameters=optimal_parameters)
 print(optimal_parameters)
 ```
 
-    ## {0: {'boosting': 'gbdt', 'num_iterations': 71, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.547703450726179, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.5408270062390794, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 636898, 'learning_rate': 0.05, 'cat_smooth': 24.889430296159905}, 1: {'boosting': 'gbdt', 'num_iterations': 59, 'max_depth': 8, 'num_leaves': 24, 'min_data_in_leaf': 10, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.6009324931918917, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6814816493463453, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 995364, 'learning_rate': 0.05, 'cat_smooth': 6.802325357331859}, 2: {'boosting': 'gbdt', 'num_iterations': 59, 'max_depth': 8, 'num_leaves': 23, 'min_data_in_leaf': 5, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9418843111072678, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.8549603507783645, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 417328, 'learning_rate': 0.05, 'cat_smooth': 3.8944331403878207}, 3: {'boosting': 'gbdt', 'num_iterations': 60, 'max_depth': 8, 'num_leaves': 18, 'min_data_in_leaf': 5, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.890028551331955, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.9782829438066223, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 687630, 'learning_rate': 0.05, 'cat_smooth': 11.606926688606082}, 4: {'boosting': 'gbdt', 'num_iterations': 84, 'max_depth': 8, 'num_leaves': 7, 'min_data_in_leaf': 3, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.2655657457774023, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.7896023262261271, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 517288, 'learning_rate': 0.05, 'cat_smooth': 17.719106398281532}}
+    ## {0: {'boosting': 'gbdt', 'num_iterations': 65, 'max_depth': 8, 'num_leaves': 10, 'min_data_in_leaf': 1, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.39791299065921537, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6937388234549196, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 849382, 'learning_rate': 0.05, 'cat_smooth': 11.663587284343516}, 1: {'boosting': 'gbdt', 'num_iterations': 42, 'max_depth': 8, 'num_leaves': 13, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.35093507988596373, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.894341802252763, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 586321, 'learning_rate': 0.05, 'cat_smooth': 15.789844128272765}, 2: {'boosting': 'gbdt', 'num_iterations': 60, 'max_depth': 8, 'num_leaves': 7, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9979861290119383, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.5730380093960374, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 961902, 'learning_rate': 0.05, 'cat_smooth': 20.39766682094556}, 3: {'boosting': 'gbdt', 'num_iterations': 61, 'max_depth': 8, 'num_leaves': 11, 'min_data_in_leaf': 6, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7560736024385001, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.8058628021146634, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 449169, 'learning_rate': 0.05, 'cat_smooth': 16.369979689010446}, 4: {'boosting': 'gbdt', 'num_iterations': 58, 'max_depth': 8, 'num_leaves': 18, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.5994031429682608, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6270272146891186, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 933848, 'learning_rate': 0.05, 'cat_smooth': 18.03460691618074}}
 
 This will perform 10 fold cross validation on random samples of
 parameters. By default, all variables models are tuned. If you are
@@ -415,10 +511,10 @@ parameter, `**kwbounds`, or both:
 # Using a complicated setup:
 optimal_parameters, losses = kernel.tune_parameters(
   dataset=0,
-  variables = ['sepal width (cm)','target','petal width (cm)'],
+  variables = ['sepal width (cm)','species','petal width (cm)'],
   variable_parameters = {
     'sepal width (cm)': {'bagging_fraction': 0.5},
-    'target': {'bagging_freq': (5,10)}
+    'species': {'bagging_freq': (5,10)}
   },
   optimization_steps=5,
   extra_trees = [True, False]
@@ -428,7 +524,7 @@ kernel.mice(1, variable_parameters=optimal_parameters)
 ```
 
 In this example, we did a few things - we specified that only `sepal
-width (cm)`, `target`, and `petal width (cm)` should be tuned. We also
+width (cm)`, `species`, and `petal width (cm)` should be tuned. We also
 specified some specific parameters in `variable_parameters.` Notice that
 `bagging_fraction` was passed as a scalar, `0.5`. This means that, for
 the variable `sepal width (cm)`, the parameter `bagging_fraction` will
@@ -447,39 +543,6 @@ finds:
   - Tuple: Should be length 2. Treated as the lower and upper bound to
     search in.  
   - List: Treated as a distinct list of values to try randomly.
-
-### Imputing New Data with Existing Models
-
-Multiple Imputation can take a long time. If you wish to impute a
-dataset using the MICE algorithm, but don’t have time to train new
-models, it is possible to impute new datasets using a `ImputationKernel`
-object. The `impute_new_data()` function uses the random forests
-collected by `ImputationKernel` to perform multiple imputation without
-updating the random forest at each iteration:
-
-``` python
-# Our 'new data' is just the first 15 rows of iris_amp
-from datetime import datetime
-
-# Define our new data as the first 15 rows
-new_data = iris_amp.iloc[range(15)]
-
-start_t = datetime.now()
-new_data_imputed = kernel.impute_new_data(new_data=new_data)
-print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
-```
-
-    ## New Data imputed in 0.987654 seconds
-
-All of the imputation parameters (variable\_schema,
-mean\_match\_candidates, etc) will be carried over from the original
-`ImputationKernel` object. When mean matching, the candidate values are
-pulled from the original kernel dataset. To impute new data, the
-`save_models` parameter in `ImputationKernel` must be \> 0. If
-`save_models == 1`, the model from the latest iteration is saved for
-each variable. If `save_models > 1`, the model from each iteration is
-saved. This allows for new data to be imputed in a more similar fashion
-to the original mice procedure.
 
 ### How to Make the Process Faster
 
@@ -541,7 +604,7 @@ print(iris_amp.isnull().sum(0))
     ## sepal width (cm)     0
     ## petal length (cm)    0
     ## petal width (cm)     0
-    ## target               0
+    ## species              0
     ## dtype: int64
 
 This is useful if the dataset is large, and copies can’t be made in
@@ -632,12 +695,12 @@ how well the imputations compare to the original data:
 ``` python
 acclist = []
 for iteration in range(kernel.iteration_count()+1):
-    target_na_count = kernel.na_counts[4]
+    species_na_count = kernel.na_counts[4]
     compdat = kernel.complete_data(dataset=0,iteration=iteration)
     
-    # Record the accuract of the imputations of target.
+    # Record the accuract of the imputations of species.
     acclist.append(
-      round(1-sum(compdat['target'] != iris['target'])/target_na_count,2)
+      round(1-sum(compdat['species'] != iris['species'])/species_na_count,2)
     )
 
 # acclist shows the accuracy of the imputations
@@ -645,7 +708,7 @@ for iteration in range(kernel.iteration_count()+1):
 print(acclist)
 ```
 
-    ## [0.22, 0.65, 0.81, 0.84, 0.84, 0.84, 0.86]
+    ## [0.35, 0.7, 0.78, 0.86, 0.84, 0.89, 0.84]
 
 In this instance, we went from a \~32% accuracy (which is expected with
 random sampling) to an accuracy of \~65% after the first iteration. This

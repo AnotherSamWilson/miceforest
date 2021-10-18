@@ -69,12 +69,13 @@ def test_complex_pandas():
     new_data = working_set.loc[range(10), :].copy()
 
     # Customize everything.
-    vs = {"1": ["2","3","4","5"], "2": ["6","7"], "3": ["1","2","8"]}
+    vs = {"1": ["2","3","4","5"], "2": ["6","7"], "3": ["1","2","8"], "4": ["8","9","10"]}
     mmc = {"1": 4, "2": 0.01, "3": 0}
     ds = {"2": 100, "3": 0.5}
+    io = ["2", "3", "1"]
 
-    imputed_var_names = list(vs)
-    non_imputed_var_names = [str(x) for x in range(13) if str(x) not in vs]
+    imputed_var_names = io
+    non_imputed_var_names = [str(x) for x in range(13) if str(x) not in io]
 
     def mmf(
             mmc,
@@ -95,6 +96,8 @@ def test_complex_pandas():
         data=working_set,
         datasets=2,
         variable_schema=vs,
+        imputation_order=io,
+        train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
         mean_match_function=mmf,
@@ -105,6 +108,8 @@ def test_complex_pandas():
         data=working_set,
         datasets=1,
         variable_schema=vs,
+        imputation_order=io,
+        train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
         mean_match_function=mmf,
@@ -112,8 +117,8 @@ def test_complex_pandas():
         copy_data=False
     )
 
-    assert kernel.mean_match_candidates == {1: 4, 2: 3, 3: 0}, "mean_match_candidates initialization failed"
-    assert kernel.data_subset == {1: 380, 2: 100, 3: 190}, "mean_match_subset initialization failed"
+    assert kernel.mean_match_candidates == {1: 4, 2: 3, 3: 0, 4: 5}, "mean_match_candidates initialization failed"
+    assert kernel.data_subset == {1: 380, 2: 100, 3: 190, 4: 380}, "mean_match_subset initialization failed"
     assert kernel.iteration_count() == 0, "iteration initialization failed"
     assert kernel.categorical_variables == [3, 8], "categorical recognition failed."
 
@@ -157,7 +162,7 @@ def test_complex_pandas():
 
     new_imp_dat = kernel.impute_new_data(new_data=new_data, verbose=True)
     new_imp_complete = new_imp_dat.complete_data(0)
-    assert all(new_imp_complete[["1","2","3"]].isnull().sum() == 0)
+    assert all(new_imp_complete[["1","2","3","4"]].isnull().sum() == 0)
 
     # Plotting on multiple imputed dataset
     new_imp_dat.plot_mean_convergence()
@@ -238,13 +243,14 @@ def test_complex_numpy():
     working_set = working_set.values
     new_data = new_data.values
 
-    # Customize everything.
-    vs = {1: [2,3,4,5], 2: [6,7], 3: [1,2,8]}
+    # Specify that models should be built for variables 1, 2, 3, 4
+    vs = {1: [2,3,4,5], 2: [6,7], 3: [1,2,8], 4: [8,9,10]}
     mmc = {1: 4, 2: 0.01, 3: 0}
     ds = {2: 100, 3: 0.5}
-
-    imputed_var_names = list(vs)
-    non_imputed_var_names = [x for x in range(13) if x not in vs]
+    # Only variables 1, 2, 3 should be imputed using mice.
+    io = [2,3,1]
+    niv = np.setdiff1d(np.arange(working_set.shape[1]), io)
+    nivs = np.setdiff1d(np.arange(working_set.shape[1]), list(vs))
 
     def mmf(
             mmc,
@@ -265,6 +271,8 @@ def test_complex_numpy():
         data=working_set,
         datasets=2,
         variable_schema=vs,
+        imputation_order=io,
+        train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
         mean_match_function=mmf,
@@ -276,6 +284,8 @@ def test_complex_numpy():
         data=working_set,
         datasets=1,
         variable_schema=vs,
+        imputation_order=io,
+        train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
         mean_match_function=mmf,
@@ -283,8 +293,8 @@ def test_complex_numpy():
         copy_data=False
     )
 
-    assert kernel.mean_match_candidates == {1: 4, 2: 3, 3: 0}, "mean_match_candidates initialization failed"
-    assert kernel.data_subset == {1: 380, 2: 100, 3: 190}, "mean_match_subset initialization failed"
+    assert kernel.mean_match_candidates == {2: 3, 3: 0, 1: 4, 4: 5}, "mean_match_candidates initialization failed"
+    assert kernel.data_subset == {2: 100, 3: 190, 1: 380, 4: 380}, "mean_match_subset initialization failed"
     assert kernel.iteration_count() == 0, "iteration initialization failed"
     assert kernel.categorical_variables == [3, 8], "categorical recognition failed."
 
@@ -301,8 +311,8 @@ def test_complex_numpy():
 
     # Complete data with copy. Make sure only correct datasets and variables were affected.
     compdat = kernel.complete_data(0, inplace=False)
-    assert all(np.isnan(compdat[:,imputed_var_names]).sum(0) == 0)
-    assert all(np.isnan(compdat[:,non_imputed_var_names]).sum(0) > 0)
+    assert all(np.isnan(compdat[:,io]).sum(0) == 0)
+    assert all(np.isnan(compdat[:,niv]).sum(0) > 0)
 
     # Should have no affect on working_data
     assert all(np.isnan(kernel.working_data).sum(0) > 0)
@@ -314,10 +324,10 @@ def test_complex_numpy():
     kernel.complete_data(0, inplace=True)
 
     # Should have affect on working_data and original data
-    assert all(np.isnan(kernel.working_data[:, imputed_var_names]).sum(0) == 0)
-    assert all(np.isnan(working_set[:, imputed_var_names]).sum(0) == 0)
-    assert all(np.isnan(kernel.working_data[:, non_imputed_var_names]).sum(0) > 0)
-    assert all(np.isnan(working_set[:, non_imputed_var_names]).sum(0) > 0)
+    assert all(np.isnan(kernel.working_data[:, io]).sum(0) == 0)
+    assert all(np.isnan(working_set[:, io]).sum(0) == 0)
+    assert all(np.isnan(kernel.working_data[:, niv]).sum(0) > 0)
+    assert all(np.isnan(working_set[:, niv]).sum(0) > 0)
 
     # Test the ability to tune parameters with custom setup
     optimization_steps = 2
@@ -345,17 +355,18 @@ def test_complex_numpy():
 
     # Not in place
     new_imp_complete = new_imp_dat.complete_data(0, inplace=False)
-    assert all(np.isnan(new_imp_complete[:, imputed_var_names]).sum(0) == 0)
-    assert all(np.isnan(new_imp_complete[:, non_imputed_var_names]).sum(0) > 0)
+    assert all(np.isnan(new_imp_complete[:, list(vs)]).sum(0) == 0)
+    assert all(np.isnan(new_imp_complete[:, nivs]).sum(0) > 0)
+
 
     # Should have no affect on working_data or original data
     assert all(np.isnan(new_imp_dat.working_data).sum(0) > 0)
-    assert all(np.isnan(new_data[:, imputed_var_names]).sum(0) > 0)
+    assert all(np.isnan(new_data[:, list(vs)]).sum(0) > 0)
 
     # complete data in place
     new_imp_dat.complete_data(0, inplace=True)
-    assert all(np.isnan(new_imp_dat.working_data[:, imputed_var_names]).sum(0) == 0)
-    assert all(np.isnan(new_data[:, non_imputed_var_names]).sum(0) > 0)
+    assert all(np.isnan(new_imp_dat.working_data[:, list(vs)]).sum(0) == 0)
+    assert all(np.isnan(new_data[:, nivs]).sum(0) > 0)
 
     # Alter in place
     new_imp_dat = kernel.impute_new_data(new_data=new_data, copy_data=False, verbose=True)
@@ -366,17 +377,17 @@ def test_complex_numpy():
 
     # Complete data not in place
     new_imp_complete = new_imp_dat.complete_data(0, inplace=False)
-    assert all(np.isnan(new_imp_complete[:, non_imputed_var_names]).sum(0) > 0)
-    assert all(np.isnan(new_imp_complete[:, imputed_var_names]).sum(0) == 0)
+    assert all(np.isnan(new_imp_complete[:, nivs]).sum(0) > 0)
+    assert all(np.isnan(new_imp_complete[:, list(vs)]).sum(0) == 0)
     assert all(np.isnan(new_data).sum(0) > 0)
     assert all(np.isnan(new_imp_dat.working_data).sum(0) > 0)
 
     # Complete data in place
     new_imp_dat.complete_data(0, inplace=True)
-    assert all(np.isnan(new_data[:, non_imputed_var_names]).sum(0) > 0)
-    assert all(np.isnan(new_data[:, imputed_var_names]).sum(0) == 0)
-    assert all(np.isnan(new_imp_dat.working_data[:, non_imputed_var_names]).sum(0) > 0)
-    assert all(np.isnan(new_imp_dat.working_data[:, imputed_var_names]).sum(0) == 0)
+    assert all(np.isnan(new_data[:, nivs]).sum(0) > 0)
+    assert all(np.isnan(new_data[:, list(vs)]).sum(0) == 0)
+    assert all(np.isnan(new_imp_dat.working_data[:, nivs]).sum(0) > 0)
+    assert all(np.isnan(new_imp_dat.working_data[:, list(vs)]).sum(0) == 0)
 
 
     # Plotting on multiple imputed dataset
