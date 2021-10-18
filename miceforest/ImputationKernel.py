@@ -256,10 +256,12 @@ class ImputationKernel(ImputedData):
             for ds in range(datasets)
         }
         self.optimal_parameters = {
-            ds: {var: {} for var in self.variable_training_order} for ds in range(datasets)
+            ds: {var: {} for var in self.variable_training_order}
+            for ds in range(datasets)
         }
         self.optimal_parameter_losses = {
-            ds: {var: np.Inf for var in self.variable_training_order} for ds in range(datasets)
+            ds: {var: np.Inf for var in self.variable_training_order}
+            for ds in range(datasets)
         }
 
         # Format mean_match_candidates before priming datasets
@@ -594,7 +596,10 @@ class ImputationKernel(ImputedData):
         """
         assert self.working_data.shape == imputation_kernel.working_data.shape
         assert self.iteration_count() == imputation_kernel.iteration_count()
-        assert self.mean_match_function.__code__.co_code == imputation_kernel.mean_match_function.__code__.co_code
+        assert (
+            self.mean_match_function.__code__.co_code
+            == imputation_kernel.mean_match_function.__code__.co_code
+        )
         assert self.variable_schema == imputation_kernel.variable_schema
         assert self.imputation_order == imputation_kernel.imputation_order
         assert self.variable_training_order == imputation_kernel.variable_training_order
@@ -608,16 +613,20 @@ class ImputationKernel(ImputedData):
         # Combine dicts
         for ds in range(new_datasets):
             insert_index = current_datasets + ds
-            self.imputation_values[insert_index] = imputation_kernel.imputation_values[ds]
+            self.imputation_values[insert_index] = imputation_kernel.imputation_values[
+                ds
+            ]
             self.models[insert_index] = imputation_kernel.models[ds]
-            self.optimal_parameters[insert_index] = imputation_kernel.optimal_parameters[ds]
-            self.optimal_parameter_losses[insert_index] = imputation_kernel.optimal_parameter_losses[ds]
+            self.optimal_parameters[
+                insert_index
+            ] = imputation_kernel.optimal_parameters[ds]
+            self.optimal_parameter_losses[
+                insert_index
+            ] = imputation_kernel.optimal_parameter_losses[ds]
 
         # Append iterations
         self.iterations = np.append(
-            self.iterations,
-            imputation_kernel.iterations,
-            axis=0
+            self.iterations, imputation_kernel.iterations, axis=0
         )
 
     def get_model(self, dataset, variable, iteration=None):

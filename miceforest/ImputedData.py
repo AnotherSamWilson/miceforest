@@ -237,7 +237,8 @@ class ImputedData:
                 variable_schema
             ), "variable_schema does not include all variables to be imputed."
             imputation_order = [
-                i for i in self._get_variable_index(imputation_order)
+                i
+                for i in self._get_variable_index(imputation_order)
                 if na_counts[i] > 0
             ]
         elif isinstance(imputation_order, str):
@@ -248,7 +249,8 @@ class ImputedData:
                     else np.argsort(na_counts)[::-1]
                 )
                 imputation_order = [
-                    int(i) for i in imputation_order
+                    int(i)
+                    for i in imputation_order
                     if na_counts[i] > 0 and i in list(variable_schema)
                 ]
             elif imputation_order == "roman":
@@ -261,10 +263,13 @@ class ImputedData:
 
         self.variable_schema = variable_schema
         self.imputation_order = list(imputation_order)
-        self.unimputed_variables = list(np.setdiff1d(np.arange(data_shape[1]), imputation_order))
+        self.unimputed_variables = list(
+            np.setdiff1d(np.arange(data_shape[1]), imputation_order)
+        )
         if train_nonmissing:
             self.variable_training_order = [
-                v for v in self.imputation_order + self.unimputed_variables
+                v
+                for v in self.imputation_order + self.unimputed_variables
                 if v in list(self.variable_schema)
             ]
         else:

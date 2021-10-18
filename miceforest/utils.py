@@ -48,18 +48,24 @@ def ampute_data(
 
         if isinstance(amputed_data, pd_DataFrame):
             for v in variables:
-                na_ind = random_state.choice(np.arange(data_shape[0]), replace=False, size=amp_rows)
+                na_ind = random_state.choice(
+                    np.arange(data_shape[0]), replace=False, size=amp_rows
+                )
                 amputed_data.iloc[na_ind, v] = np.NaN
 
         if isinstance(amputed_data, np.ndarray):
             amputed_data = amputed_data.astype("float64")
             for v in variables:
-                na_ind = random_state.choice(np.arange(data_shape[0]), replace=False, size=amp_rows)
+                na_ind = random_state.choice(
+                    np.arange(data_shape[0]), replace=False, size=amp_rows
+                )
                 amputed_data[na_ind, v] = np.NaN
 
     else:
 
-        na_ind = random_state.choice(np.arange(data_shape[0]), replace=False, size=amp_rows)
+        na_ind = random_state.choice(
+            np.arange(data_shape[0]), replace=False, size=amp_rows
+        )
         amputed_data[na_ind] = np.NaN
 
     return amputed_data
