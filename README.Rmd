@@ -75,7 +75,7 @@ This document contains a thorough walkthrough of the package, benchmarks, and an
 
 New Major Update = 5.0.0  
 
-  * New main classes (`ImputationKernel`, `ImputedData`) replace (`ImputationKernel`, `ImputationKernel`, `ImputedDataSet`, `MultipleImputedDataSet`).  
+  * New main classes (`ImputationKernel`, `ImputedData`) replace (`KernelDataSet`, `MultipleImputedKernel`, `ImputedDataSet`, `MultipleImputedDataSet`).  
   * Data can now be referenced and imputed in place. This saves a lot of memory allocation and is much faster.  
   * Data can now be completed in place. This allows for only a single copy of the dataset to be in memory at any given time, even if performing multiple imputation.  
   * `mean_match_subset` parameter has been replaced with `data_subset.` This subsets the data used to build the model as well as the candidates.  

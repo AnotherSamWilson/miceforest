@@ -102,7 +102,7 @@ you can find
 New Major Update = 5.0.0
 
   - New main classes (`ImputationKernel`, `ImputedData`) replace
-    (`ImputationKernel`, `ImputationKernel`, `ImputedDataSet`,
+    (`KernelDataSet`, `MultipleImputedKernel`, `ImputedDataSet`,
     `MultipleImputedDataSet`).  
   - Data can now be referenced and imputed in place. This saves a lot of
     memory allocation and is much faster.  
@@ -402,7 +402,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.705159 seconds
+    ## New Data imputed in 0.751169 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
