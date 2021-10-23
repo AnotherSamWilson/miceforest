@@ -301,7 +301,7 @@ class ImputationKernel(ImputedData):
             self.mean_match_function = mean_match_function
 
         self._random_state = ensure_rng(random_state)
-        self._initialize_dataset(self)
+        self._initialize_dataset(self, random_state=self._random_state)
 
     def __repr__(self):
         summary_string = " " * 14 + "Class: ImputationKernel\n" + self._ids_info()
@@ -380,7 +380,7 @@ class ImputationKernel(ImputedData):
         if self.save_models == 1:
             del self.models[dataset][variable_index][current_variable_iteration]
 
-    def _initialize_dataset(self, imputed_data):
+    def _initialize_dataset(self, imputed_data, random_state):
         """
         Sets initial imputation values for iteration 0.
         If "random", draw values from the kernel at random.
@@ -399,7 +399,7 @@ class ImputationKernel(ImputedData):
 
                 for ds in range(imputed_data.dataset_count()):
 
-                    imputed_data[ds, var, 0] = self._random_state.choice(
+                    imputed_data[ds, var, 0] = random_state.choice(
                         candidates, size=imputed_data.na_counts[var]
                     )
 
@@ -446,9 +446,9 @@ class ImputationKernel(ImputedData):
 
         return vsp
 
-    def _get_lgb_params(self, var, vsp, **kwlgb):
+    def _get_lgb_params(self, var, vsp, random_state, **kwlgb):
 
-        seed = self._random_state.randint(1000000, size=1)[0]
+        seed = random_state.randint(1000000, size=1)[0]
 
         if var in self.categorical_variables:
             n_c = self.category_counts[var]
@@ -470,14 +470,14 @@ class ImputationKernel(ImputedData):
 
         return params
 
-    def _get_random_sample(self, parameters: dict):
+    def _get_random_sample(self, parameters, random_state):
         parameters = parameters.copy()
         for p, v in parameters.items():
             if hasattr(v, "__iter__"):
                 if isinstance(v, list):
-                    parameters[p] = self._random_state.choice(v)
+                    parameters[p] = random_state.choice(v)
                 elif isinstance(v, tuple):
-                    parameters[p] = self._random_state.uniform(v[0], v[1], size=1)[0]
+                    parameters[p] = random_state.uniform(v[0], v[1], size=1)[0]
             else:
                 pass
         parameters = self._make_params_digestible(parameters)
@@ -813,7 +813,9 @@ class ImputationKernel(ImputedData):
                     if candidate_values.dtype.name == "category":
                         candidate_values = candidate_values.cat.codes
 
-                    lgbpars = self._get_lgb_params(var, vsp[var], **kwlgb)
+                    lgbpars = self._get_lgb_params(
+                        var, vsp[var], self._random_state, **kwlgb
+                    )
                     num_iterations = lgbpars.pop("num_iterations")
                     train_pointer = Dataset(
                         data=candidate_features,
@@ -871,6 +873,7 @@ class ImputationKernel(ImputedData):
         parameter_sampling_method="random",
         nfold=10,
         optimization_steps=5,
+        random_state=None,
         verbose=False,
         **kwbounds,
     ):
@@ -950,6 +953,12 @@ class ImputationKernel(ImputedData):
         optimization_steps:
             How many steps to run the process for.
 
+        random_state: int or np.random.RandomState or None (default=None)
+            The random state of the process. Ensures reproduceability. If None, the random state
+            of the kernel is used. Beware, this permanently alters the random state of the kernel
+            and ensures non-reproduceable results, unless the entire process up to this point
+            is re-run.
+
         kwbounds:
             Any additional arguments that you want to apply globally to every variable.
             For example, if you want to limit the number of iterations, you could pass
@@ -974,6 +983,10 @@ class ImputationKernel(ImputedData):
         """
 
         logger = Logger(verbose=verbose)
+        if random_state is None:
+            random_state = self._random_state
+        else:
+            random_state = ensure_rng(random_state)
         self._fix_parameter_aliases(kwbounds)
 
         if variables is None:
@@ -994,6 +1007,7 @@ class ImputationKernel(ImputedData):
             variable_parameter_space[var] = self._get_lgb_params(
                 var=var,
                 vsp={**kwbounds, **vsp[var]},
+                random_state=random_state,
                 **default_tuning_space,
             )
 
@@ -1037,7 +1051,7 @@ class ImputationKernel(ImputedData):
                         else:
                             folds = stratified_continuous_folds(candidate_values, nfold)
                         sampling_point = self._get_random_sample(
-                            parameters=parameter_space
+                            parameters=parameter_space, random_state=random_state
                         )
                         try:
                             loss, best_iteration = self._get_oof_performance(
@@ -1075,6 +1089,7 @@ class ImputationKernel(ImputedData):
         iterations=None,
         save_all_iterations=True,
         copy_data=True,
+        random_state=None,
         verbose=False,
     ):
         """
@@ -1121,6 +1136,12 @@ class ImputationKernel(ImputedData):
                 If self.working_data is a reference to the original dataset, the original
                 dataset will undergo these manipulations during the mice process.
 
+        random_state: int or np.random.RandomState or None (default=None)
+            The random state of the process. Ensures reproduceability. If None, the random state
+            of the kernel is used. Beware, this permanently alters the random state of the kernel
+            and ensures non-reproduceable results, unless the entire process up to this point
+            is re-run.
+
         verbose: boolean
             Should information about the process be printed?
 
@@ -1130,6 +1151,10 @@ class ImputationKernel(ImputedData):
         """
 
         logger = Logger(verbose)
+        if random_state is None:
+            random_state = self._random_state
+        else:
+            random_state = ensure_rng(random_state)
         datasets = (
             range(self.dataset_count())
             if datasets is None
@@ -1149,7 +1174,7 @@ class ImputationKernel(ImputedData):
             save_all_iterations=save_all_iterations,
             copy_data=copy_data,
         )
-        self._initialize_dataset(imputed_data)
+        self._initialize_dataset(imputed_data, random_state=random_state)
 
         kernel_iterations = self.iteration_count()
         iterations = kernel_iterations if iterations is None else iterations
@@ -1206,7 +1231,7 @@ class ImputationKernel(ImputedData):
                             candidate_features=candidate_features,
                             bachelor_features=bachelor_features,
                             candidate_values=candidate_values,
-                            random_state=self._random_state,
+                            random_state=random_state,
                         )
                     )
                     imputed_data._insert_new_data(
