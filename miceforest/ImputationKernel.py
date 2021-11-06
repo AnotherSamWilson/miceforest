@@ -822,14 +822,12 @@ class ImputationKernel(ImputedData):
                         label=candidate_values,
                         categorical_feature=feature_cat_index,
                         free_raw_data=False,
-                        silent=True,
                     )
                     current_model = train(
                         params=lgbpars,
                         train_set=train_pointer,
                         num_boost_round=num_iterations,
                         categorical_feature=feature_cat_index,
-                        verbose_eval=False,
                     )
                     self._insert_new_model(
                         dataset=ds, variable_index=var, model=current_model
