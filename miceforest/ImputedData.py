@@ -335,7 +335,7 @@ save_all_iterations: {self.save_all_iterations}"""
         Datasets are defined by how many different sets of imputation
         values we have accumulated.
         """
-        return len(self.imputation_values)
+        return self.iterations.shape[0]
 
     def _get_variable_name(self, ind):
         """Gets the variable name from an index."""

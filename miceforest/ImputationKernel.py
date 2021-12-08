@@ -12,7 +12,7 @@ from .utils import (
 )
 import numpy as np
 from .logger import Logger
-from lightgbm import train, Dataset, cv
+from lightgbm import train, Dataset, cv, log_evaluation, early_stopping
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
 
 _TIMED_VARIABLE_EVENTS = [
@@ -516,9 +516,11 @@ class ImputationKernel(ImputedData):
             folds=folds,
             num_boost_round=num_iterations,
             categorical_feature=categorical_feature,
-            early_stopping_rounds=10,
-            verbose_eval=False,
             return_cvbooster=True,
+            callbacks=[
+                early_stopping(stopping_rounds=10, verbose=0),
+                log_evaluation(period=0)
+            ]
         )
         best_iteration = lgbcv["cvbooster"].best_iteration
         loss_metric_key = list(lgbcv)[0]
@@ -828,6 +830,9 @@ class ImputationKernel(ImputedData):
                         train_set=train_pointer,
                         num_boost_round=num_iterations,
                         categorical_feature=feature_cat_index,
+                        callbacks=[
+                            log_evaluation(period=0)
+                        ]
                     )
                     self._insert_new_model(
                         dataset=ds, variable_index=var, model=current_model
@@ -1040,7 +1045,6 @@ class ImputationKernel(ImputedData):
                             label=candidate_values,
                             categorical_feature=feature_cat_index,
                             free_raw_data=False,
-                            silent=True,
                         )
                         if is_categorical:
                             folds = stratified_categorical_folds(
