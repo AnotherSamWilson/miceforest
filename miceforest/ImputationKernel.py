@@ -519,8 +519,8 @@ class ImputationKernel(ImputedData):
             return_cvbooster=True,
             callbacks=[
                 early_stopping(stopping_rounds=10, verbose=0),
-                log_evaluation(period=0)
-            ]
+                log_evaluation(period=0),
+            ],
         )
         best_iteration = lgbcv["cvbooster"].best_iteration
         loss_metric_key = list(lgbcv)[0]
@@ -830,9 +830,7 @@ class ImputationKernel(ImputedData):
                         train_set=train_pointer,
                         num_boost_round=num_iterations,
                         categorical_feature=feature_cat_index,
-                        callbacks=[
-                            log_evaluation(period=0)
-                        ]
+                        callbacks=[log_evaluation(period=0)],
                     )
                     self._insert_new_model(
                         dataset=ds, variable_index=var, model=current_model
