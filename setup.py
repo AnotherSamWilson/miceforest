@@ -15,7 +15,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     install_requires=[
-        'lightgbm',
+        'lightgbm >= 3.3.1',
         'numpy'
         ],
     extras_require={
