@@ -1160,6 +1160,14 @@ class ImputationKernel(ImputedData):
             if datasets is None
             else _ensure_iterable(datasets)
         )
+        if self.original_data_class == "pd_DataFrame":
+            assert set(self.working_data.columns) == set(new_data.columns), "Different columns from original dataset."
+            assert all(
+                [
+                    self.working_data[col].dtype == new_data[col].dtype
+                    for col in self.working_data.columns
+                ]
+            ), "Column types are not the same as the original data. Check categorical columns."
 
         if self.save_models < 1:
             raise ValueError("No models were saved.")
