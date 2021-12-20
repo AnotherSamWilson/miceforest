@@ -1161,7 +1161,9 @@ class ImputationKernel(ImputedData):
             else _ensure_iterable(datasets)
         )
         if self.original_data_class == "pd_DataFrame":
-            assert set(self.working_data.columns) == set(new_data.columns), "Different columns from original dataset."
+            assert set(self.working_data.columns) == set(
+                new_data.columns
+            ), "Different columns from original dataset."
             assert all(
                 [
                     self.working_data[col].dtype == new_data[col].dtype
