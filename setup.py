@@ -16,7 +16,7 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=[
         'lightgbm >= 3.3.1',
-        'numpy <= 1.21.5'
+        'numpy'
         ],
     extras_require={
         "Plotting": [
@@ -27,7 +27,8 @@ setup(
             'scipy >= 1.6.0, <= 1.7.3'
         ],
         "Testing": [
-            "pandas"
+            "pandas",
+            "sklearn"
         ],
     },
     url="https://github.com/AnotherSamWilson/miceforest",
