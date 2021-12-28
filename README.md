@@ -1,6 +1,6 @@
 
 [![Build
-Status](https://travis-ci.org/AnotherSamWilson/miceforest.svg?branch=master)](https://travis-ci.org/AnotherSamWilson/miceforest)
+Status](https://travis-ci.com/AnotherSamWilson/miceforest.svg?branch=master)](https://travis-ci.com/AnotherSamWilson/miceforest)
 [![Documentation
 Status](https://readthedocs.org/projects/miceforest/badge/?version=latest)](https://miceforest.readthedocs.io/en/latest/?badge=latest)
 [![MIT
