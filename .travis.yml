@@ -21,8 +21,6 @@ before_install:
   - pip install seaborn -U
   - pip install matplotlib -U
   - pip install scipy==1.7.3 -U
-install:
-  - travis_retry pip install -e .
 script: 
   - travis_wait pytest tests --cov-config .coveragerc --cov=miceforest
 after_success:
