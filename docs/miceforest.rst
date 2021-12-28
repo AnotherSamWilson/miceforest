@@ -20,46 +20,6 @@ miceforest.ImputedData module
    :undoc-members:
    :show-inheritance:
 
-miceforest.ImputedDataSet module
---------------------------------
-
-.. automodule:: miceforest.ImputedDataSet
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-miceforest.KernelDataSet module
--------------------------------
-
-.. automodule:: miceforest.KernelDataSet
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-miceforest.MultipleImputedDataSet module
-----------------------------------------
-
-.. automodule:: miceforest.MultipleImputedDataSet
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-miceforest.MultipleImputedKernel module
----------------------------------------
-
-.. automodule:: miceforest.MultipleImputedKernel
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-miceforest.TimeLog module
--------------------------
-
-.. automodule:: miceforest.TimeLog
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 miceforest.compat module
 ------------------------
 

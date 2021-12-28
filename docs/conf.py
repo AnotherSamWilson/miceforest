@@ -12,14 +12,17 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../miceforest'))
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'miceforest'
-copyright = '2019, Samuel Von Wilson'
+copyright = '2021, Samuel Von Wilson'
 author = 'Samuel Von Wilson'
+
+# The full version, including alpha/beta/rc tags
+release = '2021-08-21'
 
 
 # -- General configuration ---------------------------------------------------
@@ -28,7 +31,7 @@ author = 'Samuel Von Wilson'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc'
+	'sphinx.ext.autodoc'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
