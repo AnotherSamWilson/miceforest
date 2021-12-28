@@ -24,7 +24,7 @@ setup(
             'matplotlib >= 3.3.0'
         ],
         "Default_MM": [
-            'scipy >= 1.6.0, <= 1.7.3'
+            'scipy >= 1.6.0'
         ],
         "Testing": [
             "pandas",
