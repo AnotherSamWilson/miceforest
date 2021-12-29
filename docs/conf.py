@@ -31,7 +31,22 @@ release = '2021-08-21'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-	'sphinx.ext.autodoc'
+	'sphinx.ext.autodoc',
+	'sphinx.ext.autosummary',
+	'sphinx.ext.todo',
+	'sphinx.ext.viewcode',
+	'sphinx.ext.napoleon'
+]
+
+# mock out modules
+autodoc_mock_imports = [
+    'matplotlib',
+	'seaborn',
+    'numpy',
+    'pandas',
+    'scipy',
+    'sklearn',
+	'lightgbm'
 ]
 
 # Add any paths that contain templates here, relative to this directory.

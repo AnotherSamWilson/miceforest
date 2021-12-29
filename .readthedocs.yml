@@ -4,6 +4,7 @@ formats:
 python:
   version: 3
   install:
+    - requirements: docs/requirements.txt
     - method: setuptools
       path: .
 sphinx:
