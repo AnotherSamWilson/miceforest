@@ -12,7 +12,9 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../miceforest'))
+import sphinx
+from sphinx.errors import VersionRequirementError
+sys.path.insert(0, os.path.abspath('..'))
 
 
 # -- Project information -----------------------------------------------------
@@ -23,6 +25,12 @@ author = 'Samuel Von Wilson'
 
 # The full version, including alpha/beta/rc tags
 release = '2021-08-21'
+
+# If your documentation needs a minimal Sphinx version, state it here.
+needs_sphinx = '2.1.0'  # Due to sphinx.ext.napoleon, autodoc_typehints
+if needs_sphinx > sphinx.__version__:
+    message = f'This project needs at least Sphinx v{needs_sphinx}'
+    raise VersionRequirementError(message)
 
 
 # -- General configuration ---------------------------------------------------
@@ -51,6 +59,9 @@ autodoc_mock_imports = [
 
 master_doc = 'index'
 
+# Generate autosummary pages.
+autosummary_generate = ['miceforest.rst']
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -78,3 +89,7 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+def setup(app):
+    app.add_css_file('themes.css')

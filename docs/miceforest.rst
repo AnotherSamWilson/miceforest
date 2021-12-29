@@ -1,10 +1,7 @@
-miceforest package
-==================
+Main classes in miceforest
+==========================
 
-Submodules
-----------
-
-miceforest.ImputationKernel module
+ImputationKernel
 ----------------------------------
 
 .. automodule:: miceforest.ImputationKernel
@@ -12,7 +9,7 @@ miceforest.ImputationKernel module
    :undoc-members:
    :show-inheritance:
 
-miceforest.ImputedData module
+ImputedData
 -----------------------------
 
 .. automodule:: miceforest.ImputedData
@@ -20,15 +17,7 @@ miceforest.ImputedData module
    :undoc-members:
    :show-inheritance:
 
-miceforest.compat module
-------------------------
-
-.. automodule:: miceforest.compat
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-miceforest.default\_lightgbm\_parameters module
+default\_lightgbm\_parameters
 -----------------------------------------------
 
 .. automodule:: miceforest.default_lightgbm_parameters
@@ -36,34 +25,10 @@ miceforest.default\_lightgbm\_parameters module
    :undoc-members:
    :show-inheritance:
 
-miceforest.logger module
-------------------------
-
-.. automodule:: miceforest.logger
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-miceforest.mean\_matching\_functions module
+mean\_matching\_functions
 -------------------------------------------
 
 .. automodule:: miceforest.mean_matching_functions
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-miceforest.utils module
------------------------
-
-.. automodule:: miceforest.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: miceforest
    :members:
    :undoc-members:
    :show-inheritance:

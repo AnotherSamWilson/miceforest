@@ -20,57 +20,73 @@ class ImputedData:
     Parameters
     ----------
     impute_data: pandas DataFrame or np.ndarray
-        The data used by the kernel to impute impute_data.
+
+        .. code-block:: text
+
+            The data used by the kernel to impute impute_data.
 
     variable_schema: None or ist or dict, default=None
-        If None all variables are used to impute all variables which have
-        missing values.
-        If list all columns in data are used to impute the variables in the list
-        If dict the values will be used to impute the keys. Either can be column
-        indices or names (if data is a pd.DataFrame).
+
+        .. code-block:: text
+
+            - If None all variables are used to impute all variables which have missing values.
+            - If list all columns in data are used to impute the variables in the list
+            - If dict the values will be used to impute the keys. Either can be column
+                indices or names (if data is a pd.DataFrame).
 
     imputation_order: str, list[str], list[int], default="ascending"
-        The order the imputations should occur in.
-            ascending: variables are imputed from least to most missing
-            descending: most to least missing
-            roman: from left to right in the dataset
-            arabic: from right to left in the dataset.
 
-        If a list is provided, the variables will be imputed in that order.
+        .. code-block:: text
+
+            The order the imputations should occur in.
+                ascending: variables are imputed from least to most missing
+                descending: most to least missing
+                roman: from left to right in the dataset
+                arabic: from right to left in the dataset.
+
+            If a list is provided, the variables will be imputed in that order.
 
     categorical_feature: str or list, default="auto"
-        The categorical features in the dataset. This handling depends on class of impute_data:
 
-            pandas DataFrame:
-                - "auto": categorical information is inferred from any columns with
-                    datatype category or object.
-                - list of column names (or indices): Useful if all categorical columns
-                    have already been cast to numeric encodings of some type, otherwise you
-                    should just use "auto". Will throw an error if a list is provided AND
-                    categorical dtypes exist in data. If a list is provided, values in the
-                    columns must be consecutive integers starting at 0, as required by lightgbm.
+        .. code-block:: text
 
-            numpy ndarray:
-                - "auto": no categorical information is stored.
-                - list of column indices: Specified columns are treated as categorical. Column
-                    values must be consecutive integers starting at 0, as required by lightgbm.
+            The categorical features in the dataset. This handling depends on class of impute_data:
+                pandas DataFrame:
+                    - "auto": categorical information is inferred from any columns with
+                        datatype category or object.
+                    - list of column names (or indices): Useful if all categorical columns
+                        have already been cast to numeric encodings of some type, otherwise you
+                        should just use "auto". Will throw an error if a list is provided AND
+                        categorical dtypes exist in data. If a list is provided, values in the
+                        columns must be consecutive integers starting at 0, as required by lightgbm.
+
+                numpy ndarray:
+                    - "auto": no categorical information is stored.
+                    - list of column indices: Specified columns are treated as categorical. Column
+                        values must be consecutive integers starting at 0, as required by lightgbm.
 
     save_all_iterations: boolean, default=True
-        Save all the imputation values from all iterations, or just
-        the latest. Saving all iterations allows for additional
-        plotting, but may take more memory
+
+        .. code-block:: text
+
+            Save all the imputation values from all iterations, or just
+            the latest. Saving all iterations allows for additional
+            plotting, but may take more memory
 
     copy_data: boolean, default=True
-        Should the dataset be referenced directly? If False, this will cause the dataset to be
-        altered in place. If a copy is created, it is saved in self.working_data. There are different
-        ways in which the dataset can be altered:
 
-        1) complete_data() will fill in missing values
-        2) To save space, mice() references and manipulates self.working_data directly.
-            If self.working_data is a reference to the original dataset, the original
-            dataset will undergo these manipulations during the mice process.
-            At the end of the mice process, missing will be set back to np.NaN where
-            they were originally missing.
+        .. code-block:: text
+
+            Should the dataset be referenced directly? If False, this will cause the dataset to be
+            altered in place. If a copy is created, it is saved in self.working_data. There are different
+            ways in which the dataset can be altered:
+
+            1) complete_data() will fill in missing values
+            2) To save space, mice() references and manipulates self.working_data directly.
+                If self.working_data is a reference to the original dataset, the original
+                dataset will undergo these manipulations during the mice process.
+                At the end of the mice process, missing will be set back to np.NaN where
+                they were originally missing.
 
     """
 

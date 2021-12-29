@@ -28,194 +28,222 @@ _TIMED_GLOBAL_EVENTS = ["initialization", "other"]
 
 
 class ImputationKernel(ImputedData):
-    """
-    Creates a kernel dataset. This dataset can:
-        - Perform MICE on itself
-        - Impute new data from models obtained from MICE.
+    """Creates a kernel dataset. This dataset can perform MICE on itself,
+    and impute new data from models obtained during MICE.
 
     Parameters
     ----------
-    data: np.ndarray or pandas DataFrame.
-        The data to be imputed.
+    data : np.ndarray or pandas DataFrame.
 
-    variable_schema: None or list or dict, default=None
-        Specifies the feature - target relationships used to train models.
-        This parameter also controls which models are built. Models can be built
-        even if a variable contains no missing values, or is not being imputed
-        (train_nonmissing must be set to True).
+        .. code-block:: text
 
-            - If None, all columns will be used as features in the training of each model.
-            - If list, all columns in data are used to impute the variables in the list
-            - If dict the values will be used to impute the keys. Can be either column
-                indices or names (if data is a pd.DataFrame).
+            The data to be imputed.
 
-        No models will be trained for variables not specified by variable_schema
-        (either by None, a list, or in dict keys).
+    variable_schema : None or list or dict, default=None
+
+        .. code-block:: text
+
+            Specifies the feature - target relationships used to train models.
+            This parameter also controls which models are built. Models can be built
+            even if a variable contains no missing values, or is not being imputed
+            (train_nonmissing must be set to True).
+
+                - If None, all columns will be used as features in the training of each model.
+                - If list, all columns in data are used to impute the variables in the list
+                - If dict the values will be used to impute the keys. Can be either column
+                    indices or names (if data is a pd.DataFrame).
+
+            No models will be trained for variables not specified by variable_schema
+            (either by None, a list, or in dict keys).
 
     imputation_order: str, list[str], list[int], default="ascending"
-        The order the imputations should occur in. If a string from the
-        items below, all variables specified by variable_schema with
-        missing data are imputed:
-            ascending: variables are imputed from least to most missing
-            descending: most to least missing
-            roman: from left to right in the dataset
-            arabic: from right to left in the dataset.
 
-        If a list is provided:
-            - the variables will be imputed in that order.
-            - only variables with missing values should be included in the list.
-            - must be a subset of variables specified by variable_schema.
+        .. code-block:: text
 
-        If a variable with missing values is in variable_schema, but not in
-        imputation_order, then models to impute that variable will be trained,
-        but the actual values will not be imputed. See examples for details.
+            The order the imputations should occur in. If a string from the
+            items below, all variables specified by variable_schema with
+            missing data are imputed:
+                ascending: variables are imputed from least to most missing
+                descending: most to least missing
+                roman: from left to right in the dataset
+                arabic: from right to left in the dataset.
+            If a list is provided:
+                - the variables will be imputed in that order.
+                - only variables with missing values should be included in the list.
+                - must be a subset of variables specified by variable_schema.
+            If a variable with missing values is in variable_schema, but not in
+            imputation_order, then models to impute that variable will be trained,
+            but the actual values will not be imputed. See examples for details.
 
     train_nonmissing: boolean
-        Should models be trained for variables with no missing values? Useful if you
-        expect you will need to impute new data which will have missing values, but
-        the training data is fully recognized.
 
-        If True, parameters are interpreted like so:
-            - models are run for all variables specified by variable_schema
-            - if variable_schema is None, models are run for all variables
-            - each iteration, models build for fully recognized variables are
-                always trained after the models trained during mice.
-            - imputation_order does not have any affect on fully recognized
-                variable model training.
+        .. code-block:: text
 
-        WARNING: Setting this to True without specifying a variable schema will build
-        models for all variables in the dataset, whether they have missing values or
-        not. This may or may not be what you want.
+            Should models be trained for variables with no missing values? Useful if you
+            expect you will need to impute new data which will have missing values, but
+            the training data is fully recognized.
+
+            If True, parameters are interpreted like so:
+                - models are run for all variables specified by variable_schema
+                - if variable_schema is None, models are run for all variables
+                - each iteration, models build for fully recognized variables are
+                    always trained after the models trained during mice.
+                - imputation_order does not have any affect on fully recognized
+                    variable model training.
+
+            WARNING: Setting this to True without specifying a variable schema will build
+            models for all variables in the dataset, whether they have missing values or
+            not. This may or may not be what you want.
 
     mean_match_candidates:  None or int or float or dict
-        The number of mean matching candidates to use.
-        Candidates are _always_ drawn from a kernel dataset, even
-        when imputing new data.
 
-        If float must be 0.0 < mmc <= 1.0. Interpreted as a percentage of available candidates
-        If int must be mmc >= 0. Interpreted as the number of candidates.
-        If dict, keys must be variable names or indexes, and values must follow two above rules.
+        .. code-block:: text
 
-        For more information, see:
-        https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching
+            The number of mean matching candidates to use.
+            Candidates are _always_ drawn from a kernel dataset, even
+            when imputing new data.
+
+            If float must be 0.0 < mmc <= 1.0. Interpreted as a percentage of available candidates
+            If int must be mmc >= 0. Interpreted as the number of candidates.
+            If dict, keys must be variable names or indexes, and values must follow two above rules.
+
+            For more information, see:
+            https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching
 
     data_subset: None or int or float or dict.
-        Subsets the data used in each iteration, which can save a significant amount of time.
-        This can also help with memory consumption, as the candidate data must be copied to
-        make a feature dataset for lightgbm.
 
-        The number of rows used for each variable is (# rows in raw data) - (# missing variable values)
-        for each variable. data_subset takes a random sample of this.
+        .. code-block:: text
 
-        If float, must be 0.0 < data_subset <= 1.0. Interpreted as a percentage of available candidates
-        If int must be data_subset >= 0. Interpreted as the number of candidates.
-        If 0, no subsetting is done.
-        If dict, keys must be variable names, and values must follow two above rules.
+            Subsets the data used in each iteration, which can save a significant amount of time.
+            This can also help with memory consumption, as the candidate data must be copied to
+            make a feature dataset for lightgbm.
 
-        It is recommended to carefully select this value for each variable if dealing
-        with very large data that barely fits into memory.
+            The number of rows used for each variable is (# rows in raw data) - (# missing variable values)
+            for each variable. data_subset takes a random sample of this.
+
+            If float, must be 0.0 < data_subset <= 1.0. Interpreted as a percentage of available candidates
+            If int must be data_subset >= 0. Interpreted as the number of candidates.
+            If 0, no subsetting is done.
+            If dict, keys must be variable names, and values must follow two above rules.
+
+            It is recommended to carefully select this value for each variable if dealing
+            with very large data that barely fits into memory.
 
     mean_match_function: Callable, default = None
-        Must take the following parameters:
-            mmc: int,
-            candidate_preds: np.ndarray,
-            bachelor_preds: np.ndarray,
-            candidate_values: np.ndarray,
-            cat_dtype: CategoricalDtype,
-            random_state: np.random.RandomState,
 
-        A default mean matching function will be used if None.
-        There are multiple built-in functions available. See the miceforest.mean_matching_functions module.
-        The built in behavior is as follows, for each function:
+        .. code-block:: text
 
-        - default_mean_match (default, if mean_match_function is None):
-            This function is very fast, but may be less accurate for categorical variables.
+            Must take the following parameters:
+                mmc: int,
+                candidate_preds: np.ndarray,
+                bachelor_preds: np.ndarray,
+                candidate_values: np.ndarray,
+                cat_dtype: CategoricalDtype,
+                random_state: np.random.RandomState,
 
-            Categorical:
-                If mmc = 0, the class with the highest probability is chosen.
-                If mmc > 0, return class based on random draw weighted by
-                    class probability for each sample.
-            Numeric or binary:
-                If mmc = 0, the predicted value is used
-                If mmc > 0, obtain the mmc closest candidate
-                    predictions and collect the associated
-                    real candidate values. Choose 1 randomly.
+            A default mean matching function will be used if None.
+            There are multiple built-in functions available. See the miceforest.mean_matching_functions module.
+            The built in behavior is as follows, for each function:
 
-        - mean_match_kdtree_classification
-            This function is slower for categorical datatypes, but results in better imputations.
+            - default_mean_match (default, if mean_match_function is None):
+                This function is very fast, but may be less accurate for categorical variables.
 
-            Categorical:
-                If mmc = 0, the class with the highest probability is chosen.
-                If mmc > 0, get N nearest neighbors from class probabilities.
-                    Select 1 at random.
-            Numeric:
-                If mmc = 0, the predicted value is used
-                If mmc > 0, obtain the mmc closest candidate
-                    predictions and collect the associated
-                    real candidate values. Choose 1 randomly.
+                Categorical:
+                    If mmc = 0, the class with the highest probability is chosen.
+                    If mmc > 0, return class based on random draw weighted by
+                        class probability for each sample.
+                Numeric or binary:
+                    If mmc = 0, the predicted value is used
+                    If mmc > 0, obtain the mmc closest candidate
+                        predictions and collect the associated
+                        real candidate values. Choose 1 randomly.
+
+            - mean_match_kdtree_classification
+                This function is slower for categorical datatypes, but results in better imputations.
+
+                Categorical:
+                    If mmc = 0, the class with the highest probability is chosen.
+                    If mmc > 0, get N nearest neighbors from class probabilities.
+                        Select 1 at random.
+                Numeric:
+                    If mmc = 0, the predicted value is used
+                    If mmc > 0, obtain the mmc closest candidate
+                        predictions and collect the associated
+                        real candidate values. Choose 1 randomly.
 
     categorical_feature: str or list, default="auto"
-        The categorical features in the dataset. This handling depends on class of impute_data:
 
-            pandas DataFrame:
-                - "auto": categorical information is inferred from any columns with
-                    datatype category or object.
-                - list of column names (or indices): Useful if all categorical columns
-                    have already been cast to numeric encodings of some type, otherwise you
-                    should just use "auto". Will throw an error if a list is provided AND
-                    categorical dtypes exist in data. If a list is provided, values in the
-                    columns must be consecutive integers starting at 0, as required by lightgbm.
+        .. code-block:: text
 
-            numpy ndarray:
-                - "auto": no categorical information is stored.
-                - list of column indices: Specified columns are treated as categorical. Column
-                    values must be consecutive integers starting at 0, as required by lightgbm.
+            The categorical features in the dataset. This handling depends on class of impute_data:
+
+                pandas DataFrame:
+                    - "auto": categorical information is inferred from any columns with
+                        datatype category or object.
+                    - list of column names (or indices): Useful if all categorical columns
+                        have already been cast to numeric encodings of some type, otherwise you
+                        should just use "auto". Will throw an error if a list is provided AND
+                        categorical dtypes exist in data. If a list is provided, values in the
+                        columns must be consecutive integers starting at 0, as required by lightgbm.
+
+                numpy ndarray:
+                    - "auto": no categorical information is stored.
+                    - list of column indices: Specified columns are treated as categorical. Column
+                        values must be consecutive integers starting at 0, as required by lightgbm.
 
     initialization: str
-        "random" - missing values will be filled in randomly from existing values.
-        "empty" - lightgbm will start MICE without initial imputation
+
+        .. code-block:: text
+
+            "random" - missing values will be filled in randomly from existing values.
+            "empty" - lightgbm will start MICE without initial imputation
 
     save_all_iterations: boolean, optional(default=True)
-        Save all the imputation values from all iterations, or just
-        the latest. Saving all iterations allows for additional
-        plotting, but may take more memory
+
+        .. code-block:: text
+
+            Save all the imputation values from all iterations, or just
+            the latest. Saving all iterations allows for additional
+            plotting, but may take more memory
 
     save_models: int
-        Which models should be saved:
-            = 0: no models are saved. Cannot get feature importance or
-                impute new data.
-            = 1: only the last model iteration is saved. Can only get
-                feature importance of last iteration. New data is
-                imputed using the last model for all specified iterations.
-                This is only an issue if data is heavily Missing At Random.
-            = 2: all model iterations are saved. Can get feature importance
-                for any iteration. When imputing new data, each iteration is
-                imputed using the model obtained at that iteration in mice.
-                This allows for imputations that most closely resemble those
-                that would have been obtained in mice.
+
+        .. code-block:: text
+
+            Which models should be saved:
+                = 0: no models are saved. Cannot get feature importance or
+                    impute new data.
+                = 1: only the last model iteration is saved. Can only get
+                    feature importance of last iteration. New data is
+                    imputed using the last model for all specified iterations.
+                    This is only an issue if data is heavily Missing At Random.
+                = 2: all model iterations are saved. Can get feature importance
+                    for any iteration. When imputing new data, each iteration is
+                    imputed using the model obtained at that iteration in mice.
+                    This allows for imputations that most closely resemble those
+                    that would have been obtained in mice.
 
     copy_data: boolean (default = False)
-        Should the dataset be referenced directly? If False, this will cause
-        the dataset to be altered in place. If a copy is created, it is saved
-        in self.working_data. There are different ways in which the dataset
-        can be altered:
 
-        1) complete_data() will fill in missing values
-        2) To save space, mice() references and manipulates self.working_data directly.
-            If self.working_data is a reference to the original dataset, the original
-            dataset will undergo these manipulations during the mice process.
-            At the end of the mice process, missing values will be set back to np.NaN
-            where they were originally missing.
+        .. code-block:: text
+
+            Should the dataset be referenced directly? If False, this will cause
+            the dataset to be altered in place. If a copy is created, it is saved
+            in self.working_data. There are different ways in which the dataset
+            can be altered:
+
+            1) complete_data() will fill in missing values
+            2) To save space, mice() references and manipulates self.working_data directly.
+                If self.working_data is a reference to the original dataset, the original
+                dataset will undergo these manipulations during the mice process.
+                At the end of the mice process, missing values will be set back to np.NaN
+                where they were originally missing.
 
     random_state: None,int, or numpy.random.RandomState
-        Ensures a random state throughout the process
 
+        .. code-block:: text
 
-    Examples
-    --------
-
-
-
+            Ensures a random state throughout the process
 
     """
 
@@ -573,7 +601,6 @@ class ImputationKernel(ImputedData):
     def append(self, imputation_kernel):
         """
         Combine two imputation kernels together.
-
         For compatibility, the following attributes of each must be equal:
             - working_data
             - iteration_count
@@ -591,9 +618,6 @@ class ImputationKernel(ImputedData):
         ----------
         imputation_kernel: ImputationKernel
             The kernel to merge.
-
-        Returns
-        -------
 
         """
         assert self.working_data.shape == imputation_kernel.working_data.shape
@@ -643,9 +667,6 @@ class ImputationKernel(ImputedData):
             The variable that was imputed
         iteration: int
             The model iteration to return. Keep in mind if:
-                - save_models == 0, no models are saved
-                - save_models == 1, only the last model iteration is saved
-                - save_models == 2, all model iterations are saved
 
         Returns: lightgbm.Booster
             The model used to impute this specific variable, iteration.
@@ -880,7 +901,11 @@ class ImputationKernel(ImputedData):
     ):
         """
         Perform hyperparameter tuning on models at the current iteration.
-        A few notes:
+
+
+        .. code-block:: text
+
+            A few notes:
             - Underlying models will now be gradient boosted trees by default (or any
                 other boosting type compatible with lightgbm.cv).
             - The parameters are tuned on the data that would currently be returned by
@@ -907,79 +932,105 @@ class ImputationKernel(ImputedData):
         ----------
 
         dataset: int (required)
-            The dataset to run parameter tuning on. Tuning parameters on 1 dataset usually results
-            in acceptable parameters for all datasets. However, tuning results are still stored
-            seperately for each dataset.
+
+            .. code-block:: text
+
+                The dataset to run parameter tuning on. Tuning parameters on 1 dataset usually results
+                in acceptable parameters for all datasets. However, tuning results are still stored
+                seperately for each dataset.
 
         variables: None or list
-            - If None, default hyper-parameter spaces are selected based on kernel data, and
-            all variables with missing values are tuned.
-            - If list, must either be indexes or variable names corresponding to the variables
-            that are to be tuned.
+
+            .. code-block:: text
+
+                - If None, default hyper-parameter spaces are selected based on kernel data, and
+                all variables with missing values are tuned.
+                - If list, must either be indexes or variable names corresponding to the variables
+                that are to be tuned.
 
         variable_parameters: None or dict
-            Defines the tuning space. Dict keys must be variable names or indices, and a subset
-            of the variables parameter. Values must be a dict with lightgbm parameter names as
-            keys, and values that abide by the following rules:
-                scalar: If a single value is passed, that parameter will be used to build the
-                    model, and will not be tuned.
-                tuple: If a tuple is passed, it must have length = 2 and will be interpreted as
-                    the bounds to search within for that parameter.
-                list: If a list is passed, values will be randomly selected from the list.
-                    NOTE: This is only possible with method = 'random'.
 
-            example: If you wish to tune the imputation model for the 4th variable with specific
-            bounds and parameters, you could pass:
-                variable_parameters = {
-                    4: {
-                        'learning_rate: 0.01',
-                        'min_sum_hessian_in_leaf: (0.1, 10),
-                        'extra_trees': [True, False]
+            .. code-block:: text
+
+                Defines the tuning space. Dict keys must be variable names or indices, and a subset
+                of the variables parameter. Values must be a dict with lightgbm parameter names as
+                keys, and values that abide by the following rules:
+                    scalar: If a single value is passed, that parameter will be used to build the
+                        model, and will not be tuned.
+                    tuple: If a tuple is passed, it must have length = 2 and will be interpreted as
+                        the bounds to search within for that parameter.
+                    list: If a list is passed, values will be randomly selected from the list.
+                        NOTE: This is only possible with method = 'random'.
+
+                example: If you wish to tune the imputation model for the 4th variable with specific
+                bounds and parameters, you could pass:
+                    variable_parameters = {
+                        4: {
+                            'learning_rate: 0.01',
+                            'min_sum_hessian_in_leaf: (0.1, 10),
+                            'extra_trees': [True, False]
+                        }
                     }
-                }
-            All models for variable 4 will have a learning_rate = 0.01. The process will randomly
-            search within the bounds (0.1, 10) for min_sum_hessian_in_leaf, and extra_trees will
-            be randomly selected from the list. Also note, the variable name for the 4th column
-            could also be passed instead of the integer 4. All other variables will be tuned with
-            the default search space, unless **kwbounds are passed.
+                All models for variable 4 will have a learning_rate = 0.01. The process will randomly
+                search within the bounds (0.1, 10) for min_sum_hessian_in_leaf, and extra_trees will
+                be randomly selected from the list. Also note, the variable name for the 4th column
+                could also be passed instead of the integer 4. All other variables will be tuned with
+                the default search space, unless **kwbounds are passed.
 
         parameter_sampling_method: str
-            If 'random', parameters are randomly selected.
-            Other methods will be added in future releases.
+
+            .. code-block:: text
+
+                If 'random', parameters are randomly selected.
+                Other methods will be added in future releases.
 
         nfold: int
-            The number of folds to perform cross validation with. More folds takes longer, but
-            Gives a more accurate distribution of the error metric.
+
+            .. code-block:: text
+
+                The number of folds to perform cross validation with. More folds takes longer, but
+                Gives a more accurate distribution of the error metric.
 
         optimization_steps:
-            How many steps to run the process for.
+
+            .. code-block:: text
+
+                How many steps to run the process for.
 
         random_state: int or np.random.RandomState or None (default=None)
-            The random state of the process. Ensures reproduceability. If None, the random state
-            of the kernel is used. Beware, this permanently alters the random state of the kernel
-            and ensures non-reproduceable results, unless the entire process up to this point
-            is re-run.
+
+            .. code-block:: text
+
+                The random state of the process. Ensures reproduceability. If None, the random state
+                of the kernel is used. Beware, this permanently alters the random state of the kernel
+                and ensures non-reproduceable results, unless the entire process up to this point
+                is re-run.
 
         kwbounds:
-            Any additional arguments that you want to apply globally to every variable.
-            For example, if you want to limit the number of iterations, you could pass
-            num_iterations = x to this functions, and it would apply globally. Custom
-            bounds can also be passed.
+
+            .. code-block:: text
+
+                Any additional arguments that you want to apply globally to every variable.
+                For example, if you want to limit the number of iterations, you could pass
+                num_iterations = x to this functions, and it would apply globally. Custom
+                bounds can also be passed.
+
 
         Returns
         -------
+
         2 dicts: optimal_parameters, optimal_parameter_losses
 
-            optimal_parameters - a dict of the optimal parameters found for each variable.
-                This can be passed directly to the variable_parameters parameter in mice()
-                for future iterations for extremely accurate imputation.
+        - optimal_parameters: dict
+            A dict of the optimal parameters found for each variable.
+            This can be passed directly to the variable_parameters parameter in mice()
+            for future iterations for extremely accurate imputation.
+                {variable: {parameter_name: parameter_value}}
 
-                    {variable: {parameter_name: parameter_value}}
-
-            optimal_parameter_losses - the average out of fold cv loss obtained directly from
-                lightgbm.cv() associated with the optimal parameter set.
-
-                    {variable: loss}
+        - optimal_parameter_losses: dict
+            The average out of fold cv loss obtained directly from
+            lightgbm.cv() associated with the optimal parameter set.
+                {variable: loss}
 
         """
 
