@@ -24,6 +24,21 @@ def default_mean_match(
     is called with all parameters every time. If replacing this function with your own,
     you must include all of the parameters above.
 
+    This function is very fast, but may be less accurate for categorical variables.
+
+        .. code-block:: text
+
+            Mean match procedure for different data types:
+                Categorical:
+                    If mmc = 0, the class with the highest probability is chosen.
+                    If mmc > 0, return class based on random draw weighted by
+                        class probability for each sample.
+                Numeric or binary:
+                    If mmc = 0, the predicted value is used
+                    If mmc > 0, obtain the mmc closest candidate
+                        predictions and collect the associated
+                        real candidate values. Choose 1 randomly.
+
     Parameters
     ----------
     mmc: int
@@ -47,10 +62,8 @@ def default_mean_match(
     Returns
     -------
     The imputation values
-    Must be np.ndarray or shape (n,), where n is the length of dimension 1 of
-    bachelor_features.
-    If the feature is categorical, return its category code (integer corresponding
-    to its category).
+    Must be np.ndarray or shape (n,), where n is the length of dimension 1 of bachelor_features.
+    If the feature is categorical, return its category code (integer corresponding to its category).
     """
 
     objective = model.params["objective"]
@@ -102,8 +115,8 @@ def default_mean_match(
 
             # lightgbm predict for regression is shape (n,).
             # Need it to be shape (n,1)
-            bachelor_preds = bachelor_preds.reshape(-1, 1)
-            candidate_preds = candidate_preds.reshape(-1, 1)
+            bachelor_preds.shape = (-1, 1)
+            candidate_preds.shape = (-1, 1)
 
             # balanced_tree = False fixes a recursion issue for some reason.
             # https://github.com/scipy/scipy/issues/14799
@@ -149,6 +162,21 @@ def mean_match_kdtree_classification(
     neighbors on the output class probabilities. This tends to be more accurate, but
     takes more time, especially for variables with large number of classes.
 
+    This function is slower for categorical datatypes, but results in better imputations.
+
+        .. code-block:: text
+
+            Mean match procedure for different datatypes:
+                Categorical:
+                    If mmc = 0, the class with the highest probability is chosen.
+                    If mmc > 0, get N nearest neighbors from class probabilities.
+                        Select 1 at random.
+                Numeric:
+                    If mmc = 0, the predicted value is used
+                    If mmc > 0, obtain the mmc closest candidate
+                        predictions and collect the associated
+                        real candidate values. Choose 1 randomly.
+
     Parameters
     ----------
     mmc: int
@@ -170,6 +198,9 @@ def mean_match_kdtree_classification(
 
     Returns
     -------
+    The imputation values
+    Must be np.ndarray or shape (n,), where n is the length of dimension 1 of bachelor_features.
+    If the feature is categorical, return its category code (integer corresponding to its category).
 
     """
 
@@ -220,8 +251,8 @@ def mean_match_kdtree_classification(
 
             # lightgbm predict for regression is shape (n,).
             # Need it to be shape (n,1)
-            bachelor_preds = bachelor_preds.reshape(-1, 1)
-            candidate_preds = candidate_preds.reshape(-1, 1)
+            bachelor_preds.shape = (-1, 1)
+            candidate_preds.shape = (-1, 1)
             kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
             _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
 

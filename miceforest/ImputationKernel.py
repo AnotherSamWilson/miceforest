@@ -435,8 +435,9 @@ class ImputationKernel(ImputedData):
 
             for var in imputed_data.imputation_order:
 
-                # Saves space, since np.nan will be broadcast.
-                imputed_data.imputation_values[var][0] = np.nan
+                for ds in range(imputed_data.dataset_count()):
+                    # Saves space, since np.nan will be broadcast.
+                    imputed_data[ds, var, 0] = np.nan
 
         else:
             raise ValueError("initialization parameter not recognized.")
@@ -693,7 +694,7 @@ class ImputationKernel(ImputedData):
         model_iteration=None,
     ):
         """
-        Get the raw predictions for variable.
+        Get the raw model output for a specific variable.
 
         The data is pulled from the imp_dataset dataset, at the imp_iteration iteration.
         The model is pulled from model_dataset dataset, at the model_iteration iteration.
@@ -786,9 +787,7 @@ class ImputationKernel(ImputedData):
         variable_parameters: None or dict
             Model parameters can be specified by variable here. Keys should
             be variable names or indices, and values should be a dict of
-            parameter which should apply to that variable only. For full
-            examples, see:
-            https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth
+            parameter which should apply to that variable only.
         kwlgb:
             Additional arguments to pass to lightgbm. Applied to all models.
 

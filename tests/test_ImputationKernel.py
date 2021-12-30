@@ -24,7 +24,8 @@ def test_defaults_pandas():
     kernel = mf.ImputationKernel(
         data=boston_amp,
         datasets=2,
-        mean_match_function=mean_match_kdtree_classification
+        mean_match_function=mean_match_kdtree_classification,
+        initialization="empty"
     )
     kernel.mice(iterations=2)
 
