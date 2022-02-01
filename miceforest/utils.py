@@ -108,6 +108,22 @@ def stratified_categorical_folds(y, nfold):
         yield (np.setdiff1d(range(elements), v), v)
 
 
+# https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
+# We don't really need to worry that much about diffusion
+# since we take % n at the end, and n (mmc) is usually
+# very small. This hash performs well enough in testing.
+def hash_int32(x):
+    """
+    A hash function which generates random uniform (enough)
+    int32 integers. Used in mean matching and initialization.
+    """
+    assert isinstance(x, np.ndarray)
+    assert x.dtype == "int32", "x must be int32"
+    x = ((x >> 16) ^ x) * 0x45d9f3b
+    x = ((x >> 16) ^ x) * 0x45d9f3b
+    x = (x >> 16) ^ x
+    return x
+
 def ensure_rng(
     random_state: Optional[Union[int, np.random.RandomState]] = None
 ) -> np.random.RandomState:

@@ -9,8 +9,10 @@ from .utils import (
     stratified_categorical_folds,
     _subset_data,
     _is_int,
+    hash_int32
 )
 import numpy as np
+from warnings import warn
 from .logger import Logger
 from lightgbm import train, Dataset, cv, log_evaluation, early_stopping
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
@@ -243,7 +245,11 @@ class ImputationKernel(ImputedData):
 
         .. code-block:: text
 
-            Ensures a random state throughout the process
+            The random_state ensures script reproducibility. It only ensures reproducible
+            results if the same script is called multiple times. It does not guarantee
+            reproducible results at the record level, if a record is imputed multiple
+            different times. If reproducible record-results are desired, a seed must be
+            passed for each record in the random_seed_array parameter.
 
     """
 
@@ -262,7 +268,7 @@ class ImputationKernel(ImputedData):
         save_all_iterations=True,
         save_models=1,
         copy_data=True,
-        random_state=None,
+        random_state=None
     ):
 
         super().__init__(
@@ -322,14 +328,21 @@ class ImputationKernel(ImputedData):
         # Get mean matching function
         if mean_match_function is None:
             from .mean_matching_functions import default_mean_match
-
             self.mean_match_function = default_mean_match
 
         else:
             self.mean_match_function = mean_match_function
 
+        # Manage randomness
+        self._completely_random_kernel = random_state is None
         self._random_state = ensure_rng(random_state)
-        self._initialize_dataset(self, random_state=self._random_state)
+
+        # Set initial imputations (iteration 0).
+        self._initialize_dataset(
+            self,
+            random_state=self._random_state,
+            random_seed_array=None
+        )
 
     def __repr__(self):
         summary_string = " " * 14 + "Class: ImputationKernel\n" + self._ids_info()
@@ -357,6 +370,38 @@ class ImputationKernel(ImputedData):
             )
 
         return ret
+
+    def _initialize_random_seed_array(
+            self,
+            random_seed_array,
+            expected_shape
+    ):
+        """
+        Formats and takes the first hash of the random_seed_array.
+        """
+
+        # Format random_seed_array if it was passed.
+        if random_seed_array is not None:
+            if self._completely_random_kernel:
+                warn(
+                    """
+                    This kernel is completely random (no random_state was provided on initialization).
+                    Values imputed using ThisKernel.impute_new_data() will be deterministic, however
+                    the kernel itself is non-reproducible.
+                    """
+                )
+            assert isinstance(random_seed_array, np.ndarray)
+            assert random_seed_array.dtype == "int32", (
+                "random_seed_array must be a np.ndarray of type int32"
+            )
+            assert random_seed_array.shape[0] == expected_shape, (
+                "random_seed_array must be the same length as data."
+            )
+            random_seed_array = hash_int32(random_seed_array)
+        else:
+            random_seed_array = None
+
+        return random_seed_array
 
     def _format_mm(self, mm, available_candidates, defaulting_function):
         """
@@ -408,7 +453,7 @@ class ImputationKernel(ImputedData):
         if self.save_models == 1:
             del self.models[dataset][variable_index][current_variable_iteration]
 
-    def _initialize_dataset(self, imputed_data, random_state):
+    def _initialize_dataset(self, imputed_data, random_state, random_seed_array):
         """
         Sets initial imputation values for iteration 0.
         If "random", draw values from the kernel at random.
@@ -422,14 +467,33 @@ class ImputationKernel(ImputedData):
 
             for var in imputed_data.imputation_order:
 
-                ind = np.setdiff1d(np.arange(self.data_shape[0]), self.na_where[var])
-                candidates = _subset_data(self.working_data, ind, var, return_1d=True)
+                kernel_nonmissing_ind = np.setdiff1d(np.arange(self.data_shape[0]), self.na_where[var])
+                candidates = _subset_data(self.working_data, kernel_nonmissing_ind, var, return_1d=True)
+                missing_ind = imputed_data.na_where[var]
 
                 for ds in range(imputed_data.dataset_count()):
 
-                    imputed_data[ds, var, 0] = random_state.choice(
-                        candidates, size=imputed_data.na_counts[var]
-                    )
+                    # Initialize using the random_state if no record seeds were passed.
+                    if random_seed_array is None:
+                        imputed_data[ds, var, 0] = random_state.choice(
+                            candidates,
+                            size=imputed_data.na_counts[var],
+                            replace=True
+                        )
+                    else:
+                        assert len(random_seed_array) == imputed_data.data_shape[0], (
+                            "The random_seed_array did not match the number of rows being imputed."
+                        )
+                        init_imps = []
+                        for i in missing_ind:
+                            np.random.seed(random_seed_array[i])
+                            init_imps.append(
+                                np.random.choice(
+                                    candidates, size=1
+                                )[0]
+                            )
+                        imputed_data[ds, var, 0] = np.array(init_imps)
+                        random_seed_array[missing_ind] = hash_int32(random_seed_array[missing_ind])
 
         elif self.initialization == "empty":
 
@@ -547,7 +611,7 @@ class ImputationKernel(ImputedData):
             categorical_feature=categorical_feature,
             return_cvbooster=True,
             callbacks=[
-                early_stopping(stopping_rounds=10, verbose=0),
+                early_stopping(stopping_rounds=10, verbose=False),
                 log_evaluation(period=0),
             ],
         )
@@ -816,6 +880,7 @@ class ImputationKernel(ImputedData):
 
                     logger.log(" | " + self._get_variable_name(var), end="")
                     predictor_variables = self.variable_schema[var]
+                    nawhere = self.na_where[var]
 
                     # These are necessary for building model in mice.
                     (
@@ -860,7 +925,7 @@ class ImputationKernel(ImputedData):
                     if var in self.imputation_order:
                         bachelor_features = _subset_data(
                             self.working_data,
-                            row_ind=self.na_where[var],
+                            row_ind=nawhere,
                             col_ind=predictor_variables,
                         )
                         imp_values = np.array(
@@ -871,6 +936,7 @@ class ImputationKernel(ImputedData):
                                 bachelor_features=bachelor_features,
                                 candidate_values=candidate_values,
                                 random_state=self._random_state,
+                                hashed_seeds=None
                             )
                         )
                         assert imp_values.shape == (
@@ -880,6 +946,7 @@ class ImputationKernel(ImputedData):
                         self._insert_new_data(
                             dataset=ds, variable_index=var, new_data=imp_values
                         )
+
                     self.iterations[ds, self.variable_training_order.index(var)] += 1
 
                 logger.log("\n", end="")
@@ -1140,8 +1207,9 @@ class ImputationKernel(ImputedData):
         save_all_iterations=True,
         copy_data=True,
         random_state=None,
+        random_seed_array=None,
         verbose=False,
-    ):
+    ) -> ImputedData:
         """
         Impute a new dataset
 
@@ -1187,24 +1255,50 @@ class ImputationKernel(ImputedData):
                 dataset will undergo these manipulations during the mice process.
 
         random_state: int or np.random.RandomState or None (default=None)
-            The random state of the process. Ensures reproduceability. If None, the random state
+            The random state of the process. Ensures reproducibility. If None, the random state
             of the kernel is used. Beware, this permanently alters the random state of the kernel
             and ensures non-reproduceable results, unless the entire process up to this point
             is re-run.
+
+        random_seed_array: None, np.ndarray (int32)
+
+            .. code-block:: text
+
+                Record-level seeds.
+
+                Ensures deterministic imputations at the record level. random_seed_array causes
+                deterministic imputations for each record no matter what dataset each record is
+                imputed with, assuming the same number of iterations and datasets are used.
+                If random_seed_array os passed, random_state must also be passed.
+
+                Record-level imputations are deterministic if the following conditions are met:
+                    1) The associated seed is the same.
+                    2) The same kernel is used.
+                    3) The same number of iterations are run.
+                    4) The same number of datasets are run.
+
+                Notes:
+                    a) This will slightly slow down the imputation process, because random
+                    number generation in numpy can no longer be vectorized. If you don't have a
+                    specific need for deterministic imputations at the record level, it is better to
+                    keep this parameter as None.
+
+                    b) Using this parameter may change the global numpy seed by calling np.random.seed().
+
+                    c) Internally, these seeds are hashed each time they are used, in order
+                    to obtain different results for each dataset / iteration.
+
 
         verbose: boolean
             Should information about the process be printed?
 
         Returns
         -------
+        miceforest.ImputedData
 
         """
 
         logger = Logger(verbose)
-        if random_state is None:
-            random_state = self._random_state
-        else:
-            random_state = ensure_rng(random_state)
         datasets = (
             range(self.dataset_count())
             if datasets is None
@@ -1234,7 +1328,25 @@ class ImputationKernel(ImputedData):
             save_all_iterations=save_all_iterations,
             copy_data=copy_data,
         )
-        self._initialize_dataset(imputed_data, random_state=random_state)
+        # Manage Randomness.
+        if random_state is None:
+            assert random_seed_array is None, (
+                "random_state is also required when using random_seed_array"
+            )
+            random_state = self._random_state
+        else:
+            random_state = ensure_rng(random_state)
+
+        use_seed_array = random_seed_array is not None
+        random_seed_array = self._initialize_random_seed_array(
+            random_seed_array=random_seed_array,
+            expected_shape=imputed_data.data_shape[0]
+        )
+        self._initialize_dataset(
+            imputed_data,
+            random_state=random_state,
+            random_seed_array=random_seed_array
+        )
 
         kernel_iterations = self.iteration_count()
         iterations = kernel_iterations if iterations is None else iterations
@@ -1257,6 +1369,7 @@ class ImputationKernel(ImputedData):
                 for var in imputed_data.imputation_order:
 
                     logger.log(" | " + self._get_variable_name(var), end="")
+                    nawhere = imputed_data.na_where[var]
 
                     predictor_variables = self.variable_schema[var]
                     mmc = self.mean_match_candidates[var]
@@ -1284,6 +1397,8 @@ class ImputationKernel(ImputedData):
                     current_model = self.get_model(
                         variable=var, dataset=ds, iteration=model_iteration
                     )
+
+                    seeds = random_seed_array[nawhere] if use_seed_array else None
                     imp_values = np.array(
                         self.mean_match_function(
                             mmc=self.mean_match_candidates[var],
@@ -1292,11 +1407,16 @@ class ImputationKernel(ImputedData):
                             bachelor_features=bachelor_features,
                             candidate_values=candidate_values,
                             random_state=random_state,
+                            hashed_seeds=seeds
                         )
                     )
                     imputed_data._insert_new_data(
                         dataset=ds, variable_index=var, new_data=imp_values
                     )
+                    # Refresh our seeds.
+                    if use_seed_array:
+                        random_seed_array[nawhere] = hash_int32(seeds)
+
                     imputed_data.iterations[
                         ds, imputed_data.imputation_order.index(var)
                     ] += 1

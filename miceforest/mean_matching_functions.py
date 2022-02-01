@@ -17,6 +17,7 @@ def default_mean_match(
     bachelor_features,
     candidate_values,
     random_state,
+    hashed_seeds
 ):
     """
     The default mean matching function that comes with miceforest. This can be replaced.
@@ -24,7 +25,7 @@ def default_mean_match(
     is called with all parameters every time. If replacing this function with your own,
     you must include all of the parameters above.
 
-    This function is very fast, but may be less accurate for categorical variables.
+    This function is build for speed, but may be less accurate for categorical variables.
 
         .. code-block:: text
 
@@ -58,6 +59,11 @@ def default_mean_match(
         If the feature is pandas categorical, this will be the category codes.
     random_state: np.random.RandomState
         The random state from the process calling this function is passed.
+    hashed_seeds: None, np.ndarray (int32)
+        Used to make imputations deterministic at the record level. If this array
+        is passed, random_state is ignored in favor of these seeds. These seeds are
+        derived as a hash of the random_seed_array passed to the imputation functions.
+        The distribution of these seeds is uniform enough.
 
     Returns
     -------
@@ -90,7 +96,9 @@ def default_mean_match(
 
     # Need these no matter what.
     bachelor_preds = model.predict(bachelor_features)
+    num_bachelors = bachelor_preds.shape[0]
 
+    # mmc = 0 is deterministic
     if mmc == 0:
 
         if objective in regressive_objectives:
@@ -127,23 +135,50 @@ def default_mean_match(
             if mmc == 1:
                 index_choice = knn_indices
             else:
-                ind = random_state.randint(mmc, size=(knn_indices.shape[0]))
-                index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
+                # Use the random_state if seed_array was not passed. Faster
+                if hashed_seeds is None:
+                    ind = random_state.randint(mmc, size=(num_bachelors))
+                # Use the random_seed_array if it was passed. Deterministic.
+                else:
+                    ind = hashed_seeds % mmc
+
+                index_choice = knn_indices[np.arange(num_bachelors), ind]
 
             imp_values = _ensure_np_array(candidate_values)[index_choice]
 
         elif objective == "binary":
+            if hashed_seeds is None:
+                imp_values = random_state.binomial(n=1, p=bachelor_preds)
+            else:
+                imp_values = []
+                for i in range(num_bachelors):
+                    np.random.seed(seed=hashed_seeds[i])
+                    imp_values.append(np.random.binomial(n=1, p=bachelor_preds[i]))
 
-            imp_values = random_state.binomial(n=1, p=bachelor_preds)
+                imp_values = np.array(imp_values)
 
         elif objective in ["multiclass", "multiclassova"]:
 
             # Choose random class weighted by class probabilities (fast)
+
+            # Turn bachelor_preds into discrete cdf:
             bachelor_preds = bachelor_preds.cumsum(axis=1)
-            unif = random_state.uniform(0, 1, size=bachelor_preds.shape[0])
+
+            # Randomly choose uniform numbers 0-1
+            if hashed_seeds is None:
+                unif = random_state.uniform(0, 1, size=num_bachelors)
+            else:
+                unif = []
+                for i in range(num_bachelors):
+                    np.random.seed(seed=hashed_seeds[i])
+                    unif.append(np.random.uniform(0, 1, size=1)[0])
+                unif = np.array(unif)
+
+            # Choose classes according to their cdf.
+            # Distribution will match probabilities
             imp_values = [
                 np.searchsorted(bachelor_preds[i, :], unif[i])
-                for i in range(bachelor_preds.shape[0])
+                for i in range(num_bachelors)
             ]
 
     return imp_values
@@ -156,6 +191,8 @@ def mean_match_kdtree_classification(
     bachelor_features,
     candidate_values,
     random_state,
+    hashed_seeds,
+    **kwargs
 ):
     """
     This mean matching function selects categorical features by performing nearest
@@ -195,6 +232,11 @@ def mean_match_kdtree_classification(
         If the feature is pandas categorical, this will be the category codes.
     random_state: np.random.RandomState
         The random state from the process calling this function is passed.
+    hashed_seeds: None, np.ndarray (int32)
+        Used to make imputations deterministic at the record level. If this array
+        is passed, random_state is ignored in favor of these seeds. These seeds are
+        derived as a hash of the random_seed_array passed to the imputation functions.
+        The distribution of these seeds is uniform enough.
 
     Returns
     -------
@@ -228,6 +270,7 @@ def mean_match_kdtree_classification(
 
     # Need these no matter what.
     bachelor_preds = model.predict(bachelor_features)
+    num_bachelors = bachelor_preds.shape[0]
 
     if mmc == 0:
 
@@ -260,8 +303,14 @@ def mean_match_kdtree_classification(
             if mmc == 1:
                 index_choice = knn_indices
             else:
-                ind = random_state.randint(mmc, size=(knn_indices.shape[0]))
-                index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
+                # Use the random_state if seed_array was not passed. Faster
+                if hashed_seeds is None:
+                    ind = random_state.randint(mmc, size=(num_bachelors))
+                # Use the random_seed_array if it was passed. Deterministic.
+                else:
+                    ind = hashed_seeds % mmc
+
+                index_choice = knn_indices[np.arange(num_bachelors), ind]
 
             imp_values = _ensure_np_array(candidate_values)[index_choice]
 
@@ -271,7 +320,13 @@ def mean_match_kdtree_classification(
 
             kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
             _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
-            ind = random_state.randint(mmc, size=(knn_indices.shape[0]))
+
+            # Come up with random numbers 0-mmc, with priority given to hashed_seeds
+            if hashed_seeds is None:
+                ind = random_state.randint(mmc, size=(num_bachelors))
+            else:
+                ind = hashed_seeds % mmc
+
             index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
             imp_values = candidate_values[index_choice]
 
