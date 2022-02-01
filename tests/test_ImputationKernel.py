@@ -84,7 +84,8 @@ def test_complex_pandas():
             candidate_features,
             bachelor_features,
             candidate_values,
-            random_state
+            random_state,
+            hashed_seeds
     ):
         if mmc > 0:
             imp_values = random_state.choice(candidate_values, size=bachelor_features.shape[0])
@@ -259,7 +260,8 @@ def test_complex_numpy():
             candidate_features,
             bachelor_features,
             candidate_values,
-            random_state
+            random_state,
+            hashed_seeds
     ):
         if mmc > 0:
             imp_values = random_state.choice(candidate_values, size=bachelor_features.shape[0])
