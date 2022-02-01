@@ -8,7 +8,7 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-5.2.2-blue.svg)](https://pypi.org/project/miceforest/)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-5.3.0-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![Conda
 Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
@@ -25,15 +25,15 @@ with lightgbm. The R version of this package may be found
 
 `miceforest` was designed to be:
 
-  - **Fast** Uses lightgbm as a backend, and has efficient mean matching
+-   **Fast** Uses lightgbm as a backend, and has efficient mean matching
     solutions.
-  - **Memory Efficient** Capable of performing multiple imputation
+-   **Memory Efficient** Capable of performing multiple imputation
     without copying the dataset. If the dataset can fit in memory, it
     can (probably) be imputed.
-  - **Flexible** Can handle pandas DataFrames and numpy arrays. The
+-   **Flexible** Can handle pandas DataFrames and numpy arrays. The
     imputation process can be completely customized. Can handle
     categorical data automatically.
-  - **Used In Production** Kernels can be saved and impute new, unseen
+-   **Used In Production** Kernels can be saved and impute new, unseen
     datasets. Imputing new data is often orders of magnitude faster than
     including the new data in a new `mice` procedure. Imputation models
     can be built off of a kernel dataset, even if there are no missing
@@ -47,52 +47,54 @@ you can find
 
 #### Table of Contents:
 
-  - [Package
+-   [Package
     Meta](https://github.com/AnotherSamWilson/miceforest#Package-Meta)
-  - [The
+-   [The
     Basics](https://github.com/AnotherSamWilson/miceforest#The-Basics)
-      - [Basic
+    -   [Basic
         Examples](https://github.com/AnotherSamWilson/miceforest#Basic-Examples)
-      - [Controlling Tree
+    -   [Controlling Tree
         Growth](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
-      - [Preserving Data
+    -   [Preserving Data
         Assumptions](https://github.com/AnotherSamWilson/miceforest#Preserving-Data-Assumptions)
-      - [Imputing With Gradient Boosted
+    -   [Imputing With Gradient Boosted
         Trees](https://github.com/AnotherSamWilson/miceforest#Imputing-With-Gradient-Boosted-Trees)
-  - [Advanced
+-   [Advanced
     Features](https://github.com/AnotherSamWilson/miceforest#Advanced-Features)
-      - [Customizing the Imputation
+    -   [Customizing the Imputation
         Process](https://github.com/AnotherSamWilson/miceforest#Customizing-the-Imputation-Process)
-      - [Imputing New Data with Existing
+    -   [Imputing New Data with Existing
         Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
-      - [Building Models on Nonmissing
+    -   [Building Models on Nonmissing
         Data](https://github.com/AnotherSamWilson/miceforest#Building-Models-on-Nonmissing-Data)
-      - [Tuning
+    -   [Tuning
         Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
-      - [How to Make the Process
+    -   [On
+        Reproducibility](https://github.com/AnotherSamWilson/miceforest#On-Reproducibility)
+    -   [How to Make the Process
         Faster](https://github.com/AnotherSamWilson/miceforest#How-to-Make-the-Process-Faster)
-      - [Imputing Data In
+    -   [Imputing Data In
         Place](https://github.com/AnotherSamWilson/miceforest#Imputing-Data-In-Place)
-  - [Diagnostic
+-   [Diagnostic
     Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting)
-      - [Imputed
+    -   [Imputed
         Distributions](https://github.com/AnotherSamWilson/miceforest#Distribution-of-Imputed-Values)
-      - [Correlation
+    -   [Correlation
         Convergence](https://github.com/AnotherSamWilson/miceforest#Convergence-of-Correlation)
-      - [Variable
+    -   [Variable
         Importance](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
-      - [Mean
+    -   [Mean
         Convergence](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
-  - [Using the Imputed
+-   [Using the Imputed
     Data](https://github.com/AnotherSamWilson/miceforest#Using-the-Imputed-Data)
-  - [The MICE
+-   [The MICE
     Algorithm](https://github.com/AnotherSamWilson/miceforest#The-MICE-Algorithm)
-      - [Introduction](https://github.com/AnotherSamWilson/miceforest#The-MICE-Algorithm)
-      - [Common Use
+    -   [Introduction](https://github.com/AnotherSamWilson/miceforest#The-MICE-Algorithm)
+    -   [Common Use
         Cases](https://github.com/AnotherSamWilson/miceforest#Common-Use-Cases)
-      - [Predictive Mean
+    -   [Predictive Mean
         Matching](https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching)
-      - [Effects of Mean
+    -   [Effects of Mean
         Matching](https://github.com/AnotherSamWilson/miceforest#Effects-of-Mean-Matching)
 
 ## Package Meta
@@ -101,20 +103,20 @@ you can find
 
 New Major Update = 5.0.0
 
-  - New main classes (`ImputationKernel`, `ImputedData`) replace
+-   New main classes (`ImputationKernel`, `ImputedData`) replace
     (`KernelDataSet`, `MultipleImputedKernel`, `ImputedDataSet`,
     `MultipleImputedDataSet`).  
-  - Data can now be referenced and imputed in place. This saves a lot of
+-   Data can now be referenced and imputed in place. This saves a lot of
     memory allocation and is much faster.  
-  - Data can now be completed in place. This allows for only a single
+-   Data can now be completed in place. This allows for only a single
     copy of the dataset to be in memory at any given time, even if
     performing multiple imputation.  
-  - `mean_match_subset` parameter has been replaced with `data_subset.`
+-   `mean_match_subset` parameter has been replaced with `data_subset.`
     This subsets the data used to build the model as well as the
     candidates.  
-  - More performance improvements around when data is copied and where
+-   More performance improvements around when data is copied and where
     it is stored.  
-  - Raw data is now stored as the original. Can handle pandas
+-   Raw data is now stored as the original. Can handle pandas
     `DataFrame` and numpy `ndarray`.
 
 ### Installation
@@ -142,13 +144,13 @@ $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
 
 miceforest has 2 main classes which the user will interact with:
 
-  - `ImputationKernel` - This class contains the raw data off of which
+-   `ImputationKernel` - This class contains the raw data off of which
     the `mice` algorithm is performed. During this process, models will
     be trained, and the imputed (predicted) values will be stored. These
     values can be used to fill in the missing values of the raw data.
     The raw data can be copied, or referenced directly. Models can be
     saved, and used to impute new datasets.
-  - `ImputedData` - The result of
+-   `ImputedData` - The result of
     `ImputationKernel.impute_new_data(new_data)`. This contains the raw
     data in `new_data` as well as the imputed values.
 
@@ -362,7 +364,8 @@ def mmf(
   candidate_features,
   bachelor_features,
   candidate_values,
-  random_state
+  random_state,
+  hashed_seeds
 ):
 
     bachelor_preds = model.predict(bachelor_features)
@@ -402,13 +405,13 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.688156 seconds
+    ## New Data imputed in 1.25043 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
 `ImputationKernel` object. When mean matching, the candidate values are
 pulled from the original kernel dataset. To impute new data, the
-`save_models` parameter in `ImputationKernel` must be \> 0. If
+`save_models` parameter in `ImputationKernel` must be &gt; 0. If
 `save_models == 1`, the model from the latest iteration is saved for
 each variable. If `save_models > 1`, the model from each iteration is
 saved. This allows for new data to be imputed in a more similar fashion
@@ -523,26 +526,74 @@ optimal_parameters, losses = kernel.tune_parameters(
 kernel.mice(1, variable_parameters=optimal_parameters)
 ```
 
-In this example, we did a few things - we specified that only `sepal
-width (cm)`, `species`, and `petal width (cm)` should be tuned. We also
-specified some specific parameters in `variable_parameters.` Notice that
-`bagging_fraction` was passed as a scalar, `0.5`. This means that, for
-the variable `sepal width (cm)`, the parameter `bagging_fraction` will
-be set as that number and not be tuned. We did the opposite for
-`bagging_freq`. We specified bounds that the process should search in.
-We also passed the argument `extra_trees` as a list. Since it was passed
-to \*\*kwbounds, this parameter will apply to all variables that are
-being tuned. Passing values as a list tells the process that it should
-randomly sample values from the list, instead of treating them as set of
-counts to search within.
+In this example, we did a few things - we specified that only
+`sepal width (cm)`, `species`, and `petal width (cm)` should be tuned.
+We also specified some specific parameters in `variable_parameters.`
+Notice that `bagging_fraction` was passed as a scalar, `0.5`. This means
+that, for the variable `sepal width (cm)`, the parameter
+`bagging_fraction` will be set as that number and not be tuned. We did
+the opposite for `bagging_freq`. We specified bounds that the process
+should search in. We also passed the argument `extra_trees` as a list.
+Since it was passed to \*\*kwbounds, this parameter will apply to all
+variables that are being tuned. Passing values as a list tells the
+process that it should randomly sample values from the list, instead of
+treating them as set of counts to search within.
 
 The tuning process follows these rules for different parameter values it
 finds:
 
-  - Scalar: That value is used, and not tuned.  
-  - Tuple: Should be length 2. Treated as the lower and upper bound to
+-   Scalar: That value is used, and not tuned.  
+-   Tuple: Should be length 2. Treated as the lower and upper bound to
     search in.  
-  - List: Treated as a distinct list of values to try randomly.
+-   List: Treated as a distinct list of values to try randomly.
+
+### On Reproducibility
+
+`miceforest` allows for different “levels” of reproducibility, global
+and record-level.
+
+##### **Global Reproducibility**
+
+Global reproducibility ensures that the same values will be imputed if
+the same code is run multiple times. To ensure global reproducibility,
+all the user needs to do is set a `random_state` when the kernel is
+initialized.
+
+##### **Record-Level Reproducibility**
+
+Sometimes we want to obtain reproducible imputations at the record
+level, without having to pass the same dataset. This is possible by
+passing a list of record-specific seeds to the `random_seed_array`
+parameter. This is useful if imputing new data multiple times, and you
+would like imputations for each row to match each time it is imputed.
+
+``` python
+# Define seeds for the data, and impute iris
+random_seed_array = np.random.randint(9999, size=150)
+iris_imputed = kernel.impute_new_data(
+    iris_amp,
+    random_state=4,
+    random_seed_array=random_seed_array
+)
+
+# Select a random sample
+new_inds = np.random.choice(150, size=15)
+new_data = iris_amp.loc[new_inds]
+new_seeds = random_seed_array[new_inds]
+new_imputed = kernel.impute_new_data(
+    new_data,
+    random_state=4,
+    random_seed_array=new_seeds
+)
+
+# We imputed the same values for the 15 values each time,
+# because each record was associated with the same seed.
+assert new_imputed.complete_data(0).equals(iris_imputed.complete_data(0).loc[new_inds])
+```
+
+Note that record-level reproducibility is only possible in the
+`impute_new_data` function, there are no guarantees of record-level
+reproducibility in imputations between the kernel and new data.
 
 ### How to Make the Process Faster
 
@@ -550,27 +601,27 @@ Multiple Imputation is one of the most robust ways to handle missing
 data - but it can take a long time. There are several strategies you can
 use to decrease the time a process takes to run:
 
-  - Decrease `data_subset`. By default all non-missing datapoints for
+-   Decrease `data_subset`. By default all non-missing datapoints for
     each variable are used to train the model and perform mean matching.
     This can cause the model training nearest-neighbors search to take a
     long time for large data. A subset of these points can be searched
     instead by using `data_subset`.  
-  - Convert your data to a numpy array. Numpy arrays are much faster to
+-   Convert your data to a numpy array. Numpy arrays are much faster to
     index. While indexing overhead is avoided as much as possible, there
     is no getting around it. Consider comverting to `float32` datatype
     as well, as it will cause the resulting object to take up much less
     memory.
-  - Decrease `mean_match_candidates`. The maximum number of neighbors
+-   Decrease `mean_match_candidates`. The maximum number of neighbors
     that are considered with the default parameters is 10. However, for
     large datasets, this can still be an expensive operation. Consider
     explicitly setting `mean_match_candidates` lower.
-  - Use different lightgbm parameters. lightgbm is usually not the
+-   Use different lightgbm parameters. lightgbm is usually not the
     problem, however if a certain variable has a large number of
-    classes, then the max number of trees actually grown is (\# classes)
-    \* (n\_estimators). You can specifically decrease the bagging
-    fraction or n\_estimators for large multi-class variables, or grow
-    less trees in general.  
-  - Use a faster mean matching function. The default mean matching
+    classes, then the max number of trees actually grown is (\#
+    classes) \* (n\_estimators). You can specifically decrease the
+    bagging fraction or n\_estimators for large multi-class variables,
+    or grow less trees in general.  
+-   Use a faster mean matching function. The default mean matching
     function uses the scipy.Spatial.KDtree algorithm. There are faster
     alternatives out there, if you think mean matching is the holdup.
 
@@ -754,10 +805,10 @@ keep in mind that these imputed values are a prediction. Creating
 multiple datasets with different imputed values allows you to do two
 types of inference:
 
-  - Imputed Value Distribution: A profile can be built for each imputed
+-   Imputed Value Distribution: A profile can be built for each imputed
     value, allowing you to make statements about the likely distribution
     of that value.  
-  - Model Prediction Distribution: With multiple datasets, you can build
+-   Model Prediction Distribution: With multiple datasets, you can build
     multiple models and create a distribution of predictions for each
     sample. Those samples with imputed values which were not able to be
     imputed with much confidence would have a larger variance in their
@@ -779,9 +830,9 @@ we see how this works in practice:
 This method is very useful if you have a variable which needs imputing
 which has any of the following characteristics:
 
-  - Multimodal  
-  - Integer  
-  - Skewed
+-   Multimodal  
+-   Integer  
+-   Skewed
 
 ### Effects of Mean Matching
 

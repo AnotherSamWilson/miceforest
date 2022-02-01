@@ -4,7 +4,7 @@ always_allow_html: true
 ---
 ```{r EDITPATH,include=FALSE}
 library(knitr)
-opts_chunk$set(engine.path = "C:/Users/swilson/virtual_environments/3.9.6/Scripts/python.exe")
+opts_chunk$set(engine.path = "C:/Users/SamWilson_/virtual_environments/sandbox/Scripts/python.exe")
 initlines = readLines(file("miceforest/__init__.py"))
 initlines = initlines[grep("__version__", initlines)]
 vrzn = gsub("\"","",gsub("__version__ = ","",initlines))
@@ -54,6 +54,7 @@ This document contains a thorough walkthrough of the package, benchmarks, and an
     + [Imputing New Data with Existing Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
     + [Building Models on Nonmissing Data](https://github.com/AnotherSamWilson/miceforest#Building-Models-on-Nonmissing-Data)
     + [Tuning Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
+    + [On Reproducibility](https://github.com/AnotherSamWilson/miceforest#On-Reproducibility)
     + [How to Make the Process Faster](https://github.com/AnotherSamWilson/miceforest#How-to-Make-the-Process-Faster)
     + [Imputing Data In Place](https://github.com/AnotherSamWilson/miceforest#Imputing-Data-In-Place)
 * [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting)
@@ -253,7 +254,8 @@ def mmf(
   candidate_features,
   bachelor_features,
   candidate_values,
-  random_state
+  random_state,
+  hashed_seeds
 ):
 
     bachelor_preds = model.predict(bachelor_features)
@@ -385,6 +387,40 @@ The tuning process follows these rules for different parameter values it finds:
 * Tuple: Should be length 2. Treated as the lower and upper bound to search in.  
 * List: Treated as a distinct list of values to try randomly.  
 
+### On Reproducibility
+`miceforest` allows for different "levels" of reproducibility, global and record-level.
+
+##### **Global Reproducibility**  
+Global reproducibility ensures that the same values will be imputed if the same code is run multiple times. To ensure global reproducibility, all the user needs to do is set a `random_state` when the kernel is initialized.
+
+##### **Record-Level Reproducibility**  
+Sometimes we want to obtain reproducible imputations at the record level, without having to pass the same dataset. This is possible by passing a list of record-specific seeds to the `random_seed_array` parameter. This is useful if imputing new data multiple times, and you would like imputations for each row to match each time it is imputed.
+``` {python REPRODUCE_SEEDS}
+# Define seeds for the data, and impute iris
+random_seed_array = np.random.randint(9999, size=150)
+iris_imputed = kernel.impute_new_data(
+    iris_amp,
+    random_state=4,
+    random_seed_array=random_seed_array
+)
+
+# Select a random sample
+new_inds = np.random.choice(150, size=15)
+new_data = iris_amp.loc[new_inds]
+new_seeds = random_seed_array[new_inds]
+new_imputed = kernel.impute_new_data(
+    new_data,
+    random_state=4,
+    random_seed_array=new_seeds
+)
+
+# We imputed the same values for the 15 values each time,
+# because each record was associated with the same seed.
+assert new_imputed.complete_data(0).equals(iris_imputed.complete_data(0).loc[new_inds])
+
+```  
+
+Note that record-level reproducibility is only possible in the `impute_new_data` function, there are no guarantees of record-level reproducibility in imputations between the kernel and new data.
 
 ### How to Make the Process Faster  
 Multiple Imputation is one of the most robust ways to handle missing data - but it can take a long time. There are several strategies you can use to decrease the time a process takes to run:  
