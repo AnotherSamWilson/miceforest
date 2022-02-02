@@ -20,7 +20,7 @@ random_seed_array = np.random.choice(
     range(1000),
     size=rows,
     replace=False
-)
+).astype("int32")
 
 def test_pandas_reproducibility():
 
