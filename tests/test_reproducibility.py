@@ -116,24 +116,3 @@ def test_pandas_reproducibility():
         assert not (reordered_kernel_completed == new_data_completed).all().all(), (
             "Different seeds caused deterministic imputations for all rows / columns."
         )
-
-
-
-random_seed_array = np.random.randint(9999, size=150)
-iris_imputed = kernel.impute_new_data(
-    boston_amp,
-    random_state=4,
-    random_seed_array=random_seed_array
-)
-
-# Select a random sample
-new_inds = np.random.choice(150, size=15)
-new_data = boston_amp.loc[new_inds]
-new_seeds = random_seed_array[new_inds]
-new_imputed = kernel.impute_new_data(
-    new_data,
-    random_state=4,
-    random_seed_array=new_seeds
-)
-
-assert new_imputed.complete_data(0).equals(iris_imputed.complete_data(0).loc[new_inds])
