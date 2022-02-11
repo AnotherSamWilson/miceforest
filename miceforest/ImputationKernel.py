@@ -541,7 +541,12 @@ class ImputationKernel(ImputedData):
 
     def _get_lgb_params(self, var, vsp, random_state, **kwlgb):
 
-        seed = random_state.randint(1000000, size=1)[0]
+        seed = random_state.randint(
+            low=np.iinfo("int32").min,
+            high=np.iinfo("int32").max,
+            size=1,
+            dtype="int32"
+        )[0]
 
         if var in self.categorical_variables:
             n_c = self.category_counts[var]
@@ -620,7 +625,16 @@ class ImputationKernel(ImputedData):
         loss = np.min(lgbcv[loss_metric_key])
         return loss, best_iteration
 
-    def _make_xy(self, variable, subset_count, return_cat=False):
+    def _draw_random_int32(self, random_state, size):
+        nums = random_state.randint(
+            low=0,
+            high=np.iinfo("int32").max,
+            size=size,
+            dtype="int32"
+        )
+        return nums
+
+    def _make_xy(self, variable, subset_count, return_cat=False, random_seed=None):
         """
         Make the predictor and response set used to train the model.
         Must be defined in ImputedData because this method is called
@@ -629,12 +643,12 @@ class ImputationKernel(ImputedData):
         var = self._get_variable_index(variable)
         assert _is_int(var)
         xvars = self.variable_schema[var]
-
         non_missing_ind = self._get_working_data_nonmissing_indx(var)
 
-        # Only get subset indices if we need to.
+        # Only get subset of indices if we need to.
         if subset_count < len(non_missing_ind):
-            candidate_subset = self._random_state.choice(
+            random_state = np.random.RandomState(seed=random_seed)
+            candidate_subset = random_state.choice(
                 non_missing_ind, size=subset_count
             )
         else:
@@ -891,6 +905,10 @@ class ImputationKernel(ImputedData):
                         variable=var,
                         subset_count=self.data_subset[var],
                         return_cat=True,
+                        random_seed=self._draw_random_int32(
+                            random_state=self._random_state,
+                            size=1
+                        )[0]
                     )
                     feature_cat_index = (
                         "auto" if len(feature_cat_index) == 0 else feature_cat_index
@@ -1136,7 +1154,13 @@ class ImputationKernel(ImputedData):
                 logger.log(self._get_variable_name(var) + " | ", end="")
 
                 candidate_features, candidate_values, feature_cat_index = self._make_xy(
-                    variable=var, subset_count=self.data_subset[var], return_cat=True
+                    variable=var,
+                    subset_count=self.data_subset[var],
+                    return_cat=True,
+                    random_seed=self._draw_random_int32(
+                        random_state=self._random_state,
+                        size=1
+                    )[0]
                 )
 
                 # lightgbm requires integers for label. Categories won't work.
@@ -1260,7 +1284,7 @@ class ImputationKernel(ImputedData):
             and ensures non-reproduceable results, unless the entire process up to this point
             is re-run.
 
-        random_seed_array: None, np.ndarray (int32)
+        random_seed_array: None or np.ndarray (int32)
 
             .. code-block:: text
 
@@ -1304,6 +1328,8 @@ class ImputationKernel(ImputedData):
             if datasets is None
             else _ensure_iterable(datasets)
         )
+        kernel_iterations = self.iteration_count()
+        iterations = kernel_iterations if iterations is None else iterations
         if self.original_data_class == "pd_DataFrame":
             assert set(self.working_data.columns) == set(
                 new_data.columns
@@ -1328,7 +1354,8 @@ class ImputationKernel(ImputedData):
             save_all_iterations=save_all_iterations,
             copy_data=copy_data,
         )
-        # Manage Randomness.
+
+        ### Manage Randomness.
         if random_state is None:
             assert random_seed_array is None, (
                 "random_state is also required when using random_seed_array"
@@ -1336,29 +1363,39 @@ class ImputationKernel(ImputedData):
             random_state = self._random_state
         else:
             random_state = ensure_rng(random_state)
-
         use_seed_array = random_seed_array is not None
         random_seed_array = self._initialize_random_seed_array(
             random_seed_array=random_seed_array,
             expected_shape=imputed_data.data_shape[0]
         )
+        # The loop below is dynamic, depending on missing data availability.
+        # Therefore, we need to pre-compute random seeds, we cannot rely on
+        # generating them on the fly.
+        subset_seeds = self._draw_random_int32(
+            random_state=random_state,
+            size=(
+                len(datasets),
+                iterations,
+                len(self.imputation_order)
+            ),
+        )
+        self.subset_seeds = subset_seeds
         self._initialize_dataset(
             imputed_data,
             random_state=random_state,
             random_seed_array=random_seed_array
         )
 
-        kernel_iterations = self.iteration_count()
-        iterations = kernel_iterations if iterations is None else iterations
-        iter_range = range(1, iterations + 1)
-
+        iter_range = list(range(1, iterations + 1))
         for ds in datasets:
 
             logger.log("Dataset " + str(ds))
+            dsind = datasets.index(ds)
 
             for iteration in iter_range:
 
                 logger.log(str(iteration) + " ", end="")
+                iterind = iter_range.index(iteration)
 
                 # Determine which model iteration to grab
                 if self.save_models == 1 or iteration > kernel_iterations:
@@ -1380,6 +1417,7 @@ class ImputationKernel(ImputedData):
                             variable=var,
                             subset_count=self.data_subset[var],
                             return_cat=False,
+                            random_seed=subset_seeds[dsind, iterind, self.imputation_order.index(var)]
                         )
                         # lightgbm requires integers for label. Categories won't work.
                         if candidate_values.dtype.name == "category":
@@ -1417,9 +1455,7 @@ class ImputationKernel(ImputedData):
                     if use_seed_array:
                         random_seed_array[nawhere] = hash_int32(seeds)
 
-                    imputed_data.iterations[
-                        ds, imputed_data.imputation_order.index(var)
-                    ] += 1
+                    imputed_data.iterations[ds, imputed_data.imputation_order.index(var)] += 1
 
                 logger.log("\n", end="")
 
