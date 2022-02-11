@@ -1376,10 +1376,9 @@ class ImputationKernel(ImputedData):
             size=(
                 len(datasets),
                 iterations,
-                len(self.imputation_order)
+                len(self.variable_training_order)
             ),
         )
-        self.subset_seeds = subset_seeds
         self._initialize_dataset(
             imputed_data,
             random_state=random_state,
@@ -1417,8 +1416,9 @@ class ImputationKernel(ImputedData):
                             variable=var,
                             subset_count=self.data_subset[var],
                             return_cat=False,
-                            random_seed=subset_seeds[dsind, iterind, self.imputation_order.index(var)]
+                            random_seed=subset_seeds[dsind, iterind, self.variable_training_order.index(var)]
                         )
+
                         # lightgbm requires integers for label. Categories won't work.
                         if candidate_values.dtype.name == "category":
                             candidate_values = candidate_values.cat.codes
