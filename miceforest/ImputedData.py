@@ -696,7 +696,7 @@ save_all_iterations: {self.save_all_iterations}"""
         # at each iteration
         correlation_dict = {}
         if self.save_all_iterations:
-            iter_range = list(range(curr_iteration + 1))
+            iter_range = list(range(1, curr_iteration + 1))
         else:
             # Make this iterable for code tidyness
             iter_range = [curr_iteration]
@@ -763,7 +763,7 @@ save_all_iterations: {self.save_all_iterations}"""
                 list(correlation_dict[var].values()),
                 labels=range(len(correlation_dict[var])),
             )
-            ax[axr, axc].set_title(var)
+            ax[axr, axc].set_title(self._get_variable_name(var))
             ax[axr, axc].set_xlabel("Iteration")
             ax[axr, axc].set_ylabel("Correlations")
             ax[axr, axc].set_ylim([-1, 1])
