@@ -9,7 +9,7 @@ from .utils import (
     stratified_categorical_folds,
     _subset_data,
     _is_int,
-    hash_int32
+    hash_int32,
 )
 import numpy as np
 from warnings import warn
@@ -268,7 +268,7 @@ class ImputationKernel(ImputedData):
         save_all_iterations=True,
         save_models=1,
         copy_data=True,
-        random_state=None
+        random_state=None,
     ):
 
         super().__init__(
@@ -328,6 +328,7 @@ class ImputationKernel(ImputedData):
         # Get mean matching function
         if mean_match_function is None:
             from .mean_matching_functions import default_mean_match
+
             self.mean_match_function = default_mean_match
 
         else:
@@ -339,9 +340,7 @@ class ImputationKernel(ImputedData):
 
         # Set initial imputations (iteration 0).
         self._initialize_dataset(
-            self,
-            random_state=self._random_state,
-            random_seed_array=None
+            self, random_state=self._random_state, random_seed_array=None
         )
 
     def __repr__(self):
@@ -371,11 +370,7 @@ class ImputationKernel(ImputedData):
 
         return ret
 
-    def _initialize_random_seed_array(
-            self,
-            random_seed_array,
-            expected_shape
-    ):
+    def _initialize_random_seed_array(self, random_seed_array, expected_shape):
         """
         Formats and takes the first hash of the random_seed_array.
         """
@@ -391,12 +386,12 @@ class ImputationKernel(ImputedData):
                     """
                 )
             assert isinstance(random_seed_array, np.ndarray)
-            assert random_seed_array.dtype == "int32", (
-                "random_seed_array must be a np.ndarray of type int32"
-            )
-            assert random_seed_array.shape[0] == expected_shape, (
-                "random_seed_array must be the same length as data."
-            )
+            assert (
+                random_seed_array.dtype == "int32"
+            ), "random_seed_array must be a np.ndarray of type int32"
+            assert (
+                random_seed_array.shape[0] == expected_shape
+            ), "random_seed_array must be the same length as data."
             random_seed_array = hash_int32(random_seed_array)
         else:
             random_seed_array = None
@@ -467,8 +462,12 @@ class ImputationKernel(ImputedData):
 
             for var in imputed_data.imputation_order:
 
-                kernel_nonmissing_ind = np.setdiff1d(np.arange(self.data_shape[0]), self.na_where[var])
-                candidates = _subset_data(self.working_data, kernel_nonmissing_ind, var, return_1d=True)
+                kernel_nonmissing_ind = np.setdiff1d(
+                    np.arange(self.data_shape[0]), self.na_where[var]
+                )
+                candidates = _subset_data(
+                    self.working_data, kernel_nonmissing_ind, var, return_1d=True
+                )
                 missing_ind = imputed_data.na_where[var]
 
                 for ds in range(imputed_data.dataset_count()):
@@ -476,24 +475,20 @@ class ImputationKernel(ImputedData):
                     # Initialize using the random_state if no record seeds were passed.
                     if random_seed_array is None:
                         imputed_data[ds, var, 0] = random_state.choice(
-                            candidates,
-                            size=imputed_data.na_counts[var],
-                            replace=True
+                            candidates, size=imputed_data.na_counts[var], replace=True
                         )
                     else:
-                        assert len(random_seed_array) == imputed_data.data_shape[0], (
-                            "The random_seed_array did not match the number of rows being imputed."
-                        )
+                        assert (
+                            len(random_seed_array) == imputed_data.data_shape[0]
+                        ), "The random_seed_array did not match the number of rows being imputed."
                         init_imps = []
                         for i in missing_ind:
                             np.random.seed(random_seed_array[i])
-                            init_imps.append(
-                                np.random.choice(
-                                    candidates, size=1
-                                )[0]
-                            )
+                            init_imps.append(np.random.choice(candidates, size=1)[0])
                         imputed_data[ds, var, 0] = np.array(init_imps)
-                        random_seed_array[missing_ind] = hash_int32(random_seed_array[missing_ind])
+                        random_seed_array[missing_ind] = hash_int32(
+                            random_seed_array[missing_ind]
+                        )
 
         elif self.initialization == "empty":
 
@@ -936,7 +931,7 @@ class ImputationKernel(ImputedData):
                                 bachelor_features=bachelor_features,
                                 candidate_values=candidate_values,
                                 random_state=self._random_state,
-                                hashed_seeds=None
+                                hashed_seeds=None,
                             )
                         )
                         assert imp_values.shape == (
@@ -1330,9 +1325,9 @@ class ImputationKernel(ImputedData):
         )
         # Manage Randomness.
         if random_state is None:
-            assert random_seed_array is None, (
-                "random_state is also required when using random_seed_array"
-            )
+            assert (
+                random_seed_array is None
+            ), "random_state is also required when using random_seed_array"
             random_state = self._random_state
         else:
             random_state = ensure_rng(random_state)
@@ -1340,12 +1335,10 @@ class ImputationKernel(ImputedData):
         use_seed_array = random_seed_array is not None
         random_seed_array = self._initialize_random_seed_array(
             random_seed_array=random_seed_array,
-            expected_shape=imputed_data.data_shape[0]
+            expected_shape=imputed_data.data_shape[0],
         )
         self._initialize_dataset(
-            imputed_data,
-            random_state=random_state,
-            random_seed_array=random_seed_array
+            imputed_data, random_state=random_state, random_seed_array=random_seed_array
         )
 
         kernel_iterations = self.iteration_count()
@@ -1407,7 +1400,7 @@ class ImputationKernel(ImputedData):
                             bachelor_features=bachelor_features,
                             candidate_values=candidate_values,
                             random_state=random_state,
-                            hashed_seeds=seeds
+                            hashed_seeds=seeds,
                         )
                     )
                     imputed_data._insert_new_data(

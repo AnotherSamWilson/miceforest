@@ -119,10 +119,11 @@ def hash_int32(x):
     """
     assert isinstance(x, np.ndarray)
     assert x.dtype == "int32", "x must be int32"
-    x = ((x >> 16) ^ x) * 0x45d9f3b
-    x = ((x >> 16) ^ x) * 0x45d9f3b
+    x = ((x >> 16) ^ x) * 0x45D9F3B
+    x = ((x >> 16) ^ x) * 0x45D9F3B
     x = (x >> 16) ^ x
     return x
+
 
 def ensure_rng(
     random_state: Optional[Union[int, np.random.RandomState]] = None

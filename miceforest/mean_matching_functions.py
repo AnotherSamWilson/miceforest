@@ -17,7 +17,7 @@ def default_mean_match(
     bachelor_features,
     candidate_values,
     random_state,
-    hashed_seeds
+    hashed_seeds,
 ):
     """
     The default mean matching function that comes with miceforest. This can be replaced.
