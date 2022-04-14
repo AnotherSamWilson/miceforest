@@ -4,7 +4,7 @@ always_allow_html: true
 ---
 ```{r EDITPATH,include=FALSE}
 library(knitr)
-opts_chunk$set(engine.path = "C:/Users/SamWilson_/virtual_environments/sandbox/Scripts/python.exe")
+opts_chunk$set(engine.path = "C:/Users/swilson/virtual_environments/3.9.6/Scripts/python.exe")
 initlines = readLines(file("miceforest/__init__.py"))
 initlines = initlines[grep("__version__", initlines)]
 vrzn = gsub("\"","",gsub("__version__ = ","",initlines))
@@ -33,7 +33,7 @@ Fast, memory efficient Multiple Imputation by Chained Equations (MICE) with ligh
   * **Fast** Uses lightgbm as a backend, and has efficient mean matching solutions.
   * **Memory Efficient** Capable of performing multiple imputation without copying the dataset. If the dataset can fit in memory, it can (probably) be imputed.
   * **Flexible** Can handle pandas DataFrames and numpy arrays. The imputation process can be completely customized. Can handle categorical data automatically.
-  * **Used In Production** Kernels can be saved and impute new, unseen datasets. Imputing new data is often orders of magnitude faster than including the new data in a new `mice` procedure. Imputation models can be built off of a kernel dataset, even if there are no missing values. New data can also be imputed in place.
+  * **Used In Production** Kernels can be saved (recommended using the dill package) and impute new, unseen datasets. Imputing new data is often orders of magnitude faster than including the new data in a new `mice` procedure. Imputation models can be built off of a kernel dataset, even if there are no missing values. New data can also be imputed in place.
   
 
 
@@ -57,6 +57,7 @@ This document contains a thorough walkthrough of the package, benchmarks, and an
     + [On Reproducibility](https://github.com/AnotherSamWilson/miceforest#On-Reproducibility)
     + [How to Make the Process Faster](https://github.com/AnotherSamWilson/miceforest#How-to-Make-the-Process-Faster)
     + [Imputing Data In Place](https://github.com/AnotherSamWilson/miceforest#Imputing-Data-In-Place)
+    + [Saving and Loading Kernels](https://github.com/AnotherSamWilson/miceforest#Saving-and-Loading-Kernels)
 * [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting)
     + [Imputed Distributions](https://github.com/AnotherSamWilson/miceforest#Distribution-of-Imputed-Values)
     + [Correlation Convergence](https://github.com/AnotherSamWilson/miceforest#Convergence-of-Correlation)
@@ -449,7 +450,14 @@ We can also complete our original data in place:
 kernel_inplace.complete_data(dataset=0, inplace=True)
 print(iris_amp.isnull().sum(0))
 ```
-This is useful if the dataset is large, and copies can't be made in memory.
+This is useful if the dataset is large, and copies can't be made in memory.  
+  
+  
+### Saving and Loading Kernels  
+
+Kernels can be saved using the `dill` module. The `pickle` module might not work in some cases.
+
+
 
 ## Diagnostic Plotting
 
