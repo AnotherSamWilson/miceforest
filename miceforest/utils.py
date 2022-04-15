@@ -145,6 +145,21 @@ def ensure_rng(
 
 
 def load_kernel(filepath, n_threads=None):
+    """
+    Loads a kernel that was saved using save_kernel().
+
+    Parameters
+    ----------
+    filepath: str
+        The filepath of the saved kernel
+
+    n_threads: int
+        The threads to use for decompression. By default, all threads are used.
+
+    Returns
+    -------
+
+    """
     n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
     blosc.set_nthreads(n_threads)
     with open(filepath, "rb") as f:

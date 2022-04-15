@@ -1457,6 +1457,31 @@ class ImputationKernel(ImputedData):
             n_threads=None,
             copy_while_saving=True
     ):
+        """
+        Compresses and saves the kernel to a file.
+
+        Parameters
+        ----------
+        filepath: str
+            The file to save to.
+
+        clevel: int
+            The compression level, sent to clevel argument in blosc.compress()
+
+        cname: str
+            The compression algorithm used.
+            Sent to cname argument in blosc.compress.
+            If None is specified, the default is lz4hc.
+
+        n_threads: int
+            The number of threads to use for compression.
+            By default, all threads are used.
+
+        copy_while_saving: boolean
+            Should the kernel be copied while saving? Copying is safer, but
+            may take more memory.
+
+        """
 
         clevel = 9 if clevel is None else clevel
         cname = "lz4hc" if cname is None else cname
