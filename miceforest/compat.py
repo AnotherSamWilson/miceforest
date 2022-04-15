@@ -5,6 +5,7 @@
 try:
     from pandas import DataFrame as pd_DataFrame
     from pandas import Series as pd_Series
+    from pandas import read_parquet as pd_read_parquet
 
     PANDAS_INSTALLED = True
 except ImportError:
@@ -17,5 +18,10 @@ except ImportError:
 
     class pd_DataFrame:  # type: ignore
         """Dummy class for pandas.DataFrame."""
+
+        pass
+
+    def pd_read_parquet(filepath):
+        """Dummy function for pandas.read_parquet."""
 
         pass

@@ -455,9 +455,12 @@ This is useful if the dataset is large, and copies can't be made in memory.
   
 ### Saving and Loading Kernels  
 
-Kernels can be saved using the `dill` module. The `pickle` module might not work in some cases.
+Kernels can be saved using the `.save_kernel()` method, and then loaded again using the `utils.load_kernel()` function. Internally, this procedure uses `blosc` and `dill` packages to do the following:  
 
-
+1. Convert working data to parquet bytes (if it is a pandas dataframe)
+2. Serialize the kernel  
+3. Compress this serialization  
+4. Save to a file  
 
 ## Diagnostic Plotting
 

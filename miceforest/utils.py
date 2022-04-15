@@ -1,6 +1,8 @@
 import numpy as np
 from typing import List, Optional, Union, Dict, Any
-from .compat import pd_DataFrame, pd_Series
+from .compat import pd_DataFrame, pd_Series, pd_read_parquet
+import blosc
+import dill
 
 MeanMatchType = Union[int, float, Dict[str, float], Dict[str, int]]
 VarSchemType = Optional[Union[List[str], Dict[str, List[str]]]]
@@ -140,6 +142,22 @@ def ensure_rng(
     else:
         assert isinstance(random_state, np.random.RandomState)
     return random_state
+
+
+def load_kernel(filepath, n_threads=None):
+    n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
+    blosc.set_nthreads(n_threads)
+    with open(filepath, "rb") as f:
+        kernel = dill.loads(blosc.decompress(dill.load(f)))
+
+    if kernel.original_data_class == "pd_DataFrame":
+        kernel.working_data = pd_read_parquet(kernel.working_data)
+        for col in kernel.working_data.columns:
+            kernel.working_data[col] = kernel.working_data[col].astype(
+                kernel.working_dtypes[col]
+            )
+
+    return kernel
 
 
 def _get_missing_stats(data: np.ndarray):

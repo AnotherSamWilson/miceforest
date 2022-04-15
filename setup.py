@@ -16,7 +16,9 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=[
         'lightgbm >= 3.3.1',
-        'numpy'
+        'numpy',
+        "blosc",
+        "dill"
         ],
     extras_require={
         "Plotting": [

@@ -7,6 +7,7 @@ import miceforest as mf
 from datetime import datetime
 from miceforest.mean_matching_functions import mean_match_kdtree_classification
 from matplotlib.pyplot import close
+from tempfile import mkstemp
 
 # Make random state and load data
 # Define data
@@ -118,6 +119,9 @@ def test_complex_pandas():
         categorical_feature=[3,8],
         copy_data=False
     )
+    new_file, filename = mkstemp()
+    kernel2.save_kernel(filename)
+    kernel2 = mf.utils.load_kernel(filename)
 
     assert kernel.mean_match_candidates == {1: 4, 2: 3, 3: 0, 4: 5}, "mean_match_candidates initialization failed"
     assert kernel.data_subset == {1: 380, 2: 100, 3: 190, 4: 380}, "mean_match_subset initialization failed"
@@ -295,6 +299,9 @@ def test_complex_numpy():
         categorical_feature=[3,8],
         copy_data=False
     )
+    new_file, filename = mkstemp()
+    kernel2.save_kernel(filename)
+    kernel2 = mf.utils.load_kernel(filename)
 
     assert kernel.mean_match_candidates == {2: 3, 3: 0, 1: 4, 4: 5}, "mean_match_candidates initialization failed"
     assert kernel.data_subset == {2: 100, 3: 190, 1: 380, 4: 380}, "mean_match_subset initialization failed"

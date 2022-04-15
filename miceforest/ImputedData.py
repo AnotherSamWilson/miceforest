@@ -151,7 +151,7 @@ class ImputedData:
                 uniq = self.working_data.iloc[:, var].dropna().unique()
                 category_counts[var] = len(uniq)
 
-            # self.cast_dtype = self.working_data.dtypes
+            # Collect info about what data is missing.
             na_where = {
                 col: np.where(self.working_data.iloc[:, col].isnull())[0]
                 for col in range(data_shape[1])
@@ -162,6 +162,9 @@ class ImputedData:
             ]
             if len(vars_with_any_missing) == 0:
                 raise ValueError("No missing values to impute.")
+
+            # Keep track of datatypes. Needed for loading kernels.
+            self.working_dtypes = self.working_data.dtypes
 
         elif isinstance(self.working_data, np.ndarray):
 
@@ -177,6 +180,7 @@ class ImputedData:
             ):
                 self.working_data = self.working_data.astype(np.float32)
 
+            # Collect information about dataset
             data_shape = self.working_data.shape
             column_names = list(range(self.working_data.shape[1]))
             # self.cast_dtype = self.working_data.dtype
@@ -188,7 +192,6 @@ class ImputedData:
             vars_with_any_missing = [
                 int(col) for col, ind in na_where.items() if len(ind > 0)
             ]
-
             if categorical_feature == "auto":
                 categorical_variables = []
             elif isinstance(categorical_feature, list):
@@ -205,6 +208,9 @@ class ImputedData:
                 uniq = np.unique(self.working_data[:, var])
                 uniq = uniq[~np.isnan(uniq)]
                 category_counts[var] = len(uniq)
+
+            # Keep track of datatype.
+            self.working_dtypes = self.working_data.dtype
 
         else:
 

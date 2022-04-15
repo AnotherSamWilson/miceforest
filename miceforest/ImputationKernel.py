@@ -16,17 +16,10 @@ from warnings import warn
 from .logger import Logger
 from lightgbm import train, Dataset, cv, log_evaluation, early_stopping
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
-
-_TIMED_VARIABLE_EVENTS = [
-    "mice",
-    "model_fit",
-    "model_predict",
-    "mean_match",
-    "make_xy",
-    "tuning",
-    "impute_new_data",
-]
-_TIMED_GLOBAL_EVENTS = ["initialization", "other"]
+from io import BytesIO
+import blosc
+import dill
+from copy import copy
 
 
 class ImputationKernel(ImputedData):
@@ -1455,6 +1448,44 @@ class ImputationKernel(ImputedData):
         imputed_data._ampute_original_data()
 
         return imputed_data
+
+    def save_kernel(
+            self,
+            filepath,
+            clevel=None,
+            cname=None,
+            n_threads=None,
+            copy_while_saving=True
+    ):
+
+        clevel = 9 if clevel is None else clevel
+        cname = "lz4hc" if cname is None else cname
+        n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
+
+        if copy_while_saving:
+            kernel = copy(self)
+        else:
+            kernel = self
+
+        # convert working data to parquet bytes object
+        working_data_bytes = BytesIO()
+        if kernel.original_data_class == "pd_DataFrame":
+            kernel.working_data.to_parquet(working_data_bytes)
+            kernel.working_data = working_data_bytes
+
+        blosc.set_nthreads(n_threads)
+
+        with open(filepath, "wb") as f:
+            dill.dump(
+                blosc.compress(
+                    dill.dumps(kernel),
+                    clevel=clevel,
+                    typesize=8,
+                    shuffle=blosc.NOSHUFFLE,
+                    cname=cname
+                ),
+                f
+            )
 
     def get_feature_importance(self, dataset, iteration=None) -> np.ndarray:
         """

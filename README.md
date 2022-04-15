@@ -8,7 +8,7 @@ license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://openso
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Code style:
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)  
-[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-5.3.0-blue.svg)](https://pypi.org/project/miceforest/)
+[![DEV\_Version\_Badge](https://img.shields.io/badge/Dev-5.4.0-blue.svg)](https://pypi.org/project/miceforest/)
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![Conda
 Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
@@ -408,7 +408,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.681154 seconds
+    ## New Data imputed in 0.722164 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
@@ -501,7 +501,7 @@ kernel.mice(1, variable_parameters=optimal_parameters)
 print(optimal_parameters)
 ```
 
-    ## {0: {'boosting': 'gbdt', 'num_iterations': 65, 'max_depth': 8, 'num_leaves': 10, 'min_data_in_leaf': 1, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.39791299065921537, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6937388234549196, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 849382, 'learning_rate': 0.05, 'cat_smooth': 11.663587284343516}, 1: {'boosting': 'gbdt', 'num_iterations': 49, 'max_depth': 8, 'num_leaves': 9, 'min_data_in_leaf': 5, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.6179134070114273, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.31478518263603694, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 586321, 'learning_rate': 0.05, 'cat_smooth': 13.957164461191296}, 2: {'boosting': 'gbdt', 'num_iterations': 65, 'max_depth': 8, 'num_leaves': 7, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9979861290119383, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.5730380093960374, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 961902, 'learning_rate': 0.05, 'cat_smooth': 20.39766682094556}, 3: {'boosting': 'gbdt', 'num_iterations': 61, 'max_depth': 8, 'num_leaves': 11, 'min_data_in_leaf': 6, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7560736024385001, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.8058628021146634, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 449169, 'learning_rate': 0.05, 'cat_smooth': 16.369979689010446}, 4: {'boosting': 'gbdt', 'num_iterations': 99, 'max_depth': 8, 'num_leaves': 16, 'min_data_in_leaf': 8, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7186091265251624, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.10283114841793521, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 933848, 'learning_rate': 0.05, 'cat_smooth': 10.956325813024653}}
+    ## {0: {'boosting': 'gbdt', 'num_iterations': 51, 'max_depth': 8, 'num_leaves': 7, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7891175068936784, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.9808244370775409, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': -2015891453, 'learning_rate': 0.05, 'cat_smooth': 0.3977490398140632}, 1: {'boosting': 'gbdt', 'num_iterations': 55, 'max_depth': 8, 'num_leaves': 7, 'min_data_in_leaf': 6, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.8309257656530544, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.40511028556979534, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': -229203199, 'learning_rate': 0.05, 'cat_smooth': 10.618662089695356}, 2: {'boosting': 'gbdt', 'num_iterations': 76, 'max_depth': 8, 'num_leaves': 24, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.5779426191284999, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.8321739215365003, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': -161768210, 'learning_rate': 0.05, 'cat_smooth': 9.407354591422454}, 3: {'boosting': 'gbdt', 'num_iterations': 73, 'max_depth': 8, 'num_leaves': 17, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7864007313277575, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.15786791700588723, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 72915857, 'learning_rate': 0.05, 'cat_smooth': 4.239030927792245}, 4: {'boosting': 'gbdt', 'num_iterations': 80, 'max_depth': 8, 'num_leaves': 3, 'min_data_in_leaf': 3, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.32134810169452516, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.983459555760715, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 1978505457, 'learning_rate': 0.05, 'cat_smooth': 17.29793073191962}}
 
 This will perform 10 fold cross validation on random samples of
 parameters. By default, all variables models are tuned. If you are
@@ -666,8 +666,14 @@ memory.
 
 ### Saving and Loading Kernels
 
-Kernels can be saved using the `dill` module. The `pickle` module might
-not work in some cases.
+Kernels can be saved using the `.save_kernel()` method, and then loaded
+again using the `utils.load_kernel()` function. Internally, this
+procedure uses `blosc` and `dill` packages to do the following:
+
+1.  Convert working data to parquet bytes (if it is a pandas dataframe)
+2.  Serialize the kernel  
+3.  Compress this serialization  
+4.  Save to a file
 
 ## Diagnostic Plotting
 
@@ -767,7 +773,7 @@ for iteration in range(kernel.iteration_count()+1):
 print(acclist)
 ```
 
-    ## [0.35, 0.7, 0.78, 0.86, 0.84, 0.89, 0.86]
+    ## [0.35, 0.73, 0.84, 0.78, 0.84, 0.86, 0.76]
 
 In this instance, we went from a \~32% accuracy (which is expected with
 random sampling) to an accuracy of \~65% after the first iteration. This
