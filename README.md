@@ -33,12 +33,11 @@ with lightgbm. The R version of this package may be found
   - **Flexible** Can handle pandas DataFrames and numpy arrays. The
     imputation process can be completely customized. Can handle
     categorical data automatically.
-  - **Used In Production** Kernels can be saved (recommended using the
-    dill package) and impute new, unseen datasets. Imputing new data is
-    often orders of magnitude faster than including the new data in a
-    new `mice` procedure. Imputation models can be built off of a kernel
-    dataset, even if there are no missing values. New data can also be
-    imputed in place.
+  - **Used In Production** Kernels can be saved and impute new, unseen
+    datasets. Imputing new data is often orders of magnitude faster than
+    including the new data in a new `mice` procedure. Imputation models
+    can be built off of a kernel dataset, even if there are no missing
+    values. New data can also be imputed in place.
 
 This document contains a thorough walkthrough of the package,
 benchmarks, and an introduction to multiple imputation. More information
@@ -408,7 +407,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.722164 seconds
+    ## New Data imputed in 0.692157 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original

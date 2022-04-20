@@ -33,7 +33,7 @@ Fast, memory efficient Multiple Imputation by Chained Equations (MICE) with ligh
   * **Fast** Uses lightgbm as a backend, and has efficient mean matching solutions.
   * **Memory Efficient** Capable of performing multiple imputation without copying the dataset. If the dataset can fit in memory, it can (probably) be imputed.
   * **Flexible** Can handle pandas DataFrames and numpy arrays. The imputation process can be completely customized. Can handle categorical data automatically.
-  * **Used In Production** Kernels can be saved (recommended using the dill package) and impute new, unseen datasets. Imputing new data is often orders of magnitude faster than including the new data in a new `mice` procedure. Imputation models can be built off of a kernel dataset, even if there are no missing values. New data can also be imputed in place.
+  * **Used In Production** Kernels can be saved and impute new, unseen datasets. Imputing new data is often orders of magnitude faster than including the new data in a new `mice` procedure. Imputation models can be built off of a kernel dataset, even if there are no missing values. New data can also be imputed in place.
   
 
 
