@@ -360,8 +360,16 @@ save_all_iterations: {self.save_all_iterations}"""
         return self.iterations.shape[0]
 
     def _get_variable_name(self, ind):
-        """Gets the variable name from an index."""
-        return str(self.column_names[ind])
+        """
+        Gets the variable name from an index.
+        Returns a list of names if a list of indexes was passed.
+        Otherwise, returns the variable name directly from self.column_names.
+        """
+        if hasattr(ind, "__iter__"):
+            return [str(self.column_names[i]) for i in ind]
+
+        else:
+            return str(self.column_names[ind])
 
     def _get_variable_index(self, variables):
         """

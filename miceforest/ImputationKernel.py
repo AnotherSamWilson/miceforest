@@ -234,6 +234,15 @@ class ImputationKernel(ImputedData):
                 At the end of the mice process, missing values will be set back to np.NaN
                 where they were originally missing.
 
+    save_loggers: boolean (default = False)
+
+        .. code-block:: text
+
+            A logger is created each time mice() or impute_new_data() is called.
+            If True, the loggers are stored in a list ImputationKernel.loggers.
+            If you wish to start saving logs, call ImputationKernel.start_logging().
+            If you wish to stop saving logs, call ImputationKernel.stop_logging().
+
     random_state: None,int, or numpy.random.RandomState
 
         .. code-block:: text
@@ -261,6 +270,7 @@ class ImputationKernel(ImputedData):
         save_all_iterations=True,
         save_models=1,
         copy_data=True,
+        save_loggers=False,
         random_state=None,
     ):
 
@@ -278,6 +288,8 @@ class ImputationKernel(ImputedData):
         self.initialization = initialization
         self.train_nonmissing = train_nonmissing
         self.save_models = save_models
+        self.save_loggers = save_loggers
+        self.loggers = []
         self.models = {
             ds: {var: {0: None} for var in self.variable_training_order}
             for ds in range(datasets)
@@ -390,6 +402,15 @@ class ImputationKernel(ImputedData):
             random_seed_array = None
 
         return random_seed_array
+
+    def _iter_pairs(self, new_iterations):
+        """
+        Returns the absolute and relative iterations that are going to be
+        run for a given function call.
+        """
+        current_iters = self.iteration_count()
+        iter_pairs = [(current_iters + 1 + i, i) for i in range(new_iterations)]
+        return iter_pairs
 
     def _format_mm(self, mm, available_candidates, defaulting_function):
         """
@@ -820,7 +841,6 @@ class ImputationKernel(ImputedData):
             model_dataset, var_indx, iteration=model_iteration
         ).predict(features)
 
-    # Models are updated here, and only here.
     def mice(
         self,
         iterations=5,
@@ -859,32 +879,44 @@ class ImputationKernel(ImputedData):
 
         """
 
-        logger = Logger(verbose)
+        __MICE_TIMED_EVENTS = ["prepare_xy", "training", "mean_matching"]
+        iter_pairs = self._iter_pairs(iterations)
 
-        iterations_at_start = self.iteration_count()
-        iter_range = range(
-            iterations_at_start + 1, iterations_at_start + iterations + 1
+        logger = Logger(
+            name=f"mice {str(iter_pairs[0][0])}-{str(iter_pairs[-1][0])}",
+            datasets=self.dataset_count(),
+            variable_names=self._get_variable_name(self.variable_training_order),
+            iterations=iterations,
+            timed_events=__MICE_TIMED_EVENTS,
+            verbose=verbose,
         )
+
         vsp = self._format_variable_parameters(variable_parameters)
 
         for ds in range(self.dataset_count()):
 
             logger.log("Dataset " + str(ds))
 
-            # set self.imputed_data to the most current iteration.
+            # set self.working_data to the most current iteration.
             self.complete_data(dataset=ds, inplace=True)
 
-            for iteration in iter_range:
+            for iter_abs, iter_rel in iter_pairs:
 
-                logger.log(str(iteration) + " ", end="")
+                logger.log(str(iter_abs) + " ", end="")
 
                 for var in self.variable_training_order:
 
                     logger.log(" | " + self._get_variable_name(var), end="")
                     predictor_variables = self.variable_schema[var]
                     nawhere = self.na_where[var]
+                    log_context = {
+                        "dataset": ds,
+                        "variable_name": self._get_variable_name(var),
+                        "iteration": iter_rel
+                    }
 
                     # These are necessary for building model in mice.
+                    logger.set_start_time()
                     (
                         candidate_features,
                         candidate_values,
@@ -914,8 +946,10 @@ class ImputationKernel(ImputedData):
                         data=candidate_features,
                         label=candidate_values,
                         categorical_feature=feature_cat_index,
-                        free_raw_data=False,
+                        # free_raw_data=True,
                     )
+                    logger.record_time("prepare_xy", **log_context)
+                    logger.set_start_time()
                     current_model = train(
                         params=lgbpars,
                         train_set=train_pointer,
@@ -923,12 +957,14 @@ class ImputationKernel(ImputedData):
                         categorical_feature=feature_cat_index,
                         callbacks=[log_evaluation(period=0)],
                     )
+                    logger.record_time("training", **log_context)
                     self._insert_new_model(
                         dataset=ds, variable_index=var, model=current_model
                     )
                     # Only perform mean matching and insertion if variable
                     # is being imputed.
                     if var in self.imputation_order:
+                        logger.set_start_time()
                         bachelor_features = _subset_data(
                             self.working_data,
                             row_ind=nawhere,
@@ -945,6 +981,7 @@ class ImputationKernel(ImputedData):
                                 hashed_seeds=None,
                             )
                         )
+                        logger.record_time("mean_matching", **log_context)
                         assert imp_values.shape == (
                             self.na_counts[var],
                         ), f"{var} mean matching returned malformed array"
@@ -958,6 +995,8 @@ class ImputationKernel(ImputedData):
                 logger.log("\n", end="")
 
         self._ampute_original_data()
+        if self.save_loggers:
+            self.loggers.append(logger)
 
     def tune_parameters(
         self,
@@ -1106,21 +1145,29 @@ class ImputationKernel(ImputedData):
 
         """
 
-        logger = Logger(verbose=verbose)
         if random_state is None:
             random_state = self._random_state
         else:
             random_state = ensure_rng(random_state)
-        self._fix_parameter_aliases(kwbounds)
 
         if variables is None:
             variables = self.imputation_order
         else:
             variables = self._get_variable_index(variables)
 
-        vsp = self._format_variable_parameters(variable_parameters)
+        logger = Logger(
+            name=f"tune: {optimization_steps}",
+            datasets=self.dataset_count(),
+            variable_names=self._get_variable_name(variables),
+            iterations=optimization_steps,
+            timed_events=[],
+            verbose=verbose,
+        )
 
+        self._fix_parameter_aliases(kwbounds)
+        vsp = self._format_variable_parameters(variable_parameters)
         variable_parameter_space = {}
+
         for var in variables:
 
             default_tuning_space = make_default_tuning_space(
@@ -1310,7 +1357,6 @@ class ImputationKernel(ImputedData):
 
         """
 
-        logger = Logger(verbose)
         datasets = (
             range(self.dataset_count())
             if datasets is None
@@ -1318,6 +1364,18 @@ class ImputationKernel(ImputedData):
         )
         kernel_iterations = self.iteration_count()
         iterations = kernel_iterations if iterations is None else iterations
+        iter_pairs = self._iter_pairs(iterations)
+        __IND_TIMED_EVENTS = ["prepare_xy", "mean_matching"]
+        logger = Logger(
+            name=f"ind {str(iter_pairs[0][0])}-{str(iter_pairs[-1][0])}",
+            datasets=self.dataset_count(),
+            variable_names=self._get_variable_name(self.variable_training_order),
+            iterations=iterations,
+            timed_events=__IND_TIMED_EVENTS,
+            verbose=verbose,
+        )
+
+
         if self.original_data_class == "pd_DataFrame":
             assert set(self.working_data.columns) == set(
                 new_data.columns
@@ -1377,32 +1435,37 @@ class ImputationKernel(ImputedData):
             logger.log("Dataset " + str(ds))
             dsind = datasets.index(ds)
 
-            for iteration in iter_range:
+            for iter_abs, iter_rel in iter_pairs:
 
-                logger.log(str(iteration) + " ", end="")
-                iterind = iter_range.index(iteration)
+                logger.log(str(iter_abs) + " ", end="")
 
                 # Determine which model iteration to grab
-                if self.save_models == 1 or iteration > kernel_iterations:
-                    model_iteration = kernel_iterations
+                if self.save_models == 1 or iter_abs > kernel_iterations:
+                    iter_model = kernel_iterations
                 else:
-                    model_iteration = iteration
+                    iter_model = iter_abs
 
                 for var in imputed_data.imputation_order:
 
                     logger.log(" | " + self._get_variable_name(var), end="")
+                    log_context = {
+                        "dataset": ds,
+                        "variable_name": self._get_variable_name(var),
+                        "iteration": iter_rel
+                    }
                     nawhere = imputed_data.na_where[var]
 
                     predictor_variables = self.variable_schema[var]
                     mmc = self.mean_match_candidates[var]
 
                     # We don't need these if imputing new data and mmc == 0
+                    logger.set_start_time()
                     if mmc > 0:
                         candidate_features, candidate_values = self._make_xy(
                             variable=var,
                             subset_count=self.data_subset[var],
                             return_cat=False,
-                            random_seed=subset_seeds[dsind, iterind, self.variable_training_order.index(var)]
+                            random_seed=subset_seeds[dsind, iter_rel, self.variable_training_order.index(var)]
                         )
 
                         # lightgbm requires integers for label. Categories won't work.
@@ -1417,12 +1480,15 @@ class ImputationKernel(ImputedData):
                         row_ind=imputed_data.na_where[var],
                         col_ind=predictor_variables,
                     )
+                    logger.record_time("prepare_xy", **log_context)
+
                     # Select our model.
                     current_model = self.get_model(
-                        variable=var, dataset=ds, iteration=model_iteration
+                        variable=var, dataset=ds, iteration=iter_model
                     )
 
                     seeds = random_seed_array[nawhere] if use_seed_array else None
+                    logger.set_start_time()
                     imp_values = np.array(
                         self.mean_match_function(
                             mmc=self.mean_match_candidates[var],
@@ -1434,6 +1500,7 @@ class ImputationKernel(ImputedData):
                             hashed_seeds=seeds,
                         )
                     )
+                    logger.record_time("mean_matching", **log_context)
                     imputed_data._insert_new_data(
                         dataset=ds, variable_index=var, new_data=imp_values
                     )
@@ -1446,8 +1513,16 @@ class ImputationKernel(ImputedData):
                 logger.log("\n", end="")
 
         imputed_data._ampute_original_data()
+        if self.save_loggers:
+            self.loggers.append(logger)
 
         return imputed_data
+
+    def start_logging(self):
+        self.save_loggers = True
+
+    def stop_logging(self):
+        self.save_loggers = False
 
     def save_kernel(
             self,
