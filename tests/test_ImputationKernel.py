@@ -82,7 +82,7 @@ def test_complex_pandas():
     def mmf(
             mmc,
             model,
-            candidate_features,
+            # candidate_features,
             bachelor_features,
             candidate_values,
             random_state,
@@ -132,12 +132,12 @@ def test_complex_pandas():
     kernel.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel2.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel.append(kernel2)
-    assert kernel.models[0][1][nround - 1].params['num_iterations'] == 15
-    assert kernel.models[0][2][nround - 1].params['num_iterations'] == 10
+    assert kernel.models[0][1][nround - 1].num_trees() == 15
+    assert kernel.models[0][2][nround - 1].num_trees() == 10
     kernel.mice(1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
     assert kernel.iteration_count() == nround, "iteration counting is incorrect."
-    assert kernel.models[0][1][nround].params['num_iterations'] == 15
-    assert kernel.models[0][2][nround].params['num_iterations'] == 10
+    assert kernel.models[0][1][nround].num_trees() == 15
+    assert kernel.models[0][2][nround].num_trees() == 10
 
     # Make sure we only impute variables in variable_schema
     compdat = kernel.complete_data(0)
@@ -261,7 +261,7 @@ def test_complex_numpy():
     def mmf(
             mmc,
             model,
-            candidate_features,
+            # candidate_features,
             bachelor_features,
             candidate_values,
             random_state,
@@ -312,12 +312,12 @@ def test_complex_numpy():
     kernel.mice(nround - 1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel2.mice(nround - 1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel.append(kernel2)
-    assert kernel.models[0][1][nround - 1].params['num_iterations'] == 15
-    assert kernel.models[0][2][nround - 1].params['num_iterations'] == 10
+    assert kernel.models[0][1][nround - 1].num_trees() == 15
+    assert kernel.models[0][2][nround - 1].num_trees() == 10
     kernel.mice(1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
     assert kernel.iteration_count() == nround, "iteration counting is incorrect."
-    assert kernel.models[0][1][nround].params['num_iterations'] == 15
-    assert kernel.models[0][2][nround].params['num_iterations'] == 10
+    assert kernel.models[0][1][nround].num_trees() == 15
+    assert kernel.models[0][2][nround].num_trees() == 10
 
     # Complete data with copy. Make sure only correct datasets and variables were affected.
     compdat = kernel.complete_data(0, inplace=False)

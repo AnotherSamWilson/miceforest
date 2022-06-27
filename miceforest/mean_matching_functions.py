@@ -13,7 +13,7 @@ except ImportError:
 def default_mean_match(
     mmc,
     model: Booster,
-    candidate_features,
+    # candidate_features,
     bachelor_features,
     candidate_values,
     random_state,
@@ -119,7 +119,8 @@ def default_mean_match(
 
         if objective in regressive_objectives:
 
-            candidate_preds = model.predict(candidate_features)
+            # candidate_preds = model.predict(candidate_features)
+            candidate_preds = model._Booster__inner_predict(data_idx=0)
 
             # lightgbm predict for regression is shape (n,).
             # Need it to be shape (n,1)
@@ -187,7 +188,7 @@ def default_mean_match(
 def mean_match_kdtree_classification(
     mmc,
     model: Booster,
-    candidate_features,
+    # candidate_features,
     bachelor_features,
     candidate_values,
     random_state,
@@ -290,7 +291,8 @@ def mean_match_kdtree_classification(
 
         if objective in regressive_objectives + ["binary"]:
 
-            candidate_preds = model.predict(candidate_features)
+            # candidate_preds = model.predict(candidate_features)
+            candidate_preds = model._Booster__inner_predict(data_idx=0)
 
             # lightgbm predict for regression is shape (n,).
             # Need it to be shape (n,1)
@@ -316,7 +318,10 @@ def mean_match_kdtree_classification(
 
         elif objective in ["multiclass", "multiclassova"]:
 
-            candidate_preds = model.predict(candidate_features)
+            # inner_predict returns a flat array, need to reshape for KDTree
+            candidate_preds = model._Booster__inner_predict(data_idx=0) \
+                .reshape(-1, candidate_values.shape[0]).transpose()
+
 
             kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
             _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)

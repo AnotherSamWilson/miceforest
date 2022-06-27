@@ -14,7 +14,7 @@ from .utils import (
 import numpy as np
 from warnings import warn
 from .logger import Logger
-from lightgbm import train, Dataset, cv, log_evaluation, early_stopping
+from lightgbm import train, Dataset, cv, log_evaluation, early_stopping, Booster
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
 from io import BytesIO
 import blosc
@@ -950,13 +950,12 @@ class ImputationKernel(ImputedData):
                     )
                     logger.record_time("prepare_xy", **log_context)
                     logger.set_start_time()
-                    current_model = train(
+                    current_model = Booster(
                         params=lgbpars,
-                        train_set=train_pointer,
-                        num_boost_round=num_iterations,
-                        categorical_feature=feature_cat_index,
-                        callbacks=[log_evaluation(period=0)],
+                        train_set=train_pointer
                     )
+                    for i in range(num_iterations):
+                        current_model.update()
                     logger.record_time("training", **log_context)
                     self._insert_new_model(
                         dataset=ds, variable_index=var, model=current_model
@@ -974,7 +973,6 @@ class ImputationKernel(ImputedData):
                             self.mean_match_function(
                                 mmc=self.mean_match_candidates[var],
                                 model=current_model,
-                                candidate_features=candidate_features,
                                 bachelor_features=bachelor_features,
                                 candidate_values=candidate_values,
                                 random_state=self._random_state,
@@ -1493,7 +1491,6 @@ class ImputationKernel(ImputedData):
                         self.mean_match_function(
                             mmc=self.mean_match_candidates[var],
                             model=current_model,
-                            candidate_features=candidate_features,
                             bachelor_features=bachelor_features,
                             candidate_values=candidate_values,
                             random_state=random_state,
