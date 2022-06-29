@@ -2,7 +2,7 @@ from .ImputedData import ImputedData
 from .utils import (
     _get_default_mmc,
     _get_default_mms,
-    param_mapping,
+    # param_mapping,
     _ensure_iterable,
     ensure_rng,
     stratified_continuous_folds,
@@ -15,6 +15,7 @@ import numpy as np
 from warnings import warn
 from .logger import Logger
 from lightgbm import train, Dataset, cv, log_evaluation, early_stopping, Booster
+from lightgbm.basic import _ConfigAliases
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
 from io import BytesIO
 import blosc
@@ -517,11 +518,28 @@ class ImputationKernel(ImputedData):
 
         imputed_data.initialized = True
 
-    def _fix_parameter_aliases(self, parameters):
-        """Replaces aliases with true names in lightgbm parameters."""
-        for par in list(parameters):
-            if par in param_mapping.keys():
-                parameters[param_mapping[par]] = parameters.pop(par)
+    def _reconcile_parameters(self, defaults, user_supplied):
+        """
+        Checks in user_supplied for aliases of each parameter in defaults.
+        Combines the dicts once the aliases have been reconciled.
+        """
+        params = defaults.copy()
+        for par, val in defaults.items():
+            alias_names = _ConfigAliases.get(par)
+            user_supplied_aliases = [
+                i for i in alias_names
+                if i in list(user_supplied)
+                and i != par
+            ]
+            if len(user_supplied_aliases) == 0:
+                continue
+            elif len(user_supplied_aliases) == 1:
+                params[par] = user_supplied.pop(user_supplied_aliases[0])
+            else:
+                raise ValueError(f"Supplied 2 aliases for the same parameter: {user_supplied_aliases}")
+
+        params.update(user_supplied)
+        return params
 
     def _format_variable_parameters(self, variable_parameters):
         """
@@ -548,7 +566,37 @@ class ImputationKernel(ImputedData):
 
         return vsp
 
-    def _get_lgb_params(self, var, vsp, random_state, **kwlgb):
+    def _get_lgb_params(
+            self,
+            var,
+            vsp,
+            random_state,
+            **kwlgb
+    ):
+        """
+        Builds the parameters for a lightgbm model. Infers objective based on
+        datatype of the response variable, assigns a random seed, finds
+        aliases in the user supplied parameters, and returns a final dict.
+
+        Parameters
+        ----------
+        var: int
+            The variable to be modeled
+
+        vsp: dict
+            Variable specific parameters. These are supplied by the user.
+
+        random_state: np.random.RandomState
+            The random state to use (used to set the seed).
+
+        kwlgb: dict
+            Any additional parameters that should take presidence
+            over the defaults or user supplied.
+
+        Returns
+        -------
+
+        """
 
         seed = random_state.randint(
             low=np.iinfo("int32").min,
@@ -568,12 +616,10 @@ class ImputationKernel(ImputedData):
 
         default_lgb_params = {**default_parameters, **obj, "seed": seed}
 
-        # Set any user variables to the defaults.
-        user_set_lgb_params = {**kwlgb, **vsp}
-        self._fix_parameter_aliases(user_set_lgb_params)
-
         # Priority is [variable specific] > [global in kwargs] > [defaults]
-        params = {**default_lgb_params, **user_set_lgb_params}
+        # user_set_lgb_params = {**kwlgb, **vsp}
+        params = self._reconcile_parameters(default_lgb_params, kwlgb)
+        params = self._reconcile_parameters(params, vsp)
 
         return params
 
@@ -1162,7 +1208,6 @@ class ImputationKernel(ImputedData):
             verbose=verbose,
         )
 
-        self._fix_parameter_aliases(kwbounds)
         vsp = self._format_variable_parameters(variable_parameters)
         variable_parameter_space = {}
 
