@@ -1,6 +1,6 @@
 import numpy as np
 from lightgbm import Booster
-from .utils import _ensure_np_array
+from .utils import _ensure_np_array, logodds
 
 try:
     from scipy.spatial import KDTree
@@ -13,7 +13,6 @@ except ImportError:
 def default_mean_match(
     mmc,
     model: Booster,
-    # candidate_features,
     bachelor_features,
     candidate_values,
     random_state,
@@ -119,68 +118,32 @@ def default_mean_match(
 
         if objective in regressive_objectives:
 
-            # candidate_preds = model.predict(candidate_features)
             candidate_preds = model._Booster__inner_predict(data_idx=0)
 
-            # lightgbm predict for regression is shape (n,).
-            # Need it to be shape (n,1)
-            bachelor_preds.shape = (-1, 1)
-            candidate_preds.shape = (-1, 1)
-
-            # balanced_tree = False fixes a recursion issue for some reason.
-            # https://github.com/scipy/scipy/issues/14799
-            kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
-            _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
-
-            # We can skip the random selection process if mmc == 1
-            if mmc == 1:
-                index_choice = knn_indices
-            else:
-                # Use the random_state if seed_array was not passed. Faster
-                if hashed_seeds is None:
-                    ind = random_state.randint(mmc, size=(num_bachelors))
-                # Use the random_seed_array if it was passed. Deterministic.
-                else:
-                    ind = hashed_seeds % mmc
-
-                index_choice = knn_indices[np.arange(num_bachelors), ind]
-
-            imp_values = _ensure_np_array(candidate_values)[index_choice]
+            imp_values = _mean_match_reg(
+                mmc,
+                bachelor_preds,
+                candidate_preds,
+                candidate_values,
+                random_state,
+                hashed_seeds
+            )
 
         elif objective == "binary":
-            if hashed_seeds is None:
-                imp_values = random_state.binomial(n=1, p=bachelor_preds)
-            else:
-                imp_values = []
-                for i in range(num_bachelors):
-                    np.random.seed(seed=hashed_seeds[i])
-                    imp_values.append(np.random.binomial(n=1, p=bachelor_preds[i]))
 
-                imp_values = np.array(imp_values)
+            imp_values = _mean_match_binary_fast(
+                bachelor_preds,
+                random_state,
+                hashed_seeds
+            )
 
         elif objective in ["multiclass", "multiclassova"]:
 
-            # Choose random class weighted by class probabilities (fast)
-
-            # Turn bachelor_preds into discrete cdf:
-            bachelor_preds = bachelor_preds.cumsum(axis=1)
-
-            # Randomly choose uniform numbers 0-1
-            if hashed_seeds is None:
-                unif = random_state.uniform(0, 1, size=num_bachelors)
-            else:
-                unif = []
-                for i in range(num_bachelors):
-                    np.random.seed(seed=hashed_seeds[i])
-                    unif.append(np.random.uniform(0, 1, size=1)[0])
-                unif = np.array(unif)
-
-            # Choose classes according to their cdf.
-            # Distribution will match probabilities
-            imp_values = [
-                np.searchsorted(bachelor_preds[i, :], unif[i])
-                for i in range(num_bachelors)
-            ]
+            imp_values = _mean_match_multiclass_fast(
+                bachelor_preds,
+                random_state,
+                hashed_seeds
+            )
 
     return imp_values
 
@@ -188,7 +151,6 @@ def default_mean_match(
 def mean_match_kdtree_classification(
     mmc,
     model: Booster,
-    # candidate_features,
     bachelor_features,
     candidate_values,
     random_state,
@@ -271,7 +233,6 @@ def mean_match_kdtree_classification(
 
     # Need these no matter what.
     bachelor_preds = model.predict(bachelor_features)
-    num_bachelors = bachelor_preds.shape[0]
 
     if mmc == 0:
 
@@ -289,50 +250,168 @@ def mean_match_kdtree_classification(
 
     else:
 
-        if objective in regressive_objectives + ["binary"]:
+        if objective in regressive_objectives:
 
-            # candidate_preds = model.predict(candidate_features)
             candidate_preds = model._Booster__inner_predict(data_idx=0)
 
-            # lightgbm predict for regression is shape (n,).
-            # Need it to be shape (n,1)
-            bachelor_preds.shape = (-1, 1)
-            candidate_preds.shape = (-1, 1)
-            kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
-            _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
+            imp_values = _mean_match_reg(
+                mmc,
+                bachelor_preds,
+                candidate_preds,
+                candidate_values,
+                random_state,
+                hashed_seeds
+            )
 
-            # We can skip the random selection process if mmc == 1
-            if mmc == 1:
-                index_choice = knn_indices
-            else:
-                # Use the random_state if seed_array was not passed. Faster
-                if hashed_seeds is None:
-                    ind = random_state.randint(mmc, size=(num_bachelors))
-                # Use the random_seed_array if it was passed. Deterministic.
-                else:
-                    ind = hashed_seeds % mmc
+        elif objective == "binary":
 
-                index_choice = knn_indices[np.arange(num_bachelors), ind]
+            bachelor_preds = logodds(bachelor_preds)
+            candidate_preds = logodds(model._Booster__inner_predict(data_idx=0))
 
-            imp_values = _ensure_np_array(candidate_values)[index_choice]
+            imp_values = _mean_match_reg(
+                mmc,
+                bachelor_preds,
+                candidate_preds,
+                candidate_values,
+                random_state,
+                hashed_seeds
+            )
 
         elif objective in ["multiclass", "multiclassova"]:
 
             # inner_predict returns a flat array, need to reshape for KDTree
-            candidate_preds = model._Booster__inner_predict(data_idx=0) \
-                .reshape(-1, candidate_values.shape[0]).transpose()
+            bachelor_preds = logodds(bachelor_preds)
+            candidate_preds = logodds(
+                model._Booster__inner_predict(data_idx=0).reshape(
+                    -1, candidate_values.shape[0]
+                ).transpose()
+            )
+
+            imp_values = _mean_match_multiclass_accurate(
+                mmc,
+                bachelor_preds,
+                candidate_preds,
+                candidate_values,
+                random_state,
+                hashed_seeds,
+            )
 
 
-            kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
-            _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
+    return imp_values
 
-            # Come up with random numbers 0-mmc, with priority given to hashed_seeds
-            if hashed_seeds is None:
-                ind = random_state.randint(mmc, size=(num_bachelors))
-            else:
-                ind = hashed_seeds % mmc
 
-            index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
-            imp_values = candidate_values[index_choice]
+def _mean_match_reg(
+        mmc,
+        bachelor_preds,
+        candidate_preds,
+        candidate_values,
+        random_state,
+        hashed_seeds,
+):
+    """
+    Determines the values of candidates which will be used to impute the bachelors
+    """
+    num_bachelors = bachelor_preds.shape[0]
+    bachelor_preds.shape = (-1, 1)
+    candidate_preds.shape = (-1, 1)
+
+    # balanced_tree = False fixes a recursion issue for some reason.
+    # https://github.com/scipy/scipy/issues/14799
+    kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
+    _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
+
+    # We can skip the random selection process if mmc == 1
+    if mmc == 1:
+        index_choice = knn_indices
+    else:
+        # Use the random_state if seed_array was not passed. Faster
+        if hashed_seeds is None:
+            ind = random_state.randint(mmc, size=(num_bachelors))
+        # Use the random_seed_array if it was passed. Deterministic.
+        else:
+            ind = hashed_seeds % mmc
+
+        index_choice = knn_indices[np.arange(num_bachelors), ind]
+
+    imp_values = _ensure_np_array(candidate_values)[index_choice]
+
+    return imp_values
+
+
+def _mean_match_binary_fast(
+        bachelor_preds,
+        random_state,
+        hashed_seeds
+):
+    num_bachelors = bachelor_preds.shape[0]
+    if hashed_seeds is None:
+        imp_values = random_state.binomial(n=1, p=bachelor_preds)
+    else:
+        imp_values = []
+        for i in range(num_bachelors):
+            np.random.seed(seed=hashed_seeds[i])
+            imp_values.append(np.random.binomial(n=1, p=bachelor_preds[i]))
+
+        imp_values = np.array(imp_values)
+
+    return imp_values
+
+
+def _mean_match_multiclass_fast(
+        bachelor_preds,
+        random_state,
+        hashed_seeds
+):
+    """
+    Choose random class weighted by class probabilities (fast)
+    """
+    num_bachelors = bachelor_preds.shape[0]
+
+    # Turn bachelor_preds into discrete cdf:
+    bachelor_preds = bachelor_preds.cumsum(axis=1)
+
+    # Randomly choose uniform numbers 0-1
+    if hashed_seeds is None:
+        unif = random_state.uniform(0, 1, size=num_bachelors)
+    else:
+        unif = []
+        for i in range(num_bachelors):
+            np.random.seed(seed=hashed_seeds[i])
+            unif.append(np.random.uniform(0, 1, size=1)[0])
+        unif = np.array(unif)
+
+    # Choose classes according to their cdf.
+    # Distribution will match probabilities
+    imp_values = [
+        np.searchsorted(bachelor_preds[i, :], unif[i])
+        for i in range(num_bachelors)
+    ]
+
+    return imp_values
+
+
+def _mean_match_multiclass_accurate(
+        mmc,
+        bachelor_preds,
+        candidate_preds,
+        candidate_values,
+        random_state,
+        hashed_seeds,
+):
+    """
+    Performs nearest neighbors search on class probabilities
+    """
+    num_bachelors = bachelor_preds.shape[0]
+    kd_tree = KDTree(candidate_preds, leafsize=16, balanced_tree=False)
+    _, knn_indices = kd_tree.query(bachelor_preds, k=mmc, workers=-1)
+
+    # Come up with random numbers 0-mmc, with priority given to hashed_seeds
+    if hashed_seeds is None:
+        ind = random_state.randint(mmc, size=(num_bachelors))
+    else:
+        ind = hashed_seeds % mmc
+
+    index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
+    imp_values = candidate_values[index_choice]
 
     return imp_values

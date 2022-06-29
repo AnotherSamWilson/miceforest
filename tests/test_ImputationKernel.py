@@ -128,13 +128,19 @@ def test_complex_pandas():
     assert kernel.iteration_count() == 0, "iteration initialization failed"
     assert kernel.categorical_variables == [3, 8], "categorical recognition failed."
 
+    # This section tests many things:
+        # After saving / loading a kernel, and appending 2 kernels together:
+            # mice can continue
+            # Aliases are fixed, even when different aliases are passed
+            # variable specific parameters supercede globally specified parameters
+            # The parameters come through the actual model
     nround = 2
-    kernel.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
+    kernel.mice(nround - 1, variable_parameters={"1": {"n_iter": 15}}, num_trees=10, verbose=True)
     kernel2.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel.append(kernel2)
     assert kernel.models[0][1][nround - 1].num_trees() == 15
     assert kernel.models[0][2][nround - 1].num_trees() == 10
-    kernel.mice(1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
+    kernel.mice(1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
     assert kernel.iteration_count() == nround, "iteration counting is incorrect."
     assert kernel.models[0][1][nround].num_trees() == 15
     assert kernel.models[0][2][nround].num_trees() == 10
@@ -309,8 +315,8 @@ def test_complex_numpy():
     assert kernel.categorical_variables == [3, 8], "categorical recognition failed."
 
     nround = 2
-    kernel.mice(nround - 1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
-    kernel2.mice(nround - 1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
+    kernel.mice(nround - 1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
+    kernel2.mice(nround - 1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
     kernel.append(kernel2)
     assert kernel.models[0][1][nround - 1].num_trees() == 15
     assert kernel.models[0][2][nround - 1].num_trees() == 10
