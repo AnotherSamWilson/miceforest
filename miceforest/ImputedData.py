@@ -676,7 +676,7 @@ save_all_iterations: {self.save_all_iterations}"""
             )
             ax[axr, axc] = sns.kdeplot(nonmissing_values, color="red", linewidth=2)
             for imparray in iteration_level_imputations.values():
-                ax[axr, axc] = sns.kdeplot(imparray, color="black", linewidth=1)
+                ax[axr, axc] = sns.kdeplot(imparray, color="black", linewidth=1, warn_singular=False)
             ax[axr, axc].set(xlabel=self._get_variable_name(var))
 
         plt.subplots_adjust(**adj_args)
