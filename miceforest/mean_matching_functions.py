@@ -126,23 +126,19 @@ def default_mean_match(
                 candidate_preds,
                 candidate_values,
                 random_state,
-                hashed_seeds
+                hashed_seeds,
             )
 
         elif objective == "binary":
 
             imp_values = _mean_match_binary_fast(
-                bachelor_preds,
-                random_state,
-                hashed_seeds
+                bachelor_preds, random_state, hashed_seeds
             )
 
         elif objective in ["multiclass", "multiclassova"]:
 
             imp_values = _mean_match_multiclass_fast(
-                bachelor_preds,
-                random_state,
-                hashed_seeds
+                bachelor_preds, random_state, hashed_seeds
             )
 
     return imp_values
@@ -260,7 +256,7 @@ def mean_match_kdtree_classification(
                 candidate_preds,
                 candidate_values,
                 random_state,
-                hashed_seeds
+                hashed_seeds,
             )
 
         elif objective == "binary":
@@ -274,7 +270,7 @@ def mean_match_kdtree_classification(
                 candidate_preds,
                 candidate_values,
                 random_state,
-                hashed_seeds
+                hashed_seeds,
             )
 
         elif objective in ["multiclass", "multiclassova"]:
@@ -282,9 +278,9 @@ def mean_match_kdtree_classification(
             # inner_predict returns a flat array, need to reshape for KDTree
             bachelor_preds = logodds(bachelor_preds)
             candidate_preds = logodds(
-                model._Booster__inner_predict(data_idx=0).reshape(
-                    -1, candidate_values.shape[0]
-                ).transpose()
+                model._Booster__inner_predict(data_idx=0)
+                .reshape(-1, candidate_values.shape[0])
+                .transpose()
             )
 
             imp_values = _mean_match_multiclass_accurate(
@@ -296,17 +292,16 @@ def mean_match_kdtree_classification(
                 hashed_seeds,
             )
 
-
     return imp_values
 
 
 def _mean_match_reg(
-        mmc,
-        bachelor_preds,
-        candidate_preds,
-        candidate_values,
-        random_state,
-        hashed_seeds,
+    mmc,
+    bachelor_preds,
+    candidate_preds,
+    candidate_values,
+    random_state,
+    hashed_seeds,
 ):
     """
     Determines the values of candidates which will be used to impute the bachelors
@@ -338,11 +333,7 @@ def _mean_match_reg(
     return imp_values
 
 
-def _mean_match_binary_fast(
-        bachelor_preds,
-        random_state,
-        hashed_seeds
-):
+def _mean_match_binary_fast(bachelor_preds, random_state, hashed_seeds):
     num_bachelors = bachelor_preds.shape[0]
     if hashed_seeds is None:
         imp_values = random_state.binomial(n=1, p=bachelor_preds)
@@ -357,11 +348,7 @@ def _mean_match_binary_fast(
     return imp_values
 
 
-def _mean_match_multiclass_fast(
-        bachelor_preds,
-        random_state,
-        hashed_seeds
-):
+def _mean_match_multiclass_fast(bachelor_preds, random_state, hashed_seeds):
     """
     Choose random class weighted by class probabilities (fast)
     """
@@ -383,20 +370,19 @@ def _mean_match_multiclass_fast(
     # Choose classes according to their cdf.
     # Distribution will match probabilities
     imp_values = [
-        np.searchsorted(bachelor_preds[i, :], unif[i])
-        for i in range(num_bachelors)
+        np.searchsorted(bachelor_preds[i, :], unif[i]) for i in range(num_bachelors)
     ]
 
     return imp_values
 
 
 def _mean_match_multiclass_accurate(
-        mmc,
-        bachelor_preds,
-        candidate_preds,
-        candidate_values,
-        random_state,
-        hashed_seeds,
+    mmc,
+    bachelor_preds,
+    candidate_preds,
+    candidate_values,
+    random_state,
+    hashed_seeds,
 ):
     """
     Performs nearest neighbors search on class probabilities

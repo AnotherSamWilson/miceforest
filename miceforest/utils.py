@@ -1,14 +1,7 @@
-import numpy as np
-from typing import List, Optional, Union, Dict, Any
 from .compat import pd_DataFrame, pd_Series, pd_read_parquet
+import numpy as np
 import blosc
 import dill
-
-MeanMatchType = Union[int, float, Dict[str, float], Dict[str, int]]
-VarSchemType = Optional[Union[List[str], Dict[str, List[str]]]]
-VarParamType = Dict[Union[str, int], Dict[str, Any]]
-CatFeatType = Union[str, List[str], List[int], Dict[int, dict]]
-
 
 def ampute_data(
     data,
@@ -73,6 +66,74 @@ def ampute_data(
     return amputed_data
 
 
+def stratified_subset(y, size, groups, cat, seed):
+    """
+    Subsample y using stratification. y is divided into quantiles,
+    and then elements are randomly chosen from each quantile to
+    come up with the subsample.
+
+    Parameters
+    ----------
+    y: np.ndarray
+        The variable to use for stratification
+    size: int
+        How large the subset should be
+    groups: int
+        How many groups to break y into. The more groups, the more
+        balanced (but less random) y will be
+    cat: bool
+        Is y already categorical? If so, we can skip the group creation
+    seed: int
+        The random seed to use.
+
+    Returns
+    -------
+    The indices of y that have been chosen.
+
+    """
+    rs = np.random.RandomState(seed)
+
+    if isinstance(y, pd_Series):
+        if y.dtype.name == "category":
+            y = y.cat.codes
+        y = y.values
+
+    if cat:
+        digits = y
+    else:
+        q = [x / groups for x in range(1, groups)]
+        bins = np.quantile(y, q)
+        digits = np.digitize(y, bins, right=True)
+
+    digits_v, digits_c = np.unique(digits, return_counts=True)
+    digits_i = np.arange(digits_v.shape[0])
+    digits_p = digits_c / digits_c.sum()
+    digits_s = (digits_p * size).round(0).astype("int32")
+    diff = size - digits_s.sum()
+    if diff != 0:
+        digits_fix = rs.choice(digits_i, size=abs(diff), p=digits_p, replace=False)
+        if diff < 0:
+            for d in digits_fix:
+                digits_s[d] -= 1
+        else:
+            for d in digits_fix:
+                digits_s[d] += 1
+
+    sub = np.zeros(shape=size).astype("int32")
+    added = 0
+    for d_i in digits_i:
+        d_v = digits_v[d_i]
+        n = digits_s[d_i]
+        ind = np.where(digits == d_v)[0]
+        choice = rs.choice(ind, size=n, replace=False)
+        sub[added : (added + n)] = choice
+        added += n
+
+    sub.sort()
+
+    return sub
+
+
 def stratified_continuous_folds(y, nfold):
     """
     Create primitive stratified folds for continuous data.
@@ -127,8 +188,15 @@ def hash_int32(x):
     return x
 
 
+def _draw_random_int32(random_state, size):
+    nums = random_state.randint(
+        low=0, high=np.iinfo("int32").max, size=size, dtype="int32"
+    )
+    return nums
+
+
 def ensure_rng(
-    random_state: Optional[Union[int, np.random.RandomState]] = None
+    random_state
 ) -> np.random.RandomState:
     """
     Creates a random number generator based on an optional seed.  This can be

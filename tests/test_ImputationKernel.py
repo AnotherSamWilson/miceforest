@@ -45,9 +45,9 @@ def test_defaults_pandas():
 
     kernel.complete_data(0, inplace=True)
     assert all(kernel.working_data.isnull().sum() == 0)
-    assert kernel.models[0][0][3].params['objective'] == 'regression'
-    assert kernel.models[0][3][3].params['objective'] == 'binary'
-    assert kernel.models[0][8][3].params['objective'] == 'multiclass'
+    assert kernel.get_model(0, 0, 3).params['objective'] == 'regression'
+    assert kernel.get_model(0, 3, 3).params['objective'] == 'binary'
+    assert kernel.get_model(0, 8, 3).params['objective'] == 'multiclass'
 
     # Make sure we didn't touch the original data
     assert all(boston_amp.isnull().sum() > 0)
@@ -79,22 +79,6 @@ def test_complex_pandas():
     imputed_var_names = io
     non_imputed_var_names = [str(x) for x in range(13) if str(x) not in io]
 
-    def mmf(
-            mmc,
-            model,
-            # candidate_features,
-            bachelor_features,
-            candidate_values,
-            random_state,
-            hashed_seeds
-    ):
-        if mmc > 0:
-            imp_values = random_state.choice(candidate_values, size=bachelor_features.shape[0])
-        else:
-            bachelor_preds = model.predict(bachelor_features)
-            imp_values = bachelor_preds
-        return imp_values
-
     kernel = mf.ImputationKernel(
         data=working_set,
         datasets=2,
@@ -103,7 +87,6 @@ def test_complex_pandas():
         train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
-        mean_match_function=mmf,
         categorical_feature=[3,8],
         copy_data=False
     )
@@ -115,7 +98,6 @@ def test_complex_pandas():
         train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
-        mean_match_function=mmf,
         categorical_feature=[3,8],
         copy_data=False
     )
@@ -138,12 +120,12 @@ def test_complex_pandas():
     kernel.mice(nround - 1, variable_parameters={"1": {"n_iter": 15}}, num_trees=10, verbose=True)
     kernel2.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel.append(kernel2)
-    assert kernel.models[0][1][nround - 1].num_trees() == 15
-    assert kernel.models[0][2][nround - 1].num_trees() == 10
+    assert kernel.get_model(0, 1, nround - 1).num_trees() == 15
+    assert kernel.get_model(0, 2, nround - 1).num_trees() == 10
     kernel.mice(1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
     assert kernel.iteration_count() == nround, "iteration counting is incorrect."
-    assert kernel.models[0][1][nround].num_trees() == 15
-    assert kernel.models[0][2][nround].num_trees() == 10
+    assert kernel.get_model(0, 1, nround).num_trees() == 15
+    assert kernel.get_model(0, 2, nround).num_trees() == 10
 
     # Make sure we only impute variables in variable_schema
     compdat = kernel.complete_data(0)
@@ -165,8 +147,8 @@ def test_complex_pandas():
     assert (op[1]["feature_fraction_bynode"] >= 0.85) and (op[1]["feature_fraction_bynode"] <= 0.9)
     assert (op[2]["feature_fraction_bynode"] >= 0.70) and (op[2]["feature_fraction_bynode"] <= 0.75)
     kernel.mice(1, variable_parameters=op, verbose=True)
-    model_2_params = kernel.models[0][2][nround + 1].params
-    model_1_params = kernel.models[0][1][nround + 1].params
+    model_2_params = kernel.get_model(0, 2, nround + 1).params
+    model_1_params = kernel.get_model(0, 1, nround + 1).params
     assert model_2_params["bagging_fraction"] == 0.8
     assert model_1_params["bagging_fraction"] == 0.9
     assert (model_2_params["feature_fraction_bynode"] >= 0.70) and (model_2_params["feature_fraction_bynode"] <= 0.75)
@@ -174,6 +156,8 @@ def test_complex_pandas():
 
     new_imp_dat = kernel.impute_new_data(new_data=new_data, verbose=True)
     new_imp_complete = new_imp_dat.complete_data(0)
+    new_imp_dat.na_where[2]
+    new_imp_dat.imputation_values[0,2,3]
     assert all(new_imp_complete[["1","2","3","4"]].isnull().sum() == 0)
 
     # Plotting on multiple imputed dataset
@@ -264,21 +248,6 @@ def test_complex_numpy():
     niv = np.setdiff1d(np.arange(working_set.shape[1]), io)
     nivs = np.setdiff1d(np.arange(working_set.shape[1]), list(vs))
 
-    def mmf(
-            mmc,
-            model,
-            # candidate_features,
-            bachelor_features,
-            candidate_values,
-            random_state,
-            hashed_seeds
-    ):
-        if mmc > 0:
-            imp_values = random_state.choice(candidate_values, size=bachelor_features.shape[0])
-        else:
-            bachelor_preds = model.predict(bachelor_features)
-            imp_values = bachelor_preds
-        return imp_values
 
     kernel = mf.ImputationKernel(
         data=working_set,
@@ -288,7 +257,7 @@ def test_complex_numpy():
         train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
-        mean_match_function=mmf,
+        mean_match_function=mean_match_kdtree_classification,
         categorical_feature=[3,8],
         copy_data=False
     )
@@ -301,7 +270,7 @@ def test_complex_numpy():
         train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
-        mean_match_function=mmf,
+        mean_match_function=mean_match_kdtree_classification,
         categorical_feature=[3,8],
         copy_data=False
     )
@@ -318,12 +287,12 @@ def test_complex_numpy():
     kernel.mice(nround - 1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
     kernel2.mice(nround - 1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
     kernel.append(kernel2)
-    assert kernel.models[0][1][nround - 1].num_trees() == 15
-    assert kernel.models[0][2][nround - 1].num_trees() == 10
+    assert kernel.get_model(0, 1, nround - 1).num_trees() == 15
+    assert kernel.get_model(0, 2, nround - 1).num_trees() == 10
     kernel.mice(1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
     assert kernel.iteration_count() == nround, "iteration counting is incorrect."
-    assert kernel.models[0][1][nround].num_trees() == 15
-    assert kernel.models[0][2][nround].num_trees() == 10
+    assert kernel.get_model(0, 1, nround).num_trees() == 15
+    assert kernel.get_model(0, 2, nround).num_trees() == 10
 
     # Complete data with copy. Make sure only correct datasets and variables were affected.
     compdat = kernel.complete_data(0, inplace=False)
@@ -355,13 +324,14 @@ def test_complex_numpy():
         feature_fraction_bynode=(0.70,0.75),
         verbose=True
     )
+
     assert op[1]["bagging_fraction"] == 0.9
     assert op[2]["bagging_fraction"] == 0.8
     assert (op[1]["feature_fraction_bynode"] >= 0.85) and (op[1]["feature_fraction_bynode"] <= 0.9)
     assert (op[2]["feature_fraction_bynode"] >= 0.70) and (op[2]["feature_fraction_bynode"] <= 0.75)
     kernel.mice(1, variable_parameters=op, verbose=True)
-    model_2_params = kernel.models[0][2][nround + 1].params
-    model_1_params = kernel.models[0][1][nround + 1].params
+    model_2_params = kernel.get_model(0, 2, nround + 1).params
+    model_1_params = kernel.get_model(0, 1, nround + 1).params
     assert model_2_params["bagging_fraction"] == 0.8
     assert model_1_params["bagging_fraction"] == 0.9
     assert (model_2_params["feature_fraction_bynode"] >= 0.70) and (model_2_params["feature_fraction_bynode"] <= 0.75)

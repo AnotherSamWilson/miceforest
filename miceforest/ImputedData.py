@@ -317,9 +317,7 @@ class ImputedData:
 
         # Create structure to store imputation values.
         # These will be initialized by an ImputationKernel.
-        self.imputation_values = {
-            ds: {var: dict() for var in self.imputation_order} for ds in range(datasets)
-        }
+        self.imputation_values = {}
         self.initialized = False
 
         # Sanity checks
@@ -329,15 +327,15 @@ class ImputedData:
     # Subsetting allows us to get to the imputation values:
     def __getitem__(self, tup):
         ds, var, iter = tup
-        return self.imputation_values[ds][var][iter]
+        return self.imputation_values[ds, var, iter]
 
     def __setitem__(self, tup, newitem):
         ds, var, iter = tup
-        self.imputation_values[ds][var][iter] = newitem
+        self.imputation_values[ds, var, iter] = newitem
 
     def __delitem__(self, tup):
         ds, var, iter = tup
-        del self.imputation_values[ds][var][iter]
+        del self.imputation_values[ds, var, iter]
 
     def __repr__(self):
         summary_string = " " * 14 + "Class: ImputedData\n" + self._ids_info()
@@ -676,7 +674,9 @@ save_all_iterations: {self.save_all_iterations}"""
             )
             ax[axr, axc] = sns.kdeplot(nonmissing_values, color="red", linewidth=2)
             for imparray in iteration_level_imputations.values():
-                ax[axr, axc] = sns.kdeplot(imparray, color="black", linewidth=1, warn_singular=False)
+                ax[axr, axc] = sns.kdeplot(
+                    imparray, color="black", linewidth=1, warn_singular=False
+                )
             ax[axr, axc].set(xlabel=self._get_variable_name(var))
 
         plt.subplots_adjust(**adj_args)

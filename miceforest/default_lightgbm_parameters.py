@@ -21,8 +21,8 @@ default_parameters = {
 def make_default_tuning_space(min_samples, max_samples):
     space = {
         "boosting": "gbdt",
-        "learning_rate": 0.05,
-        "num_iterations": 5000,
+        "learning_rate": 0.02,
+        "num_iterations": 250,
         "min_data_in_leaf": (min_samples, max_samples),
         "min_sum_hessian_in_leaf": 0.1,
         "num_leaves": (2, 25),
