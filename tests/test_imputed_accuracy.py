@@ -1,64 +1,207 @@
 
-from sklearn.datasets import load_boston
-from sklearn.metrics import roc_auc_score
+
+from sklearn.datasets import load_iris
 import pandas as pd
 import numpy as np
 import miceforest as mf
+from sklearn.metrics import roc_auc_score
 
-# Define data
+
 random_state = np.random.RandomState(5)
-boston = pd.DataFrame(load_boston(return_X_y=True)[0])
-boston.columns = [str(i) for i in boston.columns]
-boston["3"] = boston["3"].astype("category")
-boston["8"] = boston["8"].astype("category")
-boston_amp = mf.ampute_data(boston, perc=0.25, random_state=random_state)
-new_data = boston_amp.loc[range(10),:]
+iris = pd.concat(load_iris(return_X_y=True, as_frame=True), axis=1)
+iris["binary"] = random_state.binomial(1,(iris["target"] + 0.2) / 2.5, size=150)
+iris["target"] = iris["target"].astype("category")
+iris["binary"] = iris["binary"].astype("category")
+iris.columns = [c.replace(" ", "") for c in iris.columns]
+iris = pd.concat([iris] * 2, axis=0, ignore_index=True)
+iris_new = iris.iloc[random_state.choice(iris.index, iris.shape[0], replace=False)].reset_index(drop=True)
+iris_amp = mf.utils.ampute_data(iris, perc=0.20)
+iris_new_amp = mf.utils.ampute_data(iris_new, perc=0.20)
 
-
-kernel = mf.ImputationKernel(boston_amp, random_state=random_state)
-iterations = 2
-kernel.mice(
-    iterations,
-    boosting='random_forest',
-    num_iterations=50,
-    num_leaves=31
-)
 
 def mse(x, y):
     return np.mean((x-y) ** 2)
 
-def test_classification_defaults():
-    # Commented out because this binary variable is extremely unbalanced
+iterations = 2
+
+kernel_sm2 = mf.ImputationKernel(
+    iris_amp,
+    mean_match_candidates=3,
+    random_state=random_state
+)
+kernel_sm2.mice(
+    iterations,
+    boosting='random_forest',
+    num_iterations=100,
+    num_leaves=31
+)
+
+kernel_sm1 = mf.ImputationKernel(
+    iris_amp,
+    mean_match_candidates=3,
+    save_models=1,
+    random_state=random_state
+)
+kernel_sm1.mice(
+    iterations,
+    boosting='random_forest',
+    num_iterations=100,
+    num_leaves=31
+)
+
+def test_sm2_mice_cat():
+
     # Binary
-    # col = 3
-    # preds = kernel.get_raw_prediction(col)
-    # ind = kernel.na_where[col]
-    # orig = boston.values[ind,col]
-    # roc = roc_auc_score(orig, preds[ind])
-    # assert roc > 0.6
+    col = 5
+    ind = kernel_sm2.na_where[col]
+    orig = iris.values[ind, col]
+    imps = kernel_sm2[0, col, iterations]
+    preds = kernel_sm2.get_raw_prediction(col)
+    roc = roc_auc_score(orig, preds[ind])
+    acc = (imps == orig).mean()
+    assert roc > 0.6
+    assert acc > 0.6
 
     # Multiclass
-    col = 8
-    ind = kernel.na_where[col]
-    orig = boston.values[ind, col]
-    preds = kernel.get_raw_prediction(col)
+    col = 4
+    ind = kernel_sm2.na_where[col]
+    orig = iris.values[ind, col]
+    imps = kernel_sm2[0, col, iterations]
+    preds = kernel_sm2.get_raw_prediction(col)
     roc = roc_auc_score(orig, preds[ind,:], multi_class='ovr', average='macro')
+    acc = (imps == orig).mean()
     assert roc > 0.7
+    assert acc > 0.7
 
-
-def test_regression_defaults_pretune():
+def test_sm2_mice_reg():
     # Square error of the model predictions should be less than
     # if we just predicted the mean every time.
     imputed_errors = {}
     modeled_errors = {}
     random_sample_error = {}
-    for col in [0,1,2,4,5,6,7,9,10,11,12]:
-        ind = kernel.na_where[col]
-        nonmissind = np.delete(range(boston.shape[0]), ind)
-        preds = kernel.get_raw_prediction(col)
-        imps = kernel[0, col, iterations]
-        random_sample_error[col] = mse(boston.iloc[ind, col], np.mean(boston.iloc[nonmissind, col]))
-        modeled_errors[col] = mse(boston.iloc[ind, col], preds[ind])
-        imputed_errors[col] = mse(boston.iloc[ind, col], imps)
+    for col in [0,1,2,3]:
+        ind = kernel_sm2.na_where[col]
+        nonmissind = np.delete(range(iris.shape[0]), ind)
+        orig = iris.iloc[ind, col]
+        preds = kernel_sm2.get_raw_prediction(col)
+        imps = kernel_sm2[0, col, iterations]
+        random_sample_error[col] = mse(orig, np.mean(iris.iloc[nonmissind, col]))
+        modeled_errors[col] = mse(orig, preds[ind])
+        imputed_errors[col] = mse(orig, imps)
         assert random_sample_error[col] > modeled_errors[col]
+        assert random_sample_error[col] > imputed_errors[col]
+
+
+def test_sm1_mice_cat():
+
+    # Binary
+    col = 5
+    ind = kernel_sm1.na_where[col]
+    orig = iris.values[ind, col]
+    imps = kernel_sm1[0, col, iterations]
+    preds = kernel_sm1.get_raw_prediction(col)
+    roc = roc_auc_score(orig, preds[ind])
+    acc = (imps == orig).mean()
+    assert roc > 0.6
+    assert acc > 0.6
+
+    # Multiclass
+    col = 4
+    ind = kernel_sm1.na_where[col]
+    orig = iris.values[ind, col]
+    imps = kernel_sm1[0, col, iterations]
+    preds = kernel_sm1.get_raw_prediction(col)
+    roc = roc_auc_score(orig, preds[ind,:], multi_class='ovr', average='macro')
+    acc = (imps == orig).mean()
+    assert roc > 0.7
+    assert acc > 0.7
+
+
+def test_sm1_mice_reg():
+    # Square error of the model predictions should be less than
+    # if we just predicted the mean every time.
+    imputed_errors = {}
+    modeled_errors = {}
+    random_sample_error = {}
+    for col in [0,1,2,3]:
+        ind = kernel_sm1.na_where[col]
+        nonmissind = np.delete(range(iris.shape[0]), ind)
+        orig = iris.iloc[ind, col]
+        preds = kernel_sm1.get_raw_prediction(col)
+        imps = kernel_sm1[0, col, iterations]
+        random_sample_error[col] = mse(orig, np.mean(iris.iloc[nonmissind, col]))
+        modeled_errors[col] = mse(orig, preds[ind])
+        imputed_errors[col] = mse(orig, imps)
+        assert random_sample_error[col] > modeled_errors[col]
+        assert random_sample_error[col] > imputed_errors[col]
+
+
+################################
+### IMPUTE NEW DATA TESTING
+
+new_imp_sm2 = kernel_sm2.impute_new_data(iris_new_amp)
+new_imp_sm1 = kernel_sm1.impute_new_data(iris_new_amp)
+
+def test_sm2_ind_cat():
+
+    # Binary
+    col = 5
+    ind = new_imp_sm2.na_where[col]
+    orig = iris_new.values[ind, col]
+    imps = new_imp_sm2[0, col, iterations]
+    acc = (imps == orig).mean()
+    assert acc > 0.6
+
+    # Multiclass
+    col = 4
+    ind = new_imp_sm2.na_where[col]
+    orig = iris_new.values[ind, col]
+    imps = new_imp_sm2[0, col, iterations]
+    acc = (imps == orig).mean()
+    assert acc > 0.7
+
+def test_sm2_ind_reg():
+    # Square error of the model predictions should be less than
+    # if we just predicted the mean every time.
+    imputed_errors = {}
+    random_sample_error = {}
+    for col in [0,1,2,3]:
+        ind = new_imp_sm2.na_where[col]
+        nonmissind = np.delete(range(iris.shape[0]), ind)
+        orig = iris.iloc[ind, col]
+        imps = new_imp_sm2[0, col, iterations]
+        random_sample_error[col] = mse(orig, np.mean(iris.iloc[nonmissind, col]))
+        imputed_errors[col] = mse(orig, imps)
+        assert random_sample_error[col] > imputed_errors[col]
+
+def test_sm1_ind_cat():
+
+    # Binary
+    col = 5
+    ind = new_imp_sm1.na_where[col]
+    orig = iris_new.values[ind, col]
+    imps = new_imp_sm1[0, col, iterations]
+    acc = (imps == orig).mean()
+    assert acc > 0.6
+
+    # Multiclass
+    col = 4
+    ind = new_imp_sm1.na_where[col]
+    orig = iris_new.values[ind, col]
+    imps = new_imp_sm1[0, col, iterations]
+    acc = (imps == orig).mean()
+    assert acc > 0.7
+
+def test_sm1_ind_reg():
+    # Square error of the model predictions should be less than
+    # if we just predicted the mean every time.
+    imputed_errors = {}
+    random_sample_error = {}
+    for col in [0,1,2,3]:
+        ind = new_imp_sm1.na_where[col]
+        nonmissind = np.delete(range(iris.shape[0]), ind)
+        orig = iris.iloc[ind, col]
+        imps = new_imp_sm1[0, col, iterations]
+        random_sample_error[col] = mse(orig, np.mean(iris.iloc[nonmissind, col]))
+        imputed_errors[col] = mse(orig, imps)
         assert random_sample_error[col] > imputed_errors[col]
