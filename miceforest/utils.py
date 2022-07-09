@@ -3,6 +3,28 @@ import numpy as np
 import blosc
 import dill
 
+
+_REGRESSIVE_OBJECTIVES = [
+    "regression",
+    "regression_l1",
+    "poisson",
+    "huber",
+    "fair",
+    "mape",
+    "cross_entropy",
+    "cross_entropy_lambda" "quantile",
+    "tweedie",
+    "gamma",
+]
+
+
+_CATEGORICAL_OBJECTIVES = [
+    "binary",
+    "multiclass",
+    "multiclassova",
+]
+
+
 def ampute_data(
     data,
     variables=None,
