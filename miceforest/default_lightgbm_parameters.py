@@ -7,7 +7,7 @@ default_parameters = {
     "max_depth": 8,
     "num_leaves": 128,
     "min_data_in_leaf": 1,
-    "min_sum_hessian_in_leaf": 0.0,
+    "min_sum_hessian_in_leaf": 0.00001,
     "min_gain_to_split": 0.0,
     "bagging_fraction": 0.632,
     "feature_fraction": 1.0,
