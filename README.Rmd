@@ -247,29 +247,12 @@ var_mms = {
   'sepal width (cm)': 50
 }
 
-# The mean matching function requires these parameters, even
-# if it does not use them.
-def mmf(
-  mmc,
-  model,
-  bachelor_features,
-  candidate_values,
-  random_state,
-  hashed_seeds
-):
-
-    bachelor_preds = model.predict(bachelor_features)
-    imp_values = random_state.choice(candidate_values, size=bachelor_preds.shape[0])
-
-    return imp_values
-
 cust_kernel = mf.ImputationKernel(
     iris_amp,
     datasets=3,
     variable_schema=var_sch,
     mean_match_candidates=var_mmc,
-    data_subset=var_mms,
-    mean_match_function=mmf
+    data_subset=var_mms
 )
 cust_kernel.mice(1)
 ```
@@ -426,6 +409,8 @@ Note that record-level reproducibility is only possible in the `impute_new_data`
 Multiple Imputation is one of the most robust ways to handle missing data - but it can take a long time. There are several strategies you can use to decrease the time a process takes to run:  
  
 * Decrease `data_subset`. By default all non-missing datapoints for each variable are used to train the model and perform mean matching. This can cause the model training nearest-neighbors search to take a long time for large data. A subset of these points can be searched instead by using `data_subset`.  
+* In the `prediction_dtypes` parameter, specify `float16` for numeric columns if it suits your data. The default mean matching functions are optimized for fast searches through `float16` arrays. You will lose some granularity, but it is often worth the additional speed.  
+* If you need to impute new data faster, compile the predictions with the `compile_candidate_preds` method. This stores the predictions for each model, so it does not need to be re-calculated at each iteration.  
 * Convert your data to a numpy array. Numpy arrays are much faster to index. While indexing overhead is avoided as much as possible, there is no getting around it. Consider comverting to `float32` datatype as well, as it will cause the resulting object to take up much less memory.
 * Decrease `mean_match_candidates`. The maximum number of neighbors that are considered with the default parameters is 10. However, for large datasets, this can still be an expensive operation. Consider explicitly setting `mean_match_candidates` lower.
 * Use different lightgbm parameters. lightgbm is usually not the problem, however if a certain variable has a large number of classes, then the max number of trees actually grown is (# classes) * (n_estimators). You can specifically decrease the bagging fraction or n_estimators for large multi-class variables, or grow less trees in general.  

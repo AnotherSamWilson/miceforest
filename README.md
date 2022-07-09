@@ -192,16 +192,8 @@ kds = mf.ImputationKernel(
 kds.mice(2)
 ```
 
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
+    ## C:\Users\swilson\VIRTUA~3\39B338~1.6\lib\site-packages\lightgbm\basic.py:2065: UserWarning: Using categorical_feature in Dataset.
+    ##   _log_warning('Using categorical_feature in Dataset.')
 
 There are also an array of plotting functions available, these are
 discussed below in the section [Diagnostic
@@ -227,50 +219,6 @@ kernel = mf.ImputationKernel(
 kernel.mice(2)
 
 # Printing the kernel will show you some high level information.
-```
-
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-
-``` python
 print(kernel)
 ```
 
@@ -322,27 +270,6 @@ passed as kwargs to `mice`:
 kernel.mice(iterations=1,n_estimators=50)
 ```
 
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-
 You can also pass pass variable-specific arguments to
 `variable_parameters` in mice. For instance, let’s say you noticed the
 imputation of the `[species]` column was taking a little longer, because
@@ -353,27 +280,6 @@ that column with:
 # Run the MICE algorithm for 2 more iterations on the kernel 
 kernel.mice(iterations=1,variable_parameters={'species': {'n_estimators': 25}},n_estimators=50)
 ```
-
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
 
 In this scenario, any parameters specified in `variable_parameters`
 takes presidence over the kwargs.
@@ -397,12 +303,6 @@ cust_kernel = mf.ImputationKernel(
 cust_kernel.mice(iterations=1, variable_parameters={'sepal width (cm)': {'objective': 'poisson'}})
 ```
 
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-
 Other nice parameters like `monotone_constraints` can also be passed.
 
 ### Imputing with Gradient Boosted Trees
@@ -424,15 +324,6 @@ kds_gbdt = mf.ImputationKernel(
 kds_gbdt.mice(iterations=1, boosting='gbdt', min_sum_hessian_in_leaf=0.01)
 
 # Return the completed kernel data
-```
-
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-
-``` python
 completed_data = kds_gbdt.complete_data(dataset=0)
 ```
 
@@ -470,39 +361,15 @@ var_mms = {
   'sepal width (cm)': 50
 }
 
-# The mean matching function requires these parameters, even
-# if it does not use them.
-def mmf(
-  mmc,
-  model,
-  bachelor_features,
-  candidate_values,
-  random_state,
-  hashed_seeds
-):
-
-    bachelor_preds = model.predict(bachelor_features)
-    imp_values = random_state.choice(candidate_values, size=bachelor_preds.shape[0])
-
-    return imp_values
-
 cust_kernel = mf.ImputationKernel(
     iris_amp,
     datasets=3,
     variable_schema=var_sch,
     mean_match_candidates=var_mmc,
-    data_subset=var_mms,
-    mean_match_function=mmf
+    data_subset=var_mms
 )
 cust_kernel.mice(1)
 ```
-
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
 
 ### Imputing New Data with Existing Models
 
@@ -525,7 +392,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.511116 seconds
+    ## New Data imputed in 0.777173 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
@@ -572,13 +439,6 @@ cust_kernel = mf.ImputationKernel(
 cust_kernel.mice(1)
 
 # New data has missing values in species column
-```
-
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-
-``` python
 iris_amp2_new = iris.iloc[range(10),:].copy()
 iris_amp2_new[new_missing_cols] = mf.ampute_data(
   iris_amp2_new[new_missing_cols],
@@ -622,34 +482,10 @@ optimal_parameters, losses = kernel.tune_parameters(
 kernel.mice(1, variable_parameters=optimal_parameters)
 
 # The optimal parameters are kept in ImputationKernel.optimal_parameters:
-```
-
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-
-``` python
 print(optimal_parameters)
 ```
 
-    ## {0: {'boosting': 'gbdt', 'num_iterations': 51, 'max_depth': 8, 'num_leaves': 7, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7891175068936784, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.9808244370775409, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': -2015891453, 'learning_rate': 0.05, 'cat_smooth': 0.3977490398140632}, 1: {'boosting': 'gbdt', 'num_iterations': 55, 'max_depth': 8, 'num_leaves': 7, 'min_data_in_leaf': 6, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.8309257656530544, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.40511028556979534, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': -229203199, 'learning_rate': 0.05, 'cat_smooth': 10.618662089695356}, 2: {'boosting': 'gbdt', 'num_iterations': 76, 'max_depth': 8, 'num_leaves': 24, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.5779426191284999, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.8321739215365003, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': -161768210, 'learning_rate': 0.05, 'cat_smooth': 9.407354591422454}, 3: {'boosting': 'gbdt', 'num_iterations': 73, 'max_depth': 8, 'num_leaves': 17, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7864007313277575, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.15786791700588723, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 72915857, 'learning_rate': 0.05, 'cat_smooth': 4.239030927792245}, 4: {'boosting': 'gbdt', 'num_iterations': 80, 'max_depth': 8, 'num_leaves': 3, 'min_data_in_leaf': 3, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.32134810169452516, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.983459555760715, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 1978505457, 'learning_rate': 0.05, 'cat_smooth': 17.29793073191962}}
+    ## {0: {'boosting': 'gbdt', 'num_iterations': 210, 'max_depth': 8, 'num_leaves': 20, 'min_data_in_leaf': 1, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.2498838792503861, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6020460898858531, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1509546878, 'learning_rate': 0.02, 'cat_smooth': 17.807024990062555}, 1: {'boosting': 'gbdt', 'num_iterations': 156, 'max_depth': 8, 'num_leaves': 9, 'min_data_in_leaf': 6, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.8279889393495878, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.15812804869429542, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1516972802, 'learning_rate': 0.02, 'cat_smooth': 1.4082299225405326}, 2: {'boosting': 'gbdt', 'num_iterations': 187, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 8, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9565982004313843, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6065024947204825, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1189375476, 'learning_rate': 0.02, 'cat_smooth': 17.2138799939537}, 3: {'boosting': 'gbdt', 'num_iterations': 247, 'max_depth': 8, 'num_leaves': 22, 'min_data_in_leaf': 8, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9033774493547357, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.2537764159822862, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 2018995050, 'learning_rate': 0.02, 'cat_smooth': 15.21633331092676}, 4: {'boosting': 'gbdt', 'num_iterations': 216, 'max_depth': 8, 'num_leaves': 15, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.30362642972835896, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.23861186050415603, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 1480738753, 'learning_rate': 0.02, 'cat_smooth': 9.445338686611043}}
 
 This will perform 10 fold cross validation on random samples of
 parameters. By default, all variables models are tuned. If you are
@@ -676,27 +512,6 @@ optimal_parameters, losses = kernel.tune_parameters(
 
 kernel.mice(1, variable_parameters=optimal_parameters)
 ```
-
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
 
 In this example, we did a few things - we specified that only `sepal
 width (cm)`, `species`, and `petal width (cm)` should be tuned. We also
@@ -778,6 +593,14 @@ use to decrease the time a process takes to run:
     This can cause the model training nearest-neighbors search to take a
     long time for large data. A subset of these points can be searched
     instead by using `data_subset`.  
+  - In the `prediction_dtypes` parameter, specify `float16` for numeric
+    columns if it suits your data. The default mean matching functions
+    are optimized for fast searches through `float16` arrays. You will
+    lose some granularity, but it is often worth the additional speed.  
+  - If you need to impute new data faster, compile the predictions with
+    the `compile_candidate_preds` method. This stores the predictions
+    for each model, so it does not need to be re-calculated at each
+    iteration.  
   - Convert your data to a numpy array. Numpy arrays are much faster to
     index. While indexing overhead is avoided as much as possible, there
     is no getting around it. Consider comverting to `float32` datatype
@@ -810,17 +633,6 @@ kernel_inplace = mf.ImputationKernel(
 )
 kernel_inplace.mice(2)
 ```
-
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
-    ## [LightGBM] [Warning] Found whitespace in feature_names, replace with underlines
 
 Note, that this probably won’t (but could) change the original dataset
 in undesirable ways. Throughout the `mice` procedure, imputed values are
@@ -953,7 +765,7 @@ for iteration in range(kernel.iteration_count()+1):
 print(acclist)
 ```
 
-    ## [0.35, 0.73, 0.84, 0.78, 0.84, 0.86, 0.76]
+    ## [0.35, 0.86, 0.81, 0.84, 0.84, 0.84, 0.84]
 
 In this instance, we went from a \~32% accuracy (which is expected with
 random sampling) to an accuracy of \~65% after the first iteration. This
