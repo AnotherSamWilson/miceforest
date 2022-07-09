@@ -3,9 +3,6 @@ from sklearn.datasets import load_boston
 import pandas as pd
 import numpy as np
 import miceforest as mf
-from datetime import datetime
-from miceforest.mean_matching_functions import mean_match_kdtree_classification
-from matplotlib.pyplot import close
 
 # Make random state and load data
 # Define data

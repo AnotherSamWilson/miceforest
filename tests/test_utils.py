@@ -34,3 +34,25 @@ def test_subset():
 
     assert np.array(strat_std_closer).mean() > 0.5
     assert np.array(strat_mean_closer).mean() > 0.5
+
+
+def test_subset_continuous_reproduce():
+    for i in range(100):
+        y = np.random.normal(size=1000)
+        size = 100
+
+        ss1 = stratified_subset(y, size, groups=10, cat=False, seed=i)
+        ss2 = stratified_subset(y, size, groups=10, cat=False, seed=i)
+
+        assert np.all(ss1 == ss2)
+
+
+def test_subset_categorical_reproduce():
+    for i in range(100):
+        y = np.random.randint(low=1, high=10, size=1000)
+        size = 100
+
+        ss1 = stratified_subset(y, size, groups=10, cat=True, seed=i)
+        ss2 = stratified_subset(y, size, groups=10, cat=True, seed=i)
+
+        assert np.all(ss1 == ss2)

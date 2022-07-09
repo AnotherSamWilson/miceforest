@@ -14,8 +14,8 @@ iris["target"] = iris["target"].astype("category")
 iris["binary"] = iris["binary"].astype("category")
 iris.columns = [c.replace(" ", "") for c in iris.columns]
 iris = pd.concat([iris] * 2, axis=0, ignore_index=True)
-iris_new = iris.iloc[random_state.choice(iris.index, iris.shape[0], replace=False)].reset_index(drop=True)
 iris_amp = mf.utils.ampute_data(iris, perc=0.20)
+iris_new = iris.iloc[random_state.choice(iris.index, iris.shape[0], replace=False)].reset_index(drop=True)
 iris_new_amp = mf.utils.ampute_data(iris_new, perc=0.20)
 
 
@@ -26,6 +26,8 @@ iterations = 2
 
 kernel_sm2 = mf.ImputationKernel(
     iris_amp,
+    datasets=1,
+    data_subset=0.75,
     mean_match_candidates=3,
     random_state=random_state
 )
@@ -38,6 +40,8 @@ kernel_sm2.mice(
 
 kernel_sm1 = mf.ImputationKernel(
     iris_amp,
+    datasets=1,
+    data_subset=0.75,
     mean_match_candidates=3,
     save_models=1,
     random_state=random_state
@@ -142,6 +146,7 @@ def test_sm1_mice_reg():
 new_imp_sm2 = kernel_sm2.impute_new_data(iris_new_amp)
 new_imp_sm1 = kernel_sm1.impute_new_data(iris_new_amp)
 
+
 def test_sm2_ind_cat():
 
     # Binary
@@ -168,7 +173,7 @@ def test_sm2_ind_reg():
     for col in [0,1,2,3]:
         ind = new_imp_sm2.na_where[col]
         nonmissind = np.delete(range(iris.shape[0]), ind)
-        orig = iris.iloc[ind, col]
+        orig = iris_new.iloc[ind, col]
         imps = new_imp_sm2[0, col, iterations]
         random_sample_error[col] = mse(orig, np.mean(iris.iloc[nonmissind, col]))
         imputed_errors[col] = mse(orig, imps)
@@ -200,7 +205,7 @@ def test_sm1_ind_reg():
     for col in [0,1,2,3]:
         ind = new_imp_sm1.na_where[col]
         nonmissind = np.delete(range(iris.shape[0]), ind)
-        orig = iris.iloc[ind, col]
+        orig = iris_new.iloc[ind, col]
         imps = new_imp_sm1[0, col, iterations]
         random_sample_error[col] = mse(orig, np.mean(iris.iloc[nonmissind, col]))
         imputed_errors[col] = mse(orig, imps)

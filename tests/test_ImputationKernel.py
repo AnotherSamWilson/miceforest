@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import miceforest as mf
 from datetime import datetime
-from miceforest.mean_matching_functions import mean_match_kdtree_classification
+from miceforest.mean_match_schemes import mean_match_scheme_fast_cat
 from matplotlib.pyplot import close
 from tempfile import mkstemp
 
@@ -25,20 +25,23 @@ def test_defaults_pandas():
     kernel = mf.ImputationKernel(
         data=boston_amp,
         datasets=2,
-        mean_match_function=mean_match_kdtree_classification,
+        mean_match_scheme=mean_match_scheme_fast_cat,
         initialization="empty"
     )
-    kernel.mice(iterations=2)
+    kernel.mice(iterations=2, verbose=True)
+    kernel.compile_candidate_preds()
 
     kernel2 = mf.ImputationKernel(
         data=boston_amp,
         datasets=1,
-        mean_match_function=mean_match_kdtree_classification
+        mean_match_scheme=mean_match_scheme_fast_cat
     )
     kernel2.mice(iterations=2)
 
     # Test appending and then test kernel.
     kernel.append(kernel2)
+    kernel.compile_candidate_preds()
+
 
     # Test mice after appendage
     kernel.mice(1)
@@ -118,8 +121,10 @@ def test_complex_pandas():
             # The parameters come through the actual model
     nround = 2
     kernel.mice(nround - 1, variable_parameters={"1": {"n_iter": 15}}, num_trees=10, verbose=True)
+    kernel.compile_candidate_preds()
     kernel2.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel.append(kernel2)
+    kernel.compile_candidate_preds()
     assert kernel.get_model(0, 1, nround - 1).num_trees() == 15
     assert kernel.get_model(0, 2, nround - 1).num_trees() == 10
     kernel.mice(1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
@@ -193,10 +198,10 @@ def test_defaults_numpy():
         data=working_set,
         datasets=3,
         categorical_feature=[3,8],
-        mean_match_function=mean_match_kdtree_classification
+        mean_match_scheme=mean_match_scheme_fast_cat
     )
-
     kernel.mice(iterations=1, verbose=True)
+    kernel.compile_candidate_preds()
 
     # Complete data with copy.
     comp_dat = kernel.complete_data(0, inplace=False)
@@ -257,7 +262,7 @@ def test_complex_numpy():
         train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
-        mean_match_function=mean_match_kdtree_classification,
+        mean_match_scheme=mean_match_scheme_fast_cat,
         categorical_feature=[3,8],
         copy_data=False
     )
@@ -270,7 +275,7 @@ def test_complex_numpy():
         train_nonmissing=True,
         mean_match_candidates=mmc,
         data_subset=ds,
-        mean_match_function=mean_match_kdtree_classification,
+        mean_match_scheme=mean_match_scheme_fast_cat,
         categorical_feature=[3,8],
         copy_data=False
     )
@@ -285,8 +290,10 @@ def test_complex_numpy():
 
     nround = 2
     kernel.mice(nround - 1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
+    kernel.compile_candidate_preds()
     kernel2.mice(nround - 1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
     kernel.append(kernel2)
+    kernel.compile_candidate_preds()
     assert kernel.get_model(0, 1, nround - 1).num_trees() == 15
     assert kernel.get_model(0, 2, nround - 1).num_trees() == 10
     kernel.mice(1, variable_parameters={1: {"n_estimators": 15}}, n_estimators=10, verbose=True)
