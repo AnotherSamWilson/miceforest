@@ -1114,9 +1114,8 @@ class ImputationKernel(ImputedData):
                         return_cat=True,
                         random_seed=lgbpars["seed"],
                     )
-                    feature_cat_index = (
-                        "auto" if len(feature_cat_index) == 0 else feature_cat_index
-                    )
+                    if self.original_data_class == "pd_DataFrame" or len(feature_cat_index) == 0:
+                        feature_cat_index = "auto"
 
                     # lightgbm requires integers for label. Categories won't work.
                     if candidate_values.dtype.name == "category":
@@ -1130,7 +1129,12 @@ class ImputationKernel(ImputedData):
                     )
                     logger.record_time(timed_event="prepare_xy", **log_context)
                     logger.set_start_time()
-                    current_model = train(params=lgbpars, train_set=train_pointer)
+                    current_model = train(
+                        params=lgbpars,
+                        train_set=train_pointer,
+                        num_boost_round=num_iterations,
+                        categorical_feature=feature_cat_index
+                    )
                     logger.record_time(timed_event="training", **log_context)
                     self._insert_new_model(
                         dataset=ds, variable_index=var, model=current_model
