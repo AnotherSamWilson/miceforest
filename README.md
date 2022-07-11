@@ -192,9 +192,6 @@ kds = mf.ImputationKernel(
 kds.mice(2)
 ```
 
-    ## C:\Users\swilson\VIRTUA~3\39B338~1.6\lib\site-packages\lightgbm\basic.py:2065: UserWarning: Using categorical_feature in Dataset.
-    ##   _log_warning('Using categorical_feature in Dataset.')
-
 There are also an array of plotting functions available, these are
 discussed below in the section [Diagnostic
 Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting).
@@ -392,7 +389,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.777173 seconds
+    ## New Data imputed in 0.709152 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
@@ -485,7 +482,7 @@ kernel.mice(1, variable_parameters=optimal_parameters)
 print(optimal_parameters)
 ```
 
-    ## {0: {'boosting': 'gbdt', 'num_iterations': 210, 'max_depth': 8, 'num_leaves': 20, 'min_data_in_leaf': 1, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.2498838792503861, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6020460898858531, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1509546878, 'learning_rate': 0.02, 'cat_smooth': 17.807024990062555}, 1: {'boosting': 'gbdt', 'num_iterations': 156, 'max_depth': 8, 'num_leaves': 9, 'min_data_in_leaf': 6, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.8279889393495878, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.15812804869429542, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1516972802, 'learning_rate': 0.02, 'cat_smooth': 1.4082299225405326}, 2: {'boosting': 'gbdt', 'num_iterations': 187, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 8, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9565982004313843, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6065024947204825, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1189375476, 'learning_rate': 0.02, 'cat_smooth': 17.2138799939537}, 3: {'boosting': 'gbdt', 'num_iterations': 247, 'max_depth': 8, 'num_leaves': 22, 'min_data_in_leaf': 8, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9033774493547357, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.2537764159822862, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 2018995050, 'learning_rate': 0.02, 'cat_smooth': 15.21633331092676}, 4: {'boosting': 'gbdt', 'num_iterations': 216, 'max_depth': 8, 'num_leaves': 15, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.30362642972835896, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.23861186050415603, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 1480738753, 'learning_rate': 0.02, 'cat_smooth': 9.445338686611043}}
+    ## {0: {'boosting': 'gbdt', 'num_iterations': 182, 'max_depth': 8, 'num_leaves': 20, 'min_data_in_leaf': 1, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.2498838792503861, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6020460898858531, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1509546878, 'learning_rate': 0.02, 'cat_smooth': 17.807024990062555}, 1: {'boosting': 'gbdt', 'num_iterations': 93, 'max_depth': 8, 'num_leaves': 14, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7802435334180599, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6856668707631843, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1516972802, 'learning_rate': 0.02, 'cat_smooth': 4.802568893662679}, 2: {'boosting': 'gbdt', 'num_iterations': 217, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 8, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9565982004313843, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6065024947204825, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1189375476, 'learning_rate': 0.02, 'cat_smooth': 17.2138799939537}, 3: {'boosting': 'gbdt', 'num_iterations': 182, 'max_depth': 8, 'num_leaves': 18, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.8988221859881808, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.8661396027161443, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 2018995050, 'learning_rate': 0.02, 'cat_smooth': 12.514799660430654}, 4: {'boosting': 'gbdt', 'num_iterations': 230, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 7, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.6746301598613926, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.20999114041328495, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 1480738753, 'learning_rate': 0.02, 'cat_smooth': 8.604908973256704}}
 
 This will perform 10 fold cross validation on random samples of
 parameters. By default, all variables models are tuned. If you are
@@ -765,7 +762,7 @@ for iteration in range(kernel.iteration_count()+1):
 print(acclist)
 ```
 
-    ## [0.35, 0.86, 0.81, 0.84, 0.84, 0.84, 0.84]
+    ## [0.35, 0.81, 0.81, 0.81, 0.84, 0.84, 0.81]
 
 In this instance, we went from a \~32% accuracy (which is expected with
 random sampling) to an accuracy of \~65% after the first iteration. This

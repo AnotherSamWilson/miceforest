@@ -518,12 +518,11 @@ class ImputationKernel(ImputedData):
 
             for var in imputed_data.imputation_order:
 
-                kernel_nonmissing_ind = np.setdiff1d(
-                    np.arange(self.data_shape[0]), self.na_where[var]
-                )
-                candidates = _subset_data(
+                kernel_nonmissing_ind = self._get_working_data_nonmissing_indx(var)
+                candidate_values = _subset_data(
                     self.working_data, kernel_nonmissing_ind, var, return_1d=True
                 )
+                n_candidates = kernel_nonmissing_ind.shape[0]
                 missing_ind = imputed_data.na_where[var]
 
                 for ds in range(imputed_data.dataset_count()):
@@ -531,16 +530,14 @@ class ImputationKernel(ImputedData):
                     # Initialize using the random_state if no record seeds were passed.
                     if random_seed_array is None:
                         imputed_data[ds, var, 0] = random_state.choice(
-                            candidates, size=imputed_data.na_counts[var], replace=True
+                            candidate_values, size=imputed_data.na_counts[var], replace=True
                         )
                     else:
                         assert (
                             len(random_seed_array) == imputed_data.data_shape[0]
                         ), "The random_seed_array did not match the number of rows being imputed."
-                        init_imps = []
-                        for i in missing_ind:
-                            np.random.seed(random_seed_array[i])
-                            init_imps.append(np.random.choice(candidates, size=1)[0])
+                        selection_ind = random_seed_array[missing_ind] % n_candidates
+                        init_imps = candidate_values[selection_ind]
                         imputed_data[ds, var, 0] = np.array(init_imps)
                         random_seed_array[missing_ind] = hash_int32(
                             random_seed_array[missing_ind]
@@ -1607,6 +1604,7 @@ class ImputationKernel(ImputedData):
 
             logger.log("Dataset " + str(ds))
             self.complete_data(dataset=ds, inplace=True)
+            imputed_data.complete_data(dataset=ds, inplace=True)
 
             for iter_abs, iter_rel in iter_pairs:
 
