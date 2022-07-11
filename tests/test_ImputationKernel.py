@@ -26,7 +26,7 @@ def test_defaults_pandas():
         data=boston_amp,
         datasets=2,
         mean_match_scheme=mean_match_scheme_fast_cat,
-        save_models=2,
+        save_models=1,
         initialization="empty"
     )
     kernel.mice(iterations=2, compile_candidates=True, verbose=True)
