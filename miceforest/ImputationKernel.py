@@ -12,7 +12,7 @@ from .utils import (
     hash_int32,
     _draw_random_int32,
     _REGRESSIVE_OBJECTIVES,
-    _CATEGORICAL_OBJECTIVES
+    _CATEGORICAL_OBJECTIVES,
 )
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
 from .logger import Logger
@@ -344,7 +344,9 @@ class ImputationKernel(ImputedData):
         )
 
         if prediction_dtypes is not None:
-            assert isinstance(prediction_dtypes, dict), "prediction_dtypes must be a dict of dtypes."
+            assert isinstance(
+                prediction_dtypes, dict
+            ), "prediction_dtypes must be a dict of dtypes."
             dt = {}
             for var, dtype in prediction_dtypes.items():
                 dt[self._get_variable_index(var)] = dtype
@@ -370,13 +372,14 @@ class ImputationKernel(ImputedData):
         # Get mean matching function
         if mean_match_scheme is None:
             from .mean_match_schemes import mean_match_scheme_default
+
             self.mean_match_scheme = mean_match_scheme_default
 
         else:
             assert isinstance(mean_match_scheme, dict)
             assert list(mean_match_scheme) == [
                 "mean_match_function",
-                "candidate_preds_objectives"
+                "candidate_preds_objectives",
             ]
             assert callable(mean_match_scheme["mean_match_function"])
             self.mean_match_scheme = mean_match_scheme
@@ -489,21 +492,6 @@ class ImputationKernel(ImputedData):
 
         return mm
 
-    def _insert_new_model(self, dataset, variable_index, model):
-        """
-        Inserts a new model if save_mdoels > 0.
-        Deletes the prior one if save_models == 1.
-        """
-        current_variable_iteration = self.iteration_count(
-            datasets=dataset, variables=variable_index
-        )
-        if self.save_models == 0:
-            return
-        else:
-            self.models[dataset, variable_index, current_variable_iteration + 1] = model
-        if self.save_models == 1 and current_variable_iteration > 0:
-            del self.models[dataset, variable_index, current_variable_iteration]
-
     def _initialize_dataset(self, imputed_data, random_state, random_seed_array):
         """
         Sets initial imputation values for iteration 0.
@@ -530,7 +518,9 @@ class ImputationKernel(ImputedData):
                     # Initialize using the random_state if no record seeds were passed.
                     if random_seed_array is None:
                         imputed_data[ds, var, 0] = random_state.choice(
-                            candidate_values, size=imputed_data.na_counts[var], replace=True
+                            candidate_values,
+                            size=imputed_data.na_counts[var],
+                            replace=True,
                         )
                     else:
                         assert (
@@ -573,8 +563,8 @@ class ImputationKernel(ImputedData):
                 var_name = self._get_variable_name(var)
                 raise ValueError(
                     f"{var_name} objective ({objective}) is unknown. "
-                    f"Please open an issue on the github. " +
-                    "You can temporarily bypass this error by specifying dtypes."
+                    f"Please open an issue on the github. "
+                    + "You can temporarily bypass this error by specifying dtypes."
                 )
 
         return var_dtype
@@ -731,13 +721,13 @@ class ImputationKernel(ImputedData):
         return loss, best_iteration
 
     def _make_xy(
-            self,
-            variable,
-            subset_count,
-            return_x=False,
-            return_y=False,
-            return_cat=False,
-            random_seed=None
+        self,
+        variable,
+        subset_count,
+        return_x=False,
+        return_y=False,
+        return_cat=False,
+        random_seed=None,
     ):
         """
         Make the features / target for a variable, given a seed and a subset count.
@@ -781,10 +771,15 @@ class ImputationKernel(ImputedData):
 
         elif self.original_data_class == "np_ndarray":
             if return_x:
-                x = _subset_data(self.working_data, row_ind=candidate_subset, col_ind=xvars)
+                x = _subset_data(
+                    self.working_data, row_ind=candidate_subset, col_ind=xvars
+                )
             if return_y:
                 y = _subset_data(
-                    self.working_data, row_ind=candidate_subset, col_ind=var, return_1d=True
+                    self.working_data,
+                    row_ind=candidate_subset,
+                    col_ind=var,
+                    return_1d=True,
                 )
         else:
             raise ValueError("Unknown data class.")
@@ -832,7 +827,9 @@ class ImputationKernel(ImputedData):
         assert self.iteration_count() == imputation_kernel.iteration_count()
         assert (
             self.mean_match_scheme["mean_match_function"].__code__.co_code
-            == imputation_kernel.mean_match_scheme["mean_match_function"].__code__.co_code
+            == imputation_kernel.mean_match_scheme[
+                "mean_match_function"
+            ].__code__.co_code
         )
         assert self.variable_schema == imputation_kernel.variable_schema
         assert self.imputation_order == imputation_kernel.imputation_order
@@ -908,9 +905,11 @@ class ImputationKernel(ImputedData):
                     return_x=True,
                     return_y=False,
                     return_cat=False,
-                    random_seed=model.params["seed"]
+                    random_seed=model.params["seed"],
                 )
-                self.candidate_preds[key] = model.predict(candidate_features).astype(dtype)
+                self.candidate_preds[key] = model.predict(candidate_features).astype(
+                    dtype
+                )
 
             else:
                 continue
@@ -1025,6 +1024,7 @@ class ImputationKernel(ImputedData):
         iterations=5,
         verbose=False,
         variable_parameters=None,
+        compile_candidates=False,
         **kwlgb,
     ):
         """
@@ -1047,12 +1047,21 @@ class ImputationKernel(ImputedData):
         ----------
         iterations: int
             The number of iterations to run.
+
         verbose: bool
             Should information about the process be printed?
+
         variable_parameters: None or dict
             Model parameters can be specified by variable here. Keys should
             be variable names or indices, and values should be a dict of
             parameter which should apply to that variable only.
+
+        compile_candidates: bool
+            Candidate predictions can be stored as they are created while
+            performing mice. This prevents kernel.compile_candidate_preds()
+            from having to be called separately, and can save a significant
+            amount of time if compiled candidate predictions are desired.
+
         kwlgb:
             Additional arguments to pass to lightgbm. Applied to all models.
 
@@ -1062,6 +1071,11 @@ class ImputationKernel(ImputedData):
         iter_pairs = self._iter_pairs(iterations)
         mean_match_function = self.mean_match_scheme["mean_match_function"]
         candidate_pred_objectives = self.mean_match_scheme["candidate_preds_objectives"]
+
+        # Delete models and candidate_preds if we shouldn't be saving every iteration
+        if self.save_models < 2:
+            self.models = {}
+            self.candidate_preds = {}
 
         logger = Logger(
             name=f"mice {str(iter_pairs[0][0])}-{str(iter_pairs[-1][0])}",
@@ -1076,10 +1090,16 @@ class ImputationKernel(ImputedData):
 
             # set self.working_data to the most current iteration.
             self.complete_data(dataset=ds, inplace=True)
+            last_iteration = False
 
             for iter_abs, iter_rel in iter_pairs:
 
                 logger.log(str(iter_abs) + " ", end="")
+                if iter_rel == iterations:
+                    last_iteration = True
+                save_model = self.save_models == 2 or (
+                    last_iteration and self.save_models == 1
+                )
 
                 for var in self.variable_training_order:
 
@@ -1111,7 +1131,10 @@ class ImputationKernel(ImputedData):
                         return_cat=True,
                         random_seed=lgbpars["seed"],
                     )
-                    if self.original_data_class == "pd_DataFrame" or len(feature_cat_index) == 0:
+                    if (
+                        self.original_data_class == "pd_DataFrame"
+                        or len(feature_cat_index) == 0
+                    ):
                         feature_cat_index = "auto"
 
                     # lightgbm requires integers for label. Categories won't work.
@@ -1130,14 +1153,15 @@ class ImputationKernel(ImputedData):
                         params=lgbpars,
                         train_set=train_pointer,
                         num_boost_round=num_iterations,
-                        categorical_feature=feature_cat_index
+                        categorical_feature=feature_cat_index,
                     )
                     logger.record_time(timed_event="training", **log_context)
-                    self._insert_new_model(
-                        dataset=ds, variable_index=var, model=current_model
-                    )
-                    # Only perform mean matching and insertion if variable
-                    # is being imputed.
+
+                    if save_model:
+                        self.models[ds, var, iter_abs] = current_model
+
+                    # Only perform mean matching and insertion
+                    # if variable is being imputed.
                     if var in self.imputation_order:
                         logger.set_start_time()
                         bachelor_features = _subset_data(
@@ -1147,12 +1171,19 @@ class ImputationKernel(ImputedData):
                         )
 
                         # Calculate the candidate predictions if
-                        # the mean matching function cals for it
-                        if current_model.params["objective"] in candidate_pred_objectives:
+                        # the mean matching function calls for it
+                        if (
+                            current_model.params["objective"]
+                            in candidate_pred_objectives
+                        ):
                             dtype = self._interpret_dtypes(var, lgbpars["objective"])
-                            candidate_preds = current_model\
-                                .predict(candidate_features)\
-                                .astype(dtype)
+                            candidate_preds = current_model.predict(
+                                candidate_features
+                            ).astype(dtype)
+                            if compile_candidates and save_model:
+                                self.candidate_preds[
+                                    ds, var, iter_abs
+                                ] = candidate_preds
                         else:
                             candidate_preds = None
 
@@ -1164,7 +1195,7 @@ class ImputationKernel(ImputedData):
                                 candidate_values=candidate_values,
                                 random_state=self._random_state,
                                 hashed_seeds=None,
-                                candidate_preds=candidate_preds
+                                candidate_preds=candidate_preds,
                             )
                         )
                         logger.record_time(timed_event="mean_matching", **log_context)
@@ -1172,6 +1203,7 @@ class ImputationKernel(ImputedData):
                             self.na_counts[var],
                         ), f"{var} mean matching returned malformed array"
 
+                        # Updates our working data and saves the imputations.
                         self._insert_new_data(
                             dataset=ds, variable_index=var, new_data=imp_values
                         )
@@ -1648,7 +1680,9 @@ class ImputationKernel(ImputedData):
                         if objective in candidate_pred_objectives:
                             # See if they have been compiled
                             if (ds, var, iter_model) in self.candidate_preds.keys():
-                                candidate_preds = self.candidate_preds[ds, var, iter_model]
+                                candidate_preds = self.candidate_preds[
+                                    ds, var, iter_model
+                                ]
                                 return_x = False
                             else:
                                 return_x = True
@@ -1666,9 +1700,9 @@ class ImputationKernel(ImputedData):
                         if return_x:
                             dtype = self._interpret_dtypes(var, objective)
                             candidate_features, candidate_values = _xy
-                            candidate_preds = current_model\
-                                .predict(candidate_features)\
-                                .astype(dtype)
+                            candidate_preds = current_model.predict(
+                                candidate_features
+                            ).astype(dtype)
                         else:
                             candidate_values = _xy
 
@@ -1694,7 +1728,7 @@ class ImputationKernel(ImputedData):
                             candidate_values=candidate_values,
                             random_state=random_state,
                             hashed_seeds=seeds,
-                            candidate_preds=candidate_preds
+                            candidate_preds=candidate_preds,
                         )
                     )
                     logger.record_time(timed_event="mean_matching", **log_context)

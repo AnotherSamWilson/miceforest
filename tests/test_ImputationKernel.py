@@ -26,10 +26,10 @@ def test_defaults_pandas():
         data=boston_amp,
         datasets=2,
         mean_match_scheme=mean_match_scheme_fast_cat,
+        save_models=2,
         initialization="empty"
     )
-    kernel.mice(iterations=2, verbose=True)
-    kernel.compile_candidate_preds()
+    kernel.mice(iterations=2, compile_candidates=True, verbose=True)
 
     kernel2 = mf.ImputationKernel(
         data=boston_amp,
@@ -120,7 +120,13 @@ def test_complex_pandas():
             # variable specific parameters supercede globally specified parameters
             # The parameters come through the actual model
     nround = 2
-    kernel.mice(nround - 1, variable_parameters={"1": {"n_iter": 15}}, num_trees=10, verbose=True)
+    kernel.mice(
+        nround - 1,
+        compile_candidates=True,
+        variable_parameters={"1": {"n_iter": 15}},
+        num_trees=10,
+        verbose=True
+    )
     kernel.compile_candidate_preds()
     kernel2.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel.append(kernel2)

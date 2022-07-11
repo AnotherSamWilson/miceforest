@@ -4,7 +4,7 @@ from .utils import (
     _ensure_np_array,
     logodds,
     _REGRESSIVE_OBJECTIVES,
-    _CATEGORICAL_OBJECTIVES
+    _CATEGORICAL_OBJECTIVES,
 )
 
 try:
@@ -246,7 +246,7 @@ def mean_match_function_kdtree_cat(
     candidate_values,
     random_state,
     hashed_seeds,
-    candidate_preds=None
+    candidate_preds=None,
 ):
     """
     This mean matching function selects categorical features by performing nearest
@@ -371,10 +371,10 @@ def mean_match_function_kdtree_cat(
 # if we compile the predictions.
 mean_match_scheme_fast_cat = {
     "mean_match_function": mean_match_function_default,
-    "candidate_preds_objectives": _REGRESSIVE_OBJECTIVES
+    "candidate_preds_objectives": _REGRESSIVE_OBJECTIVES,
 }
 
 mean_match_scheme_default = {
     "mean_match_function": mean_match_function_kdtree_cat,
-    "candidate_preds_objectives": _REGRESSIVE_OBJECTIVES + _CATEGORICAL_OBJECTIVES
+    "candidate_preds_objectives": _REGRESSIVE_OBJECTIVES + _CATEGORICAL_OBJECTIVES,
 }

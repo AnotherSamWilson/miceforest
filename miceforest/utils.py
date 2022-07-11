@@ -217,9 +217,7 @@ def _draw_random_int32(random_state, size):
     return nums
 
 
-def ensure_rng(
-    random_state
-) -> np.random.RandomState:
+def ensure_rng(random_state) -> np.random.RandomState:
     """
     Creates a random number generator based on an optional seed.  This can be
     an integer or another random state for a seeded rng, or None for an
