@@ -13,7 +13,7 @@ black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://gith
 [![Conda
 Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
-[![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest)
+[![Downloads](https://static.pepy.tech/badge/miceforest)](https://pepy.tech/project/miceforest)
 
 ## miceforest: Fast, Memory Efficient Imputation with lightgbm
 
@@ -389,7 +389,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.728 seconds
+    ## New Data imputed in 0.729163 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original

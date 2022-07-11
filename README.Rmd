@@ -19,7 +19,7 @@ vrzn = gsub("\"","",gsub("__version__ = ","",initlines))
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
-[![Downloads](https://pepy.tech/badge/miceforest/month)](https://pepy.tech/project/miceforest)
+[![Downloads](https://static.pepy.tech/badge/miceforest)](https://pepy.tech/project/miceforest)
 
 
 ## miceforest: Fast, Memory Efficient Imputation with lightgbm
