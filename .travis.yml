@@ -21,7 +21,7 @@ before_install:
   - pip install seaborn -U
   - pip install matplotlib -U
   - pip install scipy==1.8.0 -U
-  - pip install sklearn -U
+  - pip install scikit-learn -U
   - pip install lightgbm -U
   - pip install pyarrow -U
 install:
