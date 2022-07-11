@@ -24,8 +24,8 @@ before_install:
   - pip install scikit-learn -U
   - pip install lightgbm -U
   - pip install pyarrow -U
-install:
-  - travis_retry pip install -e .
+#install:
+#  - travis_retry pip install -e .
 script: 
   - travis_wait pytest tests --cov-config .coveragerc --cov=miceforest
 after_success:
