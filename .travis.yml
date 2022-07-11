@@ -20,7 +20,7 @@ before_install:
   - pip install pandas -U
   - pip install seaborn -U
   - pip install matplotlib -U
-  - pip install scipy==1.8.0 -U
+  - pip install scipy==1.7.3 -U
   - pip install scikit-learn -U
   - pip install lightgbm -U
   - pip install pyarrow -U
