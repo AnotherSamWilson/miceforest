@@ -1,12 +1,10 @@
 version: 2
 formats:
   - pdf
-python:
-  version: 3
-  install:
-    - requirements: docs/requirements.txt
-    - method: setuptools
-      path: .
+build:
+  os: "ubuntu-20.04"
+  tools:
+    python: "3.9"
 sphinx:
   builder: html
   configuration: docs/conf.py
