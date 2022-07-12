@@ -28,7 +28,7 @@ default\_lightgbm\_parameters
 mean\_matching\_functions
 -------------------------------------------
 
-.. automodule:: miceforest.mean_matching_functions
+.. automodule:: miceforest.mean_matching_schemas
    :members:
    :undoc-members:
    :show-inheritance:

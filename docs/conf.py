@@ -53,7 +53,7 @@ autodoc_mock_imports = [
     'numpy',
     'pandas',
     'scipy',
-    'sklearn',
+    'scikit-learn',
 	'lightgbm'
 ]
 
