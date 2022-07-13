@@ -49,15 +49,15 @@ This document contains a thorough walkthrough of the package, benchmarks, and an
     + [Controlling Tree Growth](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
     + [Preserving Data Assumptions](https://github.com/AnotherSamWilson/miceforest#Preserving-Data-Assumptions)
     + [Imputing With Gradient Boosted Trees](https://github.com/AnotherSamWilson/miceforest#Imputing-With-Gradient-Boosted-Trees)
+    + [Imputing New Data with Existing Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
+    + [Saving and Loading Kernels](https://github.com/AnotherSamWilson/miceforest#Saving-and-Loading-Kernels)
 * [Advanced Features](https://github.com/AnotherSamWilson/miceforest#Advanced-Features)
     + [Customizing the Imputation Process](https://github.com/AnotherSamWilson/miceforest#Customizing-the-Imputation-Process)
-    + [Imputing New Data with Existing Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
     + [Building Models on Nonmissing Data](https://github.com/AnotherSamWilson/miceforest#Building-Models-on-Nonmissing-Data)
     + [Tuning Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
     + [On Reproducibility](https://github.com/AnotherSamWilson/miceforest#On-Reproducibility)
     + [How to Make the Process Faster](https://github.com/AnotherSamWilson/miceforest#How-to-Make-the-Process-Faster)
     + [Imputing Data In Place](https://github.com/AnotherSamWilson/miceforest#Imputing-Data-In-Place)
-    + [Saving and Loading Kernels](https://github.com/AnotherSamWilson/miceforest#Saving-and-Loading-Kernels)
 * [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting)
     + [Imputed Distributions](https://github.com/AnotherSamWilson/miceforest#Distribution-of-Imputed-Values)
     + [Correlation Convergence](https://github.com/AnotherSamWilson/miceforest#Convergence-of-Correlation)
@@ -73,18 +73,7 @@ This document contains a thorough walkthrough of the package, benchmarks, and an
   
 ## Package Meta  
 
-### News  
 
-New Major Update = 5.0.0  
-
-  * New main classes (`ImputationKernel`, `ImputedData`) replace (`KernelDataSet`, `MultipleImputedKernel`, `ImputedDataSet`, `MultipleImputedDataSet`).  
-  * Data can now be referenced and imputed in place. This saves a lot of memory allocation and is much faster.  
-  * Data can now be completed in place. This allows for only a single copy of the dataset to be in memory at any given time, even if performing multiple imputation.  
-  * `mean_match_subset` parameter has been replaced with `data_subset.` This subsets the data used to build the model as well as the candidates.  
-  * More performance improvements around when data is copied and where it is stored.  
-  * Raw data is now stored as the original. Can handle pandas `DataFrame` and numpy `ndarray`.
-
-  
 ### Installation
 This package can be installed using either pip or conda, through conda-forge:
 
@@ -223,6 +212,50 @@ completed_data = kds_gbdt.complete_data(dataset=0)
 ```  
 Note: It is HIGHLY recommended to run parameter tuning if using gradient boosted trees. The parameter tuning process returns the optimal number of iterations, and usually results in much more useful parameter sets. See the section [Tuning Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters) for more details.  
 
+### Imputing New Data with Existing Models
+
+Multiple Imputation can take a long time. If you wish to impute a
+dataset using the MICE algorithm, but don’t have time to train new
+models, it is possible to impute new datasets using a `ImputationKernel` object.
+The `impute_new_data()` function uses the random forests collected by `ImputationKernel`
+to perform multiple imputation without updating the random forest at
+each iteration:
+
+``` {python IMPUTENEWDATA}
+# Our 'new data' is just the first 15 rows of iris_amp
+from datetime import datetime
+
+# Define our new data as the first 15 rows
+new_data = iris_amp.iloc[range(15)]
+
+# Imputing new data can often be made faster by 
+# first compiling candidate predictions
+kernel.compile_candidate_preds()
+
+start_t = datetime.now()
+new_data_imputed = kernel.impute_new_data(new_data=new_data)
+print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
+```
+
+All of the imputation parameters (variable_schema, mean_match_candidates, etc) will be
+carried over from the original `ImputationKernel` object. When mean matching,
+the candidate values are pulled from the original kernel dataset. To impute new data,
+the ```save_models``` parameter in ```ImputationKernel``` must be > 0. If 
+```save_models == 1```, the model from the latest iteration is saved for each variable.
+If ```save_models > 1```, the model from each iteration is saved. This allows for new
+data to be imputed in a more similar fashion to the original mice procedure.  
+  
+  
+### Saving and Loading Kernels  
+
+Kernels can be saved using the `.save_kernel()` method, and then loaded again using the `utils.load_kernel()` function. Internally, this procedure uses `blosc` and `dill` packages to do the following:  
+
+1. Convert working data to parquet bytes (if it is a pandas dataframe)
+2. Serialize the kernel  
+3. Compress this serialization  
+4. Save to a file  
+
+
 ## Advanced Features  
 There are many ways to alter the imputation procedure to fit your specific dataset.
 
@@ -257,34 +290,6 @@ cust_kernel = mf.ImputationKernel(
 cust_kernel.mice(1)
 ```
   
-### Imputing New Data with Existing Models
-
-Multiple Imputation can take a long time. If you wish to impute a
-dataset using the MICE algorithm, but don’t have time to train new
-models, it is possible to impute new datasets using a `ImputationKernel` object.
-The `impute_new_data()` function uses the random forests collected by `ImputationKernel`
-to perform multiple imputation without updating the random forest at
-each iteration:
-
-``` {python IMPUTENEWDATA}
-# Our 'new data' is just the first 15 rows of iris_amp
-from datetime import datetime
-
-# Define our new data as the first 15 rows
-new_data = iris_amp.iloc[range(15)]
-
-start_t = datetime.now()
-new_data_imputed = kernel.impute_new_data(new_data=new_data)
-print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
-```
-
-All of the imputation parameters (variable_schema, mean_match_candidates, etc) will be
-carried over from the original `ImputationKernel` object. When mean matching,
-the candidate values are pulled from the original kernel dataset. To impute new data,
-the ```save_models``` parameter in ```ImputationKernel``` must be > 0. If 
-```save_models == 1```, the model from the latest iteration is saved for each variable.
-If ```save_models > 1```, the model from each iteration is saved. This allows for new
-data to be imputed in a more similar fashion to the original mice procedure.
 
 ### Building Models on Nonmissing Data  
 The MICE process itself is used to impute missing data in a dataset. However, sometimes a variable can be fully recognized in the training data, but needs to be imputed later on in a different dataset. It is possible to train models to impute variables even if they have no missing values by setting `train_nonmissing=True`. In this case, `variable_schema` is treated as the list of variables to train models on. `imputation_order` only affects which variables actually have their values imputed, it does not affect which variables have models trained:
@@ -436,16 +441,6 @@ print(iris_amp.isnull().sum(0))
 ```
 This is useful if the dataset is large, and copies can't be made in memory.  
   
-  
-### Saving and Loading Kernels  
-
-Kernels can be saved using the `.save_kernel()` method, and then loaded again using the `utils.load_kernel()` function. Internally, this procedure uses `blosc` and `dill` packages to do the following:  
-
-1. Convert working data to parquet bytes (if it is a pandas dataframe)
-2. Serialize the kernel  
-3. Compress this serialization  
-4. Save to a file  
-
 ## Diagnostic Plotting
 
 As of now, miceforest has four diagnostic plots available.

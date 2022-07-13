@@ -1752,9 +1752,15 @@ class ImputationKernel(ImputedData):
         return imputed_data
 
     def start_logging(self):
+        """
+        Start saving loggers to self.loggers
+        """
         self.save_loggers = True
 
     def stop_logging(self):
+        """
+        Stop saving loggers to self.loggers
+        """
         self.save_loggers = False
 
     def save_kernel(
@@ -1820,12 +1826,13 @@ class ImputationKernel(ImputedData):
         Return a matrix of feature importance. The cells
         represent the normalized feature importance of the
         columns to impute the rows. This is calculated
-        internally by RandomForestRegressor/Classifier.
+        internally by lightgbm.Booster.feature_importance().
 
         Parameters
         ----------
         dataset: int
             The dataset to get the feature importance for.
+
         iteration: int
             The iteration to return the feature importance for.
             Right now, the model must be saved to return importance
@@ -1871,11 +1878,14 @@ class ImputationKernel(ImputedData):
         ----------
         dataset: int
             The dataset to plot the feature importance for.
+
         iteration: int
             The iteration to plot the feature importance of.
+
         normalize: book
             Should the values be normalize from 0-1?
             If False, values are raw from Booster.feature_importance()
+
         kw_plot
             Additional arguments sent to sns.heatmap()
 
