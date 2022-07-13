@@ -129,8 +129,12 @@ kds = mf.ImputationKernel(
   random_state=1991
 )
 
-# Run the MICE algorithm for 3 iterations
+# Run the MICE algorithm for 2 iterations
 kds.mice(2)
+
+# Return the completed dataset.
+iris_complete = kds.complete_data(0)
+print(iris_complete.isnull().sum())
 ```  
 There are also an array of plotting functions available, these are discussed below in the section [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting).  
 
@@ -173,7 +177,11 @@ kernel.mice(iterations=1,n_estimators=50)
 You can also pass pass variable-specific arguments to `variable_parameters` in mice. For instance, let's say you noticed the imputation of the `[species]` column was taking a little longer, because it is multiclass. You could decrease the n_estimators specifically for that column with:
 ``` {python TREEGROWTH2}
 # Run the MICE algorithm for 2 more iterations on the kernel 
-kernel.mice(iterations=1,variable_parameters={'species': {'n_estimators': 25}},n_estimators=50)
+kernel.mice(
+  iterations=1,
+  variable_parameters={'species': {'n_estimators': 25}},
+  n_estimators=50
+)
 ```
 
 In this scenario, any parameters specified in `variable_parameters` takes presidence over the kwargs. 
@@ -188,7 +196,10 @@ cust_kernel = mf.ImputationKernel(
   random_state=1
 )
 
-cust_kernel.mice(iterations=1, variable_parameters={'sepal width (cm)': {'objective': 'poisson'}})
+cust_kernel.mice(
+  iterations=1, 
+  variable_parameters={'sepal width (cm)': {'objective': 'poisson'}}
+)
 ```
 
 Other nice parameters like `monotone_constraints` can also be passed.  

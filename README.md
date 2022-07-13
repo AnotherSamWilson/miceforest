@@ -168,9 +168,20 @@ kds = mf.ImputationKernel(
   random_state=1991
 )
 
-# Run the MICE algorithm for 3 iterations
+# Run the MICE algorithm for 2 iterations
 kds.mice(2)
+
+# Return the completed dataset.
+iris_complete = kds.complete_data(0)
+print(iris_complete.isnull().sum())
 ```
+
+    ## sepal length (cm)    0
+    ## sepal width (cm)     0
+    ## petal length (cm)    0
+    ## petal width (cm)     0
+    ## species              0
+    ## dtype: int64
 
 There are also an array of plotting functions available, these are
 discussed below in the section [Diagnostic
@@ -255,7 +266,11 @@ that column with:
 
 ``` python
 # Run the MICE algorithm for 2 more iterations on the kernel 
-kernel.mice(iterations=1,variable_parameters={'species': {'n_estimators': 25}},n_estimators=50)
+kernel.mice(
+  iterations=1,
+  variable_parameters={'species': {'n_estimators': 25}},
+  n_estimators=50
+)
 ```
 
 In this scenario, any parameters specified in `variable_parameters`
@@ -277,7 +292,10 @@ cust_kernel = mf.ImputationKernel(
   random_state=1
 )
 
-cust_kernel.mice(iterations=1, variable_parameters={'sepal width (cm)': {'objective': 'poisson'}})
+cust_kernel.mice(
+  iterations=1, 
+  variable_parameters={'sepal width (cm)': {'objective': 'poisson'}}
+)
 ```
 
 Other nice parameters like `monotone_constraints` can also be passed.
@@ -336,7 +354,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.534605 seconds
+    ## New Data imputed in 0.553927 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
