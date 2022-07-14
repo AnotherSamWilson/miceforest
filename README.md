@@ -30,7 +30,8 @@ with lightgbm. The R version of this package may be found
     can (probably) be imputed.
   - **Flexible** Can handle pandas DataFrames and numpy arrays. The
     imputation process can be completely customized. Can handle
-    categorical data automatically.
+    categorical data automatically. Kernels can esily be put into
+    sklearn pipelines.
   - **Used In Production** Kernels can be saved and impute new, unseen
     datasets. Imputing new data is often orders of magnitude faster than
     including the new data in a new `mice` procedure. Imputation models
@@ -61,6 +62,8 @@ you can find
         Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
       - [Saving and Loading
         Kernels](https://github.com/AnotherSamWilson/miceforest#Saving-and-Loading-Kernels)
+      - [Implementing sklearn
+        Pipelines](https://github.com/AnotherSamWilson/miceforest#Implementing-sklearn-Pipelines)
   - [Advanced
     Features](https://github.com/AnotherSamWilson/miceforest#Advanced-Features)
       - [Customizing the Imputation
@@ -352,7 +355,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.602878 seconds
+    ## New Data imputed in 0.48384 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
@@ -374,6 +377,52 @@ procedure uses `blosc` and `dill` packages to do the following:
 2.  Serialize the kernel  
 3.  Compress this serialization  
 4.  Save to a file
+
+### Implementing sklearn Pipelines
+
+kernels can be fit into sklearn pipelines to impute training and scoring
+datasets:
+
+``` python
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+import miceforest as mf
+
+# Define our data
+X, y = make_classification(random_state=0)
+
+# Ampute and split the training data
+X = mf.utils.ampute_data(X)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+# Initialize our miceforest kernel. datasets parameter should be 1,
+# we don't want to return multiple datasets.
+pipe_kernel = mf.ImputationKernel(X_train, datasets=1)
+
+# Define our pipeline
+pipe = Pipeline([
+    ('impute', pipe_kernel),
+    ('scaler', StandardScaler()),
+])
+
+# Fit on and transform our training data.
+# Only use 2 iterations of mice.
+X_train_t = pipe.fit_transform(
+    X_train,
+    y_train,
+    impute__iterations=2
+)
+
+# Transform the test data as well
+X_test_t = pipe.transform(X_test)
+
+# Show that neither now have missing values.
+assert not np.any(np.isnan(X_train_t))
+assert not np.any(np.isnan(X_test_t))
+```
 
 ## Advanced Features
 

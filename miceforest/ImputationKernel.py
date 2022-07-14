@@ -920,6 +920,17 @@ class ImputationKernel(ImputedData):
         """
         self.candidate_preds = {}
 
+    def fit(self, X, y, **fit_params):
+        """
+        Method for fitting a kernel when used in a sklearn pipeline.
+        """
+        assert self.dataset_count() == 1, (
+            "miceforest kernel should be initialized with datasets=1 if "
+            + "being used in a sklearn pipeline."
+        )
+        self.mice(**fit_params)
+        return self
+
     def get_model(self, dataset, variable, iteration=None):
         """
         Return the model for a specific dataset, variable, iteration.
@@ -1215,6 +1226,10 @@ class ImputationKernel(ImputedData):
         self._ampute_original_data()
         if self.save_loggers:
             self.loggers.append(logger)
+
+    def transform(self, X, y=None):
+        new_dat = self.impute_new_data(X, datasets=[0])
+        return new_dat.complete_data(dataset=0, inplace=False)
 
     def tune_parameters(
         self,
