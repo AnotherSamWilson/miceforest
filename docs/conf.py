@@ -27,11 +27,10 @@ author = 'Samuel Von Wilson'
 release = '2021-08-21'
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = '2.1.0'  # Due to sphinx.ext.napoleon, autodoc_typehints
+needs_sphinx = '4.2.0'  # Due to sphinx.ext.napoleon, autodoc_typehints
 if needs_sphinx > sphinx.__version__:
     message = f'This project needs at least Sphinx v{needs_sphinx}'
     raise VersionRequirementError(message)
-
 
 # -- General configuration ---------------------------------------------------
 
