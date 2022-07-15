@@ -805,6 +805,7 @@ class ImputationKernel(ImputedData):
         """
         Combine two imputation kernels together.
         For compatibility, the following attributes of each must be equal:
+
             - working_data
             - iteration_count
             - categorical_feature
@@ -874,22 +875,6 @@ class ImputationKernel(ImputedData):
         """
         Candidate predictions can be pre-generated before imputing new data.
         This can save a substantial amount of time, especially if save_models == 1.
-
-        Parameters
-        ----------
-        dtypes: dict(var, dtype) default = automatic
-            A dict of variable: datatype pairs, which specify the
-            datatypes to store the candidate predictions as.
-            In 99% of cases, using a smaller bit will drastically
-            decrease the calculation time and the size of the kernel.
-            By default, the following rules are used:
-                regression objective: float32
-                binary objective: float16
-                multiclass objective: float16
-
-            It is up to the user to determine if a certain column
-            with regression objective can be safely cast to float16.
-
         """
         compile_objectives = self.mean_match_scheme["candidate_preds_objectives"]
 
@@ -923,6 +908,7 @@ class ImputationKernel(ImputedData):
     def fit(self, X, y, **fit_params):
         """
         Method for fitting a kernel when used in a sklearn pipeline.
+        Should not be called by the user directly.
         """
         assert self.dataset_count() == 1, (
             "miceforest kernel should be initialized with datasets=1 if "
@@ -1228,6 +1214,10 @@ class ImputationKernel(ImputedData):
             self.loggers.append(logger)
 
     def transform(self, X, y=None):
+        """
+        Method for calling a kernel when used in a sklearn pipeline.
+        Should not be called by the user directly.
+        """
         new_dat = self.impute_new_data(X, datasets=[0])
         return new_dat.complete_data(dataset=0, inplace=False)
 
@@ -1362,18 +1352,22 @@ class ImputationKernel(ImputedData):
 
         Returns
         -------
-
         2 dicts: optimal_parameters, optimal_parameter_losses
 
         - optimal_parameters: dict
             A dict of the optimal parameters found for each variable.
             This can be passed directly to the variable_parameters parameter in mice()
-            for future iterations for extremely accurate imputation.
+
+            .. code-block:: text
+
                 {variable: {parameter_name: parameter_value}}
 
         - optimal_parameter_losses: dict
             The average out of fold cv loss obtained directly from
             lightgbm.cv() associated with the optimal parameter set.
+
+            .. code-block:: text
+
                 {variable: loss}
 
         """
@@ -1541,9 +1535,7 @@ class ImputationKernel(ImputedData):
             ways in which the dataset can be altered:
 
             1) complete_data() will fill in missing values
-            2) To save space, mice() references and manipulates self.working_data directly.
-                If self.working_data is a reference to the original dataset, the original
-                dataset will undergo these manipulations during the mice process.
+            2) mice() references and manipulates self.working_data directly.
 
         random_state: int or np.random.RandomState or None (default=None)
             The random state of the process. Ensures reproducibility. If None, the random state

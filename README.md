@@ -7,7 +7,7 @@ Status](https://readthedocs.org/projects/miceforest/badge/?version=latest)](http
 [![Downloads](https://static.pepy.tech/badge/miceforest)](https://pepy.tech/project/miceforest)  
 <!-- [![MIT license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT) -->
 <!-- [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)   -->
-<!-- [![DEV_Version_Badge](https://img.shields.io/badge/Dev-5.5.3-blue.svg)](https://pypi.org/project/miceforest/) -->
+<!-- [![DEV_Version_Badge](https://img.shields.io/badge/Dev-5.5.4-blue.svg)](https://pypi.org/project/miceforest/) -->
 [![Pypi](https://img.shields.io/pypi/v/miceforest.svg)](https://pypi.python.org/pypi/miceforest)
 [![Conda
 Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://anaconda.org/conda-forge/miceforest)
@@ -23,20 +23,20 @@ with lightgbm. The R version of this package may be found
 
 `miceforest` was designed to be:
 
-  - **Fast** Uses lightgbm as a backend, and has efficient mean matching
-    solutions.
-  - **Memory Efficient** Capable of performing multiple imputation
-    without copying the dataset. If the dataset can fit in memory, it
-    can (probably) be imputed.
-  - **Flexible** Can handle pandas DataFrames and numpy arrays. The
-    imputation process can be completely customized. Can handle
-    categorical data automatically. Kernels can esily be put into
-    sklearn pipelines.
-  - **Used In Production** Kernels can be saved and impute new, unseen
-    datasets. Imputing new data is often orders of magnitude faster than
-    including the new data in a new `mice` procedure. Imputation models
-    can be built off of a kernel dataset, even if there are no missing
-    values. New data can also be imputed in place.
+  - **Fast**
+      - Uses lightgbm as a backend
+      - Has efficient mean matching solutions.
+      - Can utilize GPU training
+  - **Flexible**
+      - Can impute pandas dataframes and numpy arrays
+      - Handles categorical data automatically
+      - Fits into a sklearn pipeline
+      - User can customize every aspect of the imputation process
+  - **Production Ready**
+      - Can impute new, unseen datasets very quickly
+      - Kernels are efficiently compressed during saving and loading
+      - Data can be imputed in place to save memory
+      - Can build models on non-missing data
 
 This document contains a thorough walkthrough of the package,
 benchmarks, and an introduction to multiple imputation. More information
@@ -335,9 +335,9 @@ for more details.
 Multiple Imputation can take a long time. If you wish to impute a
 dataset using the MICE algorithm, but don’t have time to train new
 models, it is possible to impute new datasets using a `ImputationKernel`
-object. The `impute_new_data()` function uses the random forests
-collected by `ImputationKernel` to perform multiple imputation without
-updating the random forest at each iteration:
+object. The `impute_new_data()` function uses the models collected by
+`ImputationKernel` to perform multiple imputation without updating the
+models at each iteration:
 
 ``` python
 # Our 'new data' is just the first 15 rows of iris_amp
@@ -355,7 +355,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.48384 seconds
+    ## New Data imputed in 0.564172 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original

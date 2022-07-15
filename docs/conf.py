@@ -39,28 +39,41 @@ if needs_sphinx > sphinx.__version__:
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-	'sphinx.ext.autodoc',
-	'sphinx.ext.autosummary',
-	'sphinx.ext.todo',
-	'sphinx.ext.viewcode',
-	'sphinx.ext.napoleon'
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.todo',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.napoleon'
 ]
+
+autodoc_default_flags = ['members', 'inherited-members', 'show-inheritance']
+autodoc_default_options = {
+    "members": True,
+    "inherited-members": True,
+    "show-inheritance": True,
+}
 
 # mock out modules
 autodoc_mock_imports = [
     'matplotlib',
-	'seaborn',
+    'seaborn',
     'numpy',
     'pandas',
     'scipy',
     'scikit-learn',
-	'lightgbm'
+    'lightgbm'
 ]
 
 master_doc = 'index'
 
+# hide type hints in API docs
+autodoc_typehints = "none"
+
+# Only the class' docstring is inserted.
+autoclass_content = 'class'
+
 # Generate autosummary pages.
-autosummary_generate = ['miceforest.rst']
+autosummary_generate = ['ImputationKernel.rst', "utils.rst"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

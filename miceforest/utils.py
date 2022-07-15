@@ -40,11 +40,15 @@ def ampute_data(
     ----------
      data : Pandas DataFrame
         The data to ampute
+
      variables : None or list
         If None, are variables are amputed.
+
      perc : double
         The percentage of the data to ampute.
+
     random_state: None, int, or np.random.RandomState
+        The random state to use.
 
     Returns
     -------
@@ -246,7 +250,7 @@ def load_kernel(filepath, n_threads=None):
 
     Returns
     -------
-
+    ImputationKernel
     """
     n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
     blosc.set_nthreads(n_threads)
