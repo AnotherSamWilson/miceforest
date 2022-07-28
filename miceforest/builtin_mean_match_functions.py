@@ -201,13 +201,19 @@ def _mean_match_multiclass_accurate(
             bachelor_preds, k=mean_match_candidates, workers=-1
         )
 
-        # Come up with random numbers 0-mean_match_candidates, with priority given to hashed_seeds
-        if hashed_seeds is None:
-            ind = random_state.randint(mean_match_candidates, size=(num_bachelors))
-        else:
-            ind = hashed_seeds % mean_match_candidates
+        # We can skip the random selection process if mean_match_candidates == 1
+        if mean_match_candidates == 1:
+            index_choice = knn_indices
 
-        index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
+        else:
+            # Come up with random numbers 0-mean_match_candidates, with priority given to hashed_seeds
+            if hashed_seeds is None:
+                ind = random_state.randint(mean_match_candidates, size=(num_bachelors))
+            else:
+                ind = hashed_seeds % mean_match_candidates
+
+            index_choice = knn_indices[np.arange(knn_indices.shape[0]), ind]
+
         imp_values = np.array(candidate_values)[index_choice]
 
     return imp_values
