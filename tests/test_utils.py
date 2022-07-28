@@ -27,16 +27,20 @@ def test_subset():
         y_rand_std_diff = abs(y.std() - y_rand_sub.std())
         strat_std_closer.append(y_strat_std_diff < y_rand_std_diff)
 
-        # See which random sample has a closer stdev
+        # See which random sample has a closer mean
         y_strat_mean_diff = abs(y.mean() - y_strat_sub.mean())
         y_rand_mean_diff = abs(y.mean() - y_rand_sub.mean())
         strat_mean_closer.append(y_strat_mean_diff < y_rand_mean_diff)
 
+    # Assert that the mean and stdev of the
+    # stratified random draws are closer to the
+    # original distribution over 50% of the time.
     assert np.array(strat_std_closer).mean() > 0.5
     assert np.array(strat_mean_closer).mean() > 0.5
 
 
 def test_subset_continuous_reproduce():
+    # Tests for reproducibility in numeric stratified subsetting
     for i in range(100):
         y = np.random.normal(size=1000)
         size = 100
@@ -48,6 +52,7 @@ def test_subset_continuous_reproduce():
 
 
 def test_subset_categorical_reproduce():
+    # Tests for reproducibility in categorical stratified subsetting
     for i in range(100):
         y = np.random.randint(low=1, high=10, size=1000)
         size = 100

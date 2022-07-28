@@ -104,6 +104,11 @@ class ImputedData:
 
         # All references to the data should be through self.
         self.working_data = impute_data.copy() if copy_data else impute_data
+        data_shape = self.working_data.shape
+        int_storage_types = ["uint64", "uint32", "uint16", "uint8"]
+        for st in int_storage_types:
+            if data_shape[0] <= np.iinfo(st).max:
+                na_where_type = st
 
         # Collect metadata and format data
         if isinstance(self.working_data, pd_DataFrame):
@@ -114,7 +119,6 @@ class ImputedData:
             original_data_class = "pd_DataFrame"
             column_names = self.working_data.columns.tolist()
             pd_dtypes_orig = self.working_data.dtypes
-            data_shape = self.working_data.shape
 
             if any([x.name == "object" for x in pd_dtypes_orig]):
                 raise ValueError(
@@ -153,7 +157,9 @@ class ImputedData:
 
             # Collect info about what data is missing.
             na_where = {
-                col: np.where(self.working_data.iloc[:, col].isnull())[0]
+                col: np.where(self.working_data.iloc[:, col].isnull())[0].astype(
+                    na_where_type
+                )
                 for col in range(data_shape[1])
             }
             na_counts = {col: len(nw) for col, nw in na_where.items()}
@@ -181,11 +187,11 @@ class ImputedData:
                 self.working_data = self.working_data.astype(np.float32)
 
             # Collect information about dataset
-            data_shape = self.working_data.shape
             column_names = list(range(self.working_data.shape[1]))
-            # self.cast_dtype = self.working_data.dtype
             na_where = {
-                col: np.where(np.isnan(self.working_data[:, col]))[0]
+                col: np.where(np.isnan(self.working_data[:, col]))[0].astype(
+                    na_where_type
+                )
                 for col in range(data_shape[1])
             }
             na_counts = {col: len(nw) for col, nw in na_where.items()}
@@ -338,13 +344,15 @@ class ImputedData:
         del self.imputation_values[ds, var, iter]
 
     def __repr__(self):
-        summary_string = " " * 14 + "Class: ImputedData\n" + self._ids_info()
+        summary_string = f'\n{" " * 14}Class: ImputedData\n{self._ids_info()}'
         return summary_string
 
     def _ids_info(self):
         summary_string = f"""\
            Datasets: {self.dataset_count()}
          Iterations: {self.iteration_count()}
+       Data Samples: {self.data_shape[0]}
+       Data Columns: {self.data_shape[1]}
   Imputed Variables: {len(self.imputation_order)}
 save_all_iterations: {self.save_all_iterations}"""
         return summary_string
@@ -369,38 +377,34 @@ save_all_iterations: {self.save_all_iterations}"""
         else:
             return str(self.column_names[ind])
 
-    def _get_variable_index(self, variables):
+    def _get_variable_index(self, var_obj):
         """
         Variables can commonly be specified by their names.
         If names are passed, indexes are returned in the same structure.
         If indexes are passed, the object is returned.
         """
-        if variables is None:
+        if var_obj is None:
             indx = list(range(self.data_shape[1]))
-        elif isinstance(variables, str):
-            indx = self.column_names.index(variables)
-        elif _is_int(variables):
-            indx = variables
-        elif isinstance(variables, list):
-            if isinstance(variables[0], str):
-                indx = [self.column_names.index(v) for v in variables]
-            elif _is_int(variables[0]):
-                indx = variables
-            else:
-                raise ValueError("Variable type not recognized")
-        elif isinstance(variables, dict):
-            if isinstance(list(variables)[0], str):
-                var = variables.copy()
-                indx = {self.column_names.index(v): var.pop(v) for v in list(var)}
-            elif _is_int(list(variables)[0]):
-                indx = variables
-            else:
-                raise ValueError("Variable type not recognized")
+        elif isinstance(var_obj, str):
+            indx = self.column_names.index(var_obj)
+        elif _is_int(var_obj):
+            indx = var_obj
+        elif isinstance(var_obj, list):
+            indx = [
+                self.column_names.index(v) if isinstance(v, str) else v for v in var_obj
+            ]
+            assert all([_is_int(v) for v in indx])
+        elif isinstance(var_obj, dict):
+            indx = {}
+            for v, val in var_obj.items():
+                v = self.column_names.index(v) if isinstance(v, str) else v
+                assert _is_int(v)
+                indx[v] = val
         else:
-            raise ValueError("Variable type not recognized")
+            raise ValueError("var_obj type not recognized")
         return indx
 
-    def _get_working_data_nonmissing_indx(self, var):
+    def _get_nonmissing_indx(self, var):
         non_missing_ind = np.setdiff1d(
             np.arange(self.data_shape[0]), self.na_where[var]
         )
@@ -430,7 +434,10 @@ save_all_iterations: {self.save_all_iterations}"""
         """Need to put self.working_data back in its original form"""
         for c in self.imputation_order:
             _assign_col_values_without_copy(
-                dat=self.working_data, row_ind=self.na_where[c], col_ind=c, val=np.NaN
+                dat=self.working_data,
+                row_ind=self.na_where[c],
+                col_ind=c,
+                val=np.array([np.NaN]),
             )
 
     def _get_num_vars(self, subset=None):
@@ -668,7 +675,7 @@ save_all_iterations: {self.save_all_iterations}"""
                 ds: self[ds, var, iteration] for ds in datasets
             }
             plt.sca(ax[axr, axc])
-            non_missing_ind = self._get_working_data_nonmissing_indx(var)
+            non_missing_ind = self._get_nonmissing_indx(var)
             nonmissing_values = _subset_data(
                 self.working_data, row_ind=non_missing_ind, col_ind=var, return_1d=True
             )

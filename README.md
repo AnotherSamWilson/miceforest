@@ -11,9 +11,9 @@ Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://an
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 <!-- [![MIT license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT) -->
 <!-- [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)   -->
-<!-- [![DEV_Version_Badge](https://img.shields.io/badge/Dev-5.5.4-blue.svg)](https://pypi.org/project/miceforest/) -->
+<!-- [![DEV_Version_Badge](https://img.shields.io/badge/Dev-5.6.0-blue.svg)](https://pypi.org/project/miceforest/) -->
 
-## miceforest: Fast, Memory Efficient Imputation with lightgbm
+## miceforest: Fast, Memory Efficient Imputation with LightGBM
 
 <a href='https://github.com/AnotherSamWilson/miceforest'><img src='https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/icon.png' align="right" height="300" /></a>
 
@@ -33,7 +33,7 @@ with lightgbm. The R version of this package may be found
       - Fits into a sklearn pipeline
       - User can customize every aspect of the imputation process
   - **Production Ready**
-      - Can impute new, unseen datasets very quickly
+      - Can impute new, unseen datasets quickly
       - Kernels are efficiently compressed during saving and loading
       - Data can be imputed in place to save memory
       - Can build models on non-missing data
@@ -52,12 +52,10 @@ you can find
     Basics](https://github.com/AnotherSamWilson/miceforest#The-Basics)
       - [Basic
         Examples](https://github.com/AnotherSamWilson/miceforest#Basic-Examples)
-      - [Controlling Tree
-        Growth](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
-      - [Preserving Data
-        Assumptions](https://github.com/AnotherSamWilson/miceforest#Preserving-Data-Assumptions)
-      - [Imputing With Gradient Boosted
-        Trees](https://github.com/AnotherSamWilson/miceforest#Imputing-With-Gradient-Boosted-Trees)
+      - [Customizing LightGBM
+        Parameters](https://github.com/AnotherSamWilson/miceforest#Customizing-LightGBM-Parameters)
+      - [Available Mean Match
+        Schemes](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
       - [Imputing New Data with Existing
         Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
       - [Saving and Loading
@@ -88,6 +86,7 @@ you can find
         Importance](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
       - [Mean
         Convergence](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
+  - [Benchmarks](https://github.com/AnotherSamWilson/miceforest#Benchmarks)
   - [Using the Imputed
     Data](https://github.com/AnotherSamWilson/miceforest#Using-the-Imputed-Data)
   - [The MICE
@@ -125,17 +124,22 @@ $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
 
 ### Classes
 
-miceforest has 2 main classes which the user will interact with:
+miceforest has 3 main classes which the user will interact with:
 
-  - `ImputationKernel` - This class contains the raw data off of which
-    the `mice` algorithm is performed. During this process, models will
-    be trained, and the imputed (predicted) values will be stored. These
-    values can be used to fill in the missing values of the raw data.
-    The raw data can be copied, or referenced directly. Models can be
-    saved, and used to impute new datasets.
-  - `ImputedData` - The result of
-    `ImputationKernel.impute_new_data(new_data)`. This contains the raw
-    data in `new_data` as well as the imputed values.
+  - [`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel)
+    - This class contains the raw data off of which the `mice` algorithm
+    is performed. During this process, models will be trained, and the
+    imputed (predicted) values will be stored. These values can be used
+    to fill in the missing values of the raw data. The raw data can be
+    copied, or referenced directly. Models can be saved, and used to
+    impute new datasets.
+  - [`ImputedData`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputedData.html#miceforest.ImputedData)
+    - The result of `ImputationKernel.impute_new_data(new_data)`. This
+    contains the raw data in `new_data` as well as the imputed values.  
+  - [`MeanMatchScheme`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.MeanMatchScheme.html#miceforest.MeanMatchScheme)
+    - Determines how mean matching should be carried out. There are 3
+    built-in mean match schemes available in miceforest, discussed
+    below.
 
 ## The Basics
 
@@ -157,8 +161,9 @@ iris_amp = mf.ampute_data(iris,perc=0.25,random_state=1991)
 
 ### Basic Examples
 
-If you only want to create a single imputed dataset, you can set the
-`datasets` parameter to 1:
+If you only want to create a single imputed dataset, you can use
+[`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel)
+with the `datasets` parameter set to 1:
 
 ``` python
 # Create kernel. 
@@ -174,15 +179,7 @@ kds.mice(2)
 
 # Return the completed dataset.
 iris_complete = kds.complete_data(0)
-print(iris_complete.isnull().sum())
 ```
-
-    ## sepal length (cm)    0
-    ## sepal width (cm)     0
-    ## petal length (cm)    0
-    ## petal width (cm)     0
-    ## species              0
-    ## dtype: int64
 
 There are also an array of plotting functions available, these are
 discussed below in the section [Diagnostic
@@ -191,9 +188,10 @@ Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting).
 We usually don’t want to impute just a single dataset. In statistics,
 multiple imputation is a process by which the uncertainty/other effects
 caused by missing values can be examined by creating multiple different
-imputed datasets. `ImputationKernel` can contain an arbitrary number of
-different datasets, all of which have gone through mutually exclusive
-imputation processes:
+imputed datasets.
+[`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel)
+can contain an arbitrary number of different datasets, all of which have
+gone through mutually exclusive imputation processes:
 
 ``` python
 # Create kernel. 
@@ -211,9 +209,12 @@ kernel.mice(2)
 print(kernel)
 ```
 
+    ## 
     ##               Class: ImputationKernel
     ##            Datasets: 4
     ##          Iterations: 2
+    ##        Data Samples: 150
+    ##        Data Columns: 5
     ##   Imputed Variables: 5
     ## save_all_iterations: True
 
@@ -221,7 +222,7 @@ After we have run mice, we can obtain our completed dataset directly
 from the kernel:
 
 ``` python
-completed_dataset = kernel.complete_data(dataset=0, inplace=False)
+completed_dataset = kernel.complete_data(dataset=0)
 print(completed_dataset.isnull().sum(0))
 ```
 
@@ -232,23 +233,7 @@ print(completed_dataset.isnull().sum(0))
     ## species              0
     ## dtype: int64
 
-Using `inplace=False` returns a copy of the completed data. Since the
-raw data is already stored in `kernel.working_data`, you can set
-`inplace=True` to complete the data without returning a copy:
-
-``` python
-kernel.complete_data(dataset=0, inplace=True)
-print(kernel.working_data.isnull().sum(0))
-```
-
-    ## sepal length (cm)    0
-    ## sepal width (cm)     0
-    ## petal length (cm)    0
-    ## petal width (cm)     0
-    ## species              0
-    ## dtype: int64
-
-### Controlling Tree Growth
+### Customizing LightGBM Parameters
 
 Parameters can be passed directly to lightgbm in several different ways.
 Parameters you wish to apply globally to every model can simply be
@@ -272,18 +257,33 @@ kernel.mice(
   variable_parameters={'species': {'n_estimators': 25}},
   n_estimators=50
 )
+
+# Let's get the actual models for these variables:
+species_model = kernel.get_model(dataset=0,variable="species")
+sepalwidth_model = kernel.get_model(dataset=0,variable="sepal width (cm)")
+
+print(
+f"""Species used {str(species_model.params["num_iterations"])} iterations
+Sepal Width used {str(sepalwidth_model.params["num_iterations"])} iterations
+"""
+)
 ```
+
+    ## Species used 25 iterations
+    ## Sepal Width used 50 iterations
 
 In this scenario, any parameters specified in `variable_parameters`
 takes presidence over the kwargs.
 
-### Preserving Data Assumptions
+Since we can pass any parameters we want to LightGBM, we can completely
+customize how our models are built. That includes how the data should be
+modeled. If your data contains count data, or any other data which can
+be parameterized by lightgbm, you can simply specify that variable to be
+modeled with the corresponding objective function.
 
-If your data contains count data, or any other data which can be
-parameterized by lightgbm, you can simply specify that variable to be
-modeled with the corresponding objective function. For example, let’s
-pretend `sepal width (cm)` is a count field which can be parameterized
-by a Poisson distribution:
+For example, let’s pretend `sepal width (cm)` is a count field which can
+be parameterized by a Poisson distribution. Let’s also change our
+boosting method to gradient boosted trees:
 
 ``` python
 # Create kernel. 
@@ -295,40 +295,80 @@ cust_kernel = mf.ImputationKernel(
 
 cust_kernel.mice(
   iterations=1, 
-  variable_parameters={'sepal width (cm)': {'objective': 'poisson'}}
+  variable_parameters={'sepal width (cm)': {'objective': 'poisson'}},
+  boosting = 'gbdt',
+  min_sum_hessian_in_leaf=0.01
 )
 ```
 
 Other nice parameters like `monotone_constraints` can also be passed.
+Setting the parameter `device: 'gpu'` will utilize GPU learning, if
+LightGBM is set up to do this on your machine.
 
-### Imputing with Gradient Boosted Trees
+### Available Mean Match Schemes
 
-Since any arbitrary parameters can be passed to `lightgbm.train()`, it
-is possible to change the algrorithm entirely. This can be done simply
-like so:
+Note: It is probably a good idea to read [this
+section](https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching)
+first, to get some context on how mean matching works.
+
+The class `miceforest.MeanMatchScheme` contains information about how
+mean matching should be performed, such as:
+
+1)  Mean matching functions  
+2)  Mean matching candidates  
+3)  How to get predictions from a lightgbm model  
+4)  The datatypes predictions are stored as
+
+There are three pre-built mean matching schemes that come with
+`miceforest`:
 
 ``` python
-# Create kernel. 
-kds_gbdt = mf.ImputationKernel(
-  iris_amp,
-  datasets=1,
-  save_all_iterations=True,
-  random_state=1991
+from miceforest import (
+  mean_match_default,
+  mean_match_fast_cat,
+  mean_match_shap
 )
 
-# We need to add a small minimum hessian, or lightgbm will complain:
-kds_gbdt.mice(iterations=1, boosting='gbdt', min_sum_hessian_in_leaf=0.01)
-
-# Return the completed kernel data
-completed_data = kds_gbdt.complete_data(dataset=0)
+# To get information for each, use help()
+# help(mean_match_default)
 ```
 
-Note: It is HIGHLY recommended to run parameter tuning if using gradient
-boosted trees. The parameter tuning process returns the optimal number
-of iterations, and usually results in much more useful parameter sets.
-See the section [Tuning
-Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
-for more details.
+These schemes mostly differ in their strategy for performing mean
+matching
+
+  - **mean\_match\_default** - medium speed, medium imputation quality
+      - Categorical: perform a K Nearest Neighbors search on the
+        candidate class probabilities, where K = mmc. Select 1 at
+        random, and choose the associated candidate value as the
+        imputation value.  
+      - Numeric: Perform a K Nearest Neighbors search on the candidate
+        predictions, where K = mmc. Select 1 at random, and choose the
+        associated candidate value as the imputation value.  
+  - **mean\_match\_fast\_cat** - fastest speed, lowest imputation
+    quality
+      - Categorical: return class based on random draw weighted by class
+        probability for each sample.  
+      - Numeric: perform a K Nearest Neighbors search on the candidate
+        class probabilities, where K = mmc. Select 1 at random, and
+        choose the associated candidate value as the imputation value.  
+  - **mean\_match\_shap** - slowest speed, highest imputation quality
+    for large datasets
+      - Categorical: perform a K Nearest Neighbors search on the
+        candidate prediction shap values, where K = mmc. Select 1 at
+        random, and choose the associated candidate value as the
+        imputation value.  
+      - Numeric: perform a K Nearest Neighbors search on the candidate
+        prediction shap values, where K = mmc. Select 1 at random, and
+        choose the associated candidate value as the imputation value.
+
+As a special case, if the mean\_match\_candidates is set to 0, the
+following behavior is observed for all schemes:
+
+  - Categorical: the class with the highest probability is chosen.  
+  - Numeric: the predicted value is used
+
+These mean matching schemes can be updated and customized, we show an
+example below in the advanced section.
 
 ### Imputing New Data with Existing Models
 
@@ -355,7 +395,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.533158 seconds
+    ## New Data imputed in 0.456103 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
@@ -426,40 +466,93 @@ assert not np.any(np.isnan(X_test_t))
 
 ## Advanced Features
 
-There are many ways to alter the imputation procedure to fit your
-specific dataset.
+Multiple imputation is a complex process. However, `miceforest` allows
+all of the major components to be switched out and customized by the
+user.
 
 ### Customizing the Imputation Process
 
 It is possible to heavily customize our imputation procedure by
 variable. By passing a named list to `variable_schema`, you can specify
-the predictors for each variable to impute. You can also specify
+the predictor variables for each imputed variable. You can also specify
 `mean_match_candidates` and `data_subset` by variable by passing a dict
 of valid values, with variable names as keys. You can even replace the
-entire default mean matching function if you wish:
+entire default mean matching function for certain objectives if desired.
+Below is an *extremely* convoluted setup, which you would probably never
+want to use. It simply shows what is possible:
 
 ``` python
-var_sch = {
+# Use the default mean match schema as our base
+from miceforest import mean_match_default
+mean_match_custom = mean_match_default.copy()
+
+# Define a mean matching function that 
+# just randomly shuffles the predictions
+def custom_mmf(bachelor_preds):
+    np.random.shuffle(bachelor_preds)
+    return bachelor_preds
+
+# Specify that our custom function should be
+# used to perform mean matching on any variable
+# that was modeled with a poisson objective:
+mean_match_custom.set_mean_match_function(
+  {"poisson": custom_mmf}
+)
+
+# Set the mean match candidates by variable
+mean_match_custom.set_mean_match_candidates(
+  {
+      'sepal width (cm)': 3,
+      'petal width (cm)': 0
+  }
+)
+
+# Define which variables should be used to model others
+variable_schema = {
     'sepal width (cm)': ['species','petal width (cm)'],
     'petal width (cm)': ['species','sepal length (cm)']
 }
-var_mmc = {
-    'sepal width (cm)': 5,
-    'petal width (cm)': 0
-}
-var_mms = {
+
+# Subset the candidate data to 50 rows for sepal width (cm).
+variable_subset = {
   'sepal width (cm)': 50
+}
+
+# Specify that petal width (cm) should be modeled by the
+# poisson objective. Our custom mean matching function
+# above will be used for this variable.
+variable_parameters = {
+  'petal width (cm)': {"objective": "poisson"}
 }
 
 cust_kernel = mf.ImputationKernel(
     iris_amp,
     datasets=3,
-    variable_schema=var_sch,
-    mean_match_candidates=var_mmc,
-    data_subset=var_mms
+    mean_match_scheme=mean_match_custom,
+    variable_schema=variable_schema,
+    data_subset=variable_subset
 )
-cust_kernel.mice(1)
+cust_kernel.mice(iterations=1, variable_parameters=variable_parameters)
 ```
+
+The mean matching function can take any number of the following
+arguments. If a function does not take one of these arguments, then the
+process will not prepare that data for mean matching.
+
+``` python
+from miceforest.MeanMatchScheme import AVAILABLE_MEAN_MATCH_ARGS
+print("\n".join(AVAILABLE_MEAN_MATCH_ARGS))
+```
+
+    ## mean_match_candidates
+    ## lgb_booster
+    ## bachelor_preds
+    ## bachelor_features
+    ## candidate_values
+    ## candidate_features
+    ## candidate_preds
+    ## random_state
+    ## hashed_seeds
 
 ### Building Models on Nonmissing Data
 
@@ -542,7 +635,7 @@ kernel.mice(1, variable_parameters=optimal_parameters)
 print(optimal_parameters)
 ```
 
-    ## {0: {'boosting': 'gbdt', 'num_iterations': 182, 'max_depth': 8, 'num_leaves': 20, 'min_data_in_leaf': 1, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.2498838792503861, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6020460898858531, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1509546878, 'learning_rate': 0.02, 'cat_smooth': 17.807024990062555}, 1: {'boosting': 'gbdt', 'num_iterations': 93, 'max_depth': 8, 'num_leaves': 14, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7802435334180599, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6856668707631843, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1516972802, 'learning_rate': 0.02, 'cat_smooth': 4.802568893662679}, 2: {'boosting': 'gbdt', 'num_iterations': 217, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 8, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9565982004313843, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6065024947204825, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 1189375476, 'learning_rate': 0.02, 'cat_smooth': 17.2138799939537}, 3: {'boosting': 'gbdt', 'num_iterations': 182, 'max_depth': 8, 'num_leaves': 18, 'min_data_in_leaf': 2, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.8988221859881808, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.8661396027161443, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'seed': 2018995050, 'learning_rate': 0.02, 'cat_smooth': 12.514799660430654}, 4: {'boosting': 'gbdt', 'num_iterations': 230, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 7, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.6746301598613926, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.20999114041328495, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'seed': 1480738753, 'learning_rate': 0.02, 'cat_smooth': 8.604908973256704}}
+    ## {0: {'boosting': 'gbdt', 'num_iterations': 165, 'max_depth': 8, 'num_leaves': 20, 'min_data_in_leaf': 1, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.2498838792503861, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6020460898858531, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'learning_rate': 0.02, 'cat_smooth': 17.807024990062555}, 1: {'boosting': 'gbdt', 'num_iterations': 94, 'max_depth': 8, 'num_leaves': 14, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7802435334180599, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6856668707631843, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'learning_rate': 0.02, 'cat_smooth': 4.802568893662679}, 2: {'boosting': 'gbdt', 'num_iterations': 229, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 8, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.9565982004313843, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.6065024947204825, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'learning_rate': 0.02, 'cat_smooth': 17.2138799939537}, 3: {'boosting': 'gbdt', 'num_iterations': 182, 'max_depth': 8, 'num_leaves': 20, 'min_data_in_leaf': 4, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.7251674145835884, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.9262368919526676, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'regression', 'learning_rate': 0.02, 'cat_smooth': 5.780326477879999}, 4: {'boosting': 'gbdt', 'num_iterations': 208, 'max_depth': 8, 'num_leaves': 4, 'min_data_in_leaf': 7, 'min_sum_hessian_in_leaf': 0.1, 'min_gain_to_split': 0.0, 'bagging_fraction': 0.6746301598613926, 'feature_fraction': 1.0, 'feature_fraction_bynode': 0.20999114041328495, 'bagging_freq': 1, 'verbosity': -1, 'objective': 'multiclass', 'num_class': 3, 'learning_rate': 0.02, 'cat_smooth': 8.604908973256704}}
 
 This will perform 10 fold cross validation on random samples of
 parameters. By default, all variables models are tuned. If you are
@@ -650,10 +743,10 @@ use to decrease the time a process takes to run:
     This can cause the model training nearest-neighbors search to take a
     long time for large data. A subset of these points can be searched
     instead by using `data_subset`.  
-  - In the `prediction_dtypes` parameter, specify `float16` for numeric
-    columns if it suits your data. The default mean matching functions
-    are optimized for fast searches through `float16` arrays. You will
-    lose some granularity, but it is often worth the additional speed.  
+  - If categorical columns are taking a long time, you can use the
+    `mean_match_fast_cat` scheme. You can also set different parameters
+    specifically for categorical columns, like smaller
+    `bagging_fraction` or `num_iterations`.
   - If you need to impute new data faster, compile the predictions with
     the `compile_candidate_preds` method. This stores the predictions
     for each model, so it does not need to be re-calculated at each
@@ -811,12 +904,15 @@ for iteration in range(kernel.iteration_count()+1):
 print(acclist)
 ```
 
-    ## [0.35, 0.81, 0.81, 0.81, 0.84, 0.84, 0.81]
+    ## [0.35, 0.81, 0.84, 0.84, 0.89, 0.92, 0.89]
 
-In this instance, we went from a \~32% accuracy (which is expected with
-random sampling) to an accuracy of \~65% after the first iteration. This
-isn’t the best example, since our kernel so far has been abused to show
-the flexability of the imputation procedure.
+In this instance, we went from a low accuracy (what is expected with
+random sampling) to a much higher accuracy.
+
+## Benchmarks
+
+Benchmarks for imputation quality and speed can be found in the
+benchmarks directory.
 
 ## The MICE Algorithm
 
@@ -870,12 +966,12 @@ types of inference:
 
 `miceforest` can make use of a procedure called predictive mean matching
 (PMM) to select which values are imputed. PMM involves selecting a
-datapoint from the original, nonmissing data which has a predicted value
-close to the predicted value of the missing sample. The closest N
-(`mean_match_candidates` parameter) values are chosen as candidates,
-from which a value is chosen at random. This can be specified on a
-column-by-column basis. Going into more detail from our example above,
-we see how this works in practice:
+datapoint from the original, nonmissing data (candidates) which has a
+predicted value close to the predicted value of the missing sample
+(bachelors). The closest N (`mean_match_candidates` parameter) values
+are selected, from which a value is chosen at random. This can be
+specified on a column-by-column basis. Going into more detail from our
+example above, we see how this works in practice:
 
 <img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/PMM.png" style="display: block; margin: auto;" />
 
@@ -942,9 +1038,16 @@ We can see how our variables are distributed and correlated in the graph
 above. Now let’s run our imputation process twice, once using mean
 matching, and once using the model prediction.
 
-``` r
-kernelmeanmatch = mf.ImputationKernel(ampdat, datasets=1,mean_match_candidates=5)
-kernelmodeloutput = mf.ImputationKernel(ampdat, datasets=1,mean_match_candidates=0)
+``` python
+from miceforest import mean_match_default
+scheme_mmc_0 = mean_match_default.copy()
+scheme_mmc_5 = mean_match_default.copy()
+
+scheme_mmc_0.set_mean_match_candidates(0)
+scheme_mmc_5.set_mean_match_candidates(5)
+
+kernelmeanmatch = mf.ImputationKernel(ampdat, mean_match_scheme=scheme_mmc_5, datasets=1)
+kernelmodeloutput = mf.ImputationKernel(ampdat, mean_match_scheme=scheme_mmc_0, datasets=1)
 
 kernelmeanmatch.mice(2)
 kernelmodeloutput.mice(2)

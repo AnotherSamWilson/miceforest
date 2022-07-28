@@ -2,27 +2,9 @@ from .compat import pd_DataFrame, pd_Series, pd_read_parquet
 import numpy as np
 import blosc
 import dill
+from typing import Union, List
 
-
-_REGRESSIVE_OBJECTIVES = [
-    "regression",
-    "regression_l1",
-    "poisson",
-    "huber",
-    "fair",
-    "mape",
-    "cross_entropy",
-    "cross_entropy_lambda" "quantile",
-    "tweedie",
-    "gamma",
-]
-
-
-_CATEGORICAL_OBJECTIVES = [
-    "binary",
-    "multiclass",
-    "multiclassova",
-]
+__type_var = Union[List[str], List[int]]
 
 
 def ampute_data(
@@ -90,6 +72,37 @@ def ampute_data(
         amputed_data[na_ind] = np.NaN
 
     return amputed_data
+
+
+def load_kernel(filepath, n_threads=None):
+    """
+    Loads a kernel that was saved using save_kernel().
+
+    Parameters
+    ----------
+    filepath: str
+        The filepath of the saved kernel
+
+    n_threads: int
+        The threads to use for decompression. By default, all threads are used.
+
+    Returns
+    -------
+    ImputationKernel
+    """
+    n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
+    blosc.set_nthreads(n_threads)
+    with open(filepath, "rb") as f:
+        kernel = dill.loads(blosc.decompress(dill.load(f)))
+
+    if kernel.original_data_class == "pd_DataFrame":
+        kernel.working_data = pd_read_parquet(kernel.working_data)
+        for col in kernel.working_data.columns:
+            kernel.working_data[col] = kernel.working_data[col].astype(
+                kernel.working_dtypes[col]
+            )
+
+    return kernel
 
 
 def stratified_subset(y, size, groups, cat, seed):
@@ -236,62 +249,6 @@ def ensure_rng(random_state) -> np.random.RandomState:
     return random_state
 
 
-def load_kernel(filepath, n_threads=None):
-    """
-    Loads a kernel that was saved using save_kernel().
-
-    Parameters
-    ----------
-    filepath: str
-        The filepath of the saved kernel
-
-    n_threads: int
-        The threads to use for decompression. By default, all threads are used.
-
-    Returns
-    -------
-    ImputationKernel
-    """
-    n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
-    blosc.set_nthreads(n_threads)
-    with open(filepath, "rb") as f:
-        kernel = dill.loads(blosc.decompress(dill.load(f)))
-
-    if kernel.original_data_class == "pd_DataFrame":
-        kernel.working_data = pd_read_parquet(kernel.working_data)
-        for col in kernel.working_data.columns:
-            kernel.working_data[col] = kernel.working_data[col].astype(
-                kernel.working_dtypes[col]
-            )
-
-    return kernel
-
-
-def _get_missing_stats(data: np.ndarray):
-    """
-    This function is seperate because this data is needed
-    at different times depending on the datatype passed
-    """
-    na_where = np.isnan(data)
-    data_shape = data.shape
-    na_counts = na_where.sum(0).tolist()
-    na_where = {col: np.where(na_where[:, col])[0] for col in range(data_shape[1])}
-    vars_with_any_missing = [int(col) for col, ind in na_where.items() if len(ind > 0)]
-
-    return na_where, data_shape, na_counts, vars_with_any_missing
-
-
-def _get_default_mmc(candidates=None) -> int:
-    if candidates is None:
-        return 5
-    else:
-        percent = 0.001
-        minimum = 5
-        maximum = 10
-        mean_match_candidates = min(maximum, max(minimum, int(percent * candidates)))
-        return mean_match_candidates
-
-
 def _ensure_iterable(x):
     """
     If the object is iterable, return the object.
@@ -309,15 +266,15 @@ def _ensure_np_array(x):
         raise ValueError("Can't cast to numpy array")
 
 
-def _get_default_mms(candidates) -> int:
-    return int(candidates)
-
-
-def _setequal(a, b):
-    if not hasattr(a, "__iter__"):
-        return a == b
+def _interpret_ds(val, avail_can):
+    if _is_int(val):
+        assert val <= avail_can, "data subset is more than available candidates"
+    elif isinstance(val, float):
+        assert (val <= 1.0) and (val > 0.0), "if float, 0.0 < data_subset <= 1.0"
+        val = int(val * avail_can)
     else:
-        return set(a) == set(b)
+        raise ValueError("malformed data_subset passed")
+    return val
 
 
 def _is_int(x):
@@ -345,9 +302,17 @@ def _assign_col_values_without_copy(dat, row_ind, col_ind, val):
     row_ind = _ensure_iterable(row_ind)
 
     if isinstance(dat, pd_DataFrame):
+        # Remove iterable attribute if
+        # we are only assigning 1 value
+        if len(val) == 1:
+            val = val[0]
+
         dat.iloc[row_ind, col_ind] = val
+
     elif isinstance(dat, np.ndarray):
+        val.shape = -1
         dat[row_ind, col_ind] = val
+
     else:
         raise ValueError("Unknown data class passed.")
 

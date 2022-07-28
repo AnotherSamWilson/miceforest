@@ -4,8 +4,13 @@ from sklearn.datasets import load_iris
 import pandas as pd
 import numpy as np
 import miceforest as mf
+from miceforest.utils import logistic_function
 from sklearn.metrics import roc_auc_score
-
+from miceforest import (
+    mean_match_fast_cat,
+    mean_match_default,
+    mean_match_shap
+)
 
 random_state = np.random.RandomState(5)
 iris = pd.concat(load_iris(return_X_y=True, as_frame=True), axis=1)
@@ -28,8 +33,9 @@ kernel_sm2 = mf.ImputationKernel(
     iris_amp,
     datasets=1,
     data_subset=0.75,
-    mean_match_candidates=3,
-    random_state=random_state
+    mean_match_scheme=mean_match_fast_cat,
+    save_models=2,
+    random_state=1
 )
 kernel_sm2.mice(
     iterations,
@@ -42,9 +48,9 @@ kernel_sm1 = mf.ImputationKernel(
     iris_amp,
     datasets=1,
     data_subset=0.75,
-    mean_match_candidates=3,
+    mean_match_scheme=mean_match_default,
     save_models=1,
-    random_state=random_state
+    random_state=1
 )
 kernel_sm1.mice(
     iterations,
@@ -53,6 +59,22 @@ kernel_sm1.mice(
     num_leaves=31
 )
 
+kernel_shap = mf.ImputationKernel(
+    iris_amp,
+    datasets=1,
+    data_subset=0.75,
+    mean_match_scheme=mean_match_shap,
+    save_models=1,
+    random_state=1
+)
+kernel_shap.mice(
+    iterations,
+    boosting='random_forest',
+    num_iterations=100,
+    num_leaves=31,
+)
+
+
 def test_sm2_mice_cat():
 
     # Binary
@@ -60,7 +82,7 @@ def test_sm2_mice_cat():
     ind = kernel_sm2.na_where[col]
     orig = iris.values[ind, col]
     imps = kernel_sm2[0, col, iterations]
-    preds = kernel_sm2.get_raw_prediction(col)
+    preds = logistic_function(kernel_sm2.get_raw_prediction(col, dtype="float32"))
     roc = roc_auc_score(orig, preds[ind])
     acc = (imps == orig).mean()
     assert roc > 0.6
@@ -71,7 +93,7 @@ def test_sm2_mice_cat():
     ind = kernel_sm2.na_where[col]
     orig = iris.values[ind, col]
     imps = kernel_sm2[0, col, iterations]
-    preds = kernel_sm2.get_raw_prediction(col)
+    preds = kernel_sm2.get_raw_prediction(col, dtype="float32")
     roc = roc_auc_score(orig, preds[ind,:], multi_class='ovr', average='macro')
     acc = (imps == orig).mean()
     assert roc > 0.7
@@ -103,7 +125,7 @@ def test_sm1_mice_cat():
     ind = kernel_sm1.na_where[col]
     orig = iris.values[ind, col]
     imps = kernel_sm1[0, col, iterations]
-    preds = kernel_sm1.get_raw_prediction(col)
+    preds = logistic_function(kernel_sm1.get_raw_prediction(col, dtype="float32"))
     roc = roc_auc_score(orig, preds[ind])
     acc = (imps == orig).mean()
     assert roc > 0.6
@@ -114,7 +136,7 @@ def test_sm1_mice_cat():
     ind = kernel_sm1.na_where[col]
     orig = iris.values[ind, col]
     imps = kernel_sm1[0, col, iterations]
-    preds = kernel_sm1.get_raw_prediction(col)
+    preds = logistic_function(kernel_sm1.get_raw_prediction(col, dtype="float32"))
     roc = roc_auc_score(orig, preds[ind,:], multi_class='ovr', average='macro')
     acc = (imps == orig).mean()
     assert roc > 0.7
