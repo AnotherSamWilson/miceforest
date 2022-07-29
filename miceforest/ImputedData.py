@@ -87,7 +87,7 @@ class ImputedData:
                 cat_dat = self.working_data.iloc[:, cat]
                 uniq, counts = np.unique(cat_dat.dropna(), return_counts=True)
                 category_counts[cat] = len(uniq)
-                if np.any((counts / counts.sum()) < 0.01):
+                if np.any((counts / counts.sum()) < 0.002):
                     rare_levels.append(cat_name)
 
             if len(rare_levels) > 0:
@@ -160,7 +160,7 @@ class ImputedData:
                 cat_dat = cat_dat[~np.isnan(cat_dat)]
                 uniq, counts = np.unique(cat_dat, return_counts=True)
                 category_counts[cat] = len(uniq)
-                if np.any((counts / counts.sum()) < 0.01):
+                if np.any((counts / counts.sum()) < 0.002):
                     rare_levels.append(cat_name)
 
             if len(rare_levels) > 0:
