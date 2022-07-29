@@ -12,6 +12,7 @@ from .utils import (
 )
 from itertools import combinations
 from typing import Dict, List, Union, Any, Optional
+from warnings import warn
 
 
 class ImputedData:
@@ -22,6 +23,7 @@ class ImputedData:
     Instead, it is returned when ImputationKernel.impute_new_data() is called.
     For parameter arguments, see ImputationKernel documentation.
     """
+
     def __init__(
         self,
         impute_data: _t_dat,
@@ -50,10 +52,7 @@ class ImputedData:
                 raise ValueError("Input data must be 2 dimensional and non empty.")
 
             original_data_class = "pd_DataFrame"
-            column_names: List[str] = [
-                str(x) for x in
-                self.working_data.columns
-            ]
+            column_names: List[str] = [str(x) for x in self.working_data.columns]
             self.column_names = column_names
             pd_dtypes_orig = self.working_data.dtypes
 
@@ -82,10 +81,21 @@ class ImputedData:
 
             # Collect category counts.
             category_counts = {}
-            for var in categorical_variables:
-                cat_dat = self.working_data.iloc[:, var]
-                uniq = set(cat_dat.dropna())
-                category_counts[var] = len(uniq)
+            rare_levels = []
+            for cat in categorical_variables:
+                cat_name = self._get_var_name_from_scalar(cat)
+                cat_dat = self.working_data.iloc[:, cat]
+                uniq, counts = np.unique(cat_dat.dropna(), return_counts=True)
+                category_counts[cat] = len(uniq)
+                if np.any((counts / counts.sum()) < 0.01):
+                    rare_levels.append(cat_name)
+
+            if len(rare_levels) > 0:
+                warn(
+                    f"[{','.join(rare_levels)}] have very rare categories, it is a good "
+                    "idea to group these, or set the min_data_in_leaf parameter to prevent"
+                    "lightgbm from outputting 0.0 probabilities."
+                )
 
             # Collect info about what data is missing.
             na_where: Dict[int, np.ndarray] = {
@@ -119,10 +129,7 @@ class ImputedData:
                 self.working_data = self.working_data.astype(np.float32)
 
             # Collect information about dataset
-            column_names = [
-                str(x) for x in
-                range(self.working_data.shape[1])
-            ]
+            column_names = [str(x) for x in range(self.working_data.shape[1])]
             self.column_names = column_names
             na_where = {
                 col: np.where(np.isnan(self.working_data[:, col]))[0].astype(
@@ -140,19 +147,28 @@ class ImputedData:
                 assert (
                     max(categorical_feature) < self.working_data.shape[1]
                 ), "categorical_feature not in dataset"
-                categorical_variables = self._get_var_ind_from_list(
-                    categorical_feature
-                )
+                categorical_variables = self._get_var_ind_from_list(categorical_feature)
             else:
                 raise ValueError("categorical_feature not recognized")
 
             # Collect category counts.
             category_counts = {}
-            for var in categorical_variables:
-                uniq = set(self.working_data[:, var])
-                uniq = uniq - {np.NaN}
-                category_counts[var] = len(uniq)
+            rare_levels = []
+            for cat in categorical_variables:
+                cat_name = self._get_var_name_from_scalar(cat)
+                cat_dat = self.working_data[:, cat]
+                cat_dat = cat_dat[~np.isnan(cat_dat)]
+                uniq, counts = np.unique(cat_dat, return_counts=True)
+                category_counts[cat] = len(uniq)
+                if np.any((counts / counts.sum()) < 0.01):
+                    rare_levels.append(cat_name)
 
+            if len(rare_levels) > 0:
+                warn(
+                    f"[{','.join(rare_levels)}] have very rare categories, it is a good "
+                    "idea to group these, or set the min_data_in_leaf parameter to prevent"
+                    "lightgbm from outputting 0.0 probabilities."
+                )
 
             # Keep track of datatype.
             self.working_dtypes = self.working_data.dtype
@@ -163,22 +179,14 @@ class ImputedData:
 
         # Formatting of variable_schema.
         if variable_schema is None:
-            variable_schema = _dict_set_diff(
-                range(data_shape[1]), range(data_shape[1])
-            )
+            variable_schema = _dict_set_diff(range(data_shape[1]), range(data_shape[1]))
         else:
             if isinstance(variable_schema, list):
-                var_schem = self._get_var_ind_from_list(
-                    variable_schema
-                )
-                variable_schema = _dict_set_diff(
-                    var_schem, range(data_shape[1])
-                )
+                var_schem = self._get_var_ind_from_list(variable_schema)
+                variable_schema = _dict_set_diff(var_schem, range(data_shape[1]))
 
             elif isinstance(variable_schema, dict):
-                variable_schema = self._get_var_ind_from_dict(
-                    variable_schema
-                )
+                variable_schema = self._get_var_ind_from_dict(variable_schema)
                 # Check for any self-impute attempts
                 self_impute_attempt = [
                     var for var, prd in variable_schema.items() if var in prd
@@ -195,10 +203,7 @@ class ImputedData:
             assert set(imputation_order).issubset(
                 variable_schema
             ), "variable_schema does not include all variables to be imputed."
-            imputation_order = [
-                i for i in imputation_order
-                if na_counts[i] > 0
-            ]
+            imputation_order = [i for i in imputation_order if na_counts[i] > 0]
         elif isinstance(imputation_order, str):
             if imputation_order in ["ascending", "descending"]:
                 imputation_order = self._get_var_ind_from_list(
@@ -207,9 +212,9 @@ class ImputedData:
                     else np.argsort(na_counts)[::-1].tolist()
                 )
                 imputation_order = [
-                    int(i) for i in imputation_order
-                    if na_counts[i] > 0 and
-                    i in list(variable_schema)
+                    int(i)
+                    for i in imputation_order
+                    if na_counts[i] > 0 and i in list(variable_schema)
                 ]
             elif imputation_order == "roman":
                 imputation_order = list(variable_schema).copy()
@@ -308,8 +313,7 @@ save_all_iterations: {self.save_all_iterations}"""
 
     def _get_var_name_from_list(self, variable_list: _t_var_list) -> List[str]:
         ret = [
-            self.column_names[x]
-            if isinstance(x, int) else str(x)
+            self.column_names[x] if isinstance(x, int) else str(x)
             for x in variable_list
         ]
         return ret
@@ -321,8 +325,7 @@ save_all_iterations: {self.save_all_iterations}"""
                 variable = self.column_names.index(variable)
             variable = int(variable)
             val = [
-                int(self.column_names.index(v))
-                if isinstance(v, str) else int(v)
+                int(self.column_names.index(v)) if isinstance(v, str) else int(v)
                 for v in value
             ]
             indx[variable] = val
@@ -331,8 +334,7 @@ save_all_iterations: {self.save_all_iterations}"""
 
     def _get_var_ind_from_list(self, variable_list) -> List[int]:
         ret = [
-            int(self.column_names.index(x))
-            if isinstance(x, str) else int(x)
+            int(self.column_names.index(x)) if isinstance(x, str) else int(x)
             for x in variable_list
         ]
 
@@ -343,7 +345,6 @@ save_all_iterations: {self.save_all_iterations}"""
             variable = self.column_names.index(variable)
         variable = int(variable)
         return variable
-
 
     # def _get_variable_index(self, var_obj):
     #     """
@@ -477,11 +478,11 @@ save_all_iterations: {self.save_all_iterations}"""
         return ds_uniq[0]
 
     def complete_data(
-            self,
-            dataset: int,
-            iteration: Optional[int] = None,
-            inplace: bool = False,
-            variables: Optional[_t_var_list] = None
+        self,
+        dataset: int,
+        iteration: Optional[int] = None,
+        inplace: bool = False,
+        variables: Optional[_t_var_list] = None,
     ):
         """
         Return dataset with missing values imputed.
@@ -661,7 +662,9 @@ save_all_iterations: {self.save_all_iterations}"""
 
         plt.subplots_adjust(**adj_args)
 
-    def get_correlations(self, datasets: List[int], variables: Union[List[int], List[str]]):
+    def get_correlations(
+        self, datasets: List[int], variables: Union[List[int], List[str]]
+    ):
         """
         Return the correlations between datasets for
         the specified variables.

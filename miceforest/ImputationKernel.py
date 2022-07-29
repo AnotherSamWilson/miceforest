@@ -260,7 +260,7 @@ class ImputationKernel(ImputedData):
         imputation_order: Union[str, _t_var_list] = "ascending",
         train_nonmissing: bool = False,
         mean_match_scheme: MeanMatchScheme = None,
-        data_subset: Union[int, float, _t_var_sub]=None,
+        data_subset: Union[int, float, _t_var_sub] = None,
         categorical_feature: Union[str, _t_var_list] = "auto",
         initialization: str = "random",
         save_all_iterations: bool = True,
@@ -356,9 +356,9 @@ class ImputationKernel(ImputedData):
                 levels_in_data = set(cat_dat)
                 levels_in_catdt = set(cat_dtype.categories)
                 levels_not_in_data = levels_in_catdt - levels_in_data
-                assert len(levels_not_in_data) == 0, (
-                    f"{cat_name} has unused categories: {','.join(levels_not_in_data)}"
-                )
+                assert (
+                    len(levels_not_in_data) == 0
+                ), f"{cat_name} has unused categ: {','.join(levels_not_in_data)}"
 
         # Manage randomness
         self._completely_random_kernel = random_state is None
@@ -512,8 +512,7 @@ class ImputationKernel(ImputedData):
         return params
 
     def _format_variable_parameters(
-            self,
-            variable_parameters: Optional[Dict]
+        self, variable_parameters: Optional[Dict]
     ) -> Dict[int, Any]:
         """
         Unpacking will expect an empty dict at a minimum.
@@ -527,8 +526,9 @@ class ImputationKernel(ImputedData):
         else:
 
             for variable in list(variable_parameters):
-                variable_parameters[self._get_var_ind_from_scalar(variable)] = \
-                    variable_parameters.pop(variable)
+                variable_parameters[
+                    self._get_var_ind_from_scalar(variable)
+                ] = variable_parameters.pop(variable)
             vsp_vars = set(variable_parameters)
 
             assert vsp_vars.issubset(
@@ -847,17 +847,14 @@ class ImputationKernel(ImputedData):
             + "being used in a sklearn pipeline."
         )
         _assert_dataset_equivalent(self.working_data, X), (
-            "The dataset passed to fit() was not the same as the "\
+            "The dataset passed to fit() was not the same as the "
             "dataset passed to ImputationKernel()"
         )
         self.mice(**fit_params)
         return self
 
     def get_model(
-            self,
-            dataset: int,
-            variable: Union[str, int],
-            iteration: Optional[int] = None
+        self, dataset: int, variable: Union[str, int], iteration: Optional[int] = None
     ):
         """
         Return the model for a specific dataset, variable, iteration.
@@ -1558,10 +1555,7 @@ class ImputationKernel(ImputedData):
 
         """
 
-        datasets = (
-            list(range(self.dataset_count()))
-            if datasets is None else datasets
-        )
+        datasets = list(range(self.dataset_count())) if datasets is None else datasets
         kernel_iterations = self.iteration_count()
         iterations = kernel_iterations if iterations is None else iterations
         iter_pairs = self._iter_pairs(iterations)
@@ -1931,8 +1925,7 @@ class ImputationKernel(ImputedData):
             for i in np.sort(self.imputation_order)
         ]
         predictor_var_names = [
-            self._get_var_name_from_scalar(int(i))
-            for i in np.sort(self.predictor_vars)
+            self._get_var_name_from_scalar(int(i)) for i in np.sort(self.predictor_vars)
         ]
 
         params = {
