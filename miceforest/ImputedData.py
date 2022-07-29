@@ -479,7 +479,7 @@ save_all_iterations: {self.save_all_iterations}"""
 
     def complete_data(
         self,
-        dataset: int,
+        dataset: int = 0,
         iteration: Optional[int] = None,
         inplace: bool = False,
         variables: Optional[_t_var_list] = None,

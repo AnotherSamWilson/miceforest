@@ -132,12 +132,11 @@ iris_amp = mf.ampute_data(iris,perc=0.25,random_state=1991)
 
 
 ### Basic Examples  
-If you only want to create a single imputed dataset, you can use [`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel) with the `datasets` parameter set to 1:
+If you only want to create a single imputed dataset, you can use [`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel) with some default settings:
 ``` {python SIMPLESINGLE}
 # Create kernel. 
 kds = mf.ImputationKernel(
   iris_amp,
-  datasets=1,
   save_all_iterations=True,
   random_state=1991
 )
@@ -146,7 +145,7 @@ kds = mf.ImputationKernel(
 kds.mice(2)
 
 # Return the completed dataset.
-iris_complete = kds.complete_data(0)
+iris_complete = kds.complete_data()
 ```  
 There are also an array of plotting functions available, these are discussed below in the section [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting).  
 
@@ -170,7 +169,7 @@ print(kernel)
 
 After we have run mice, we can obtain our completed dataset directly from the kernel:
 ``` {python COMPLETE_NOCOPY}
-completed_dataset = kernel.complete_data(dataset=0)
+completed_dataset = kernel.complete_data(dataset=2)
 print(completed_dataset.isnull().sum(0))
 ```
 

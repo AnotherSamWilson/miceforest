@@ -163,13 +163,12 @@ iris_amp = mf.ampute_data(iris,perc=0.25,random_state=1991)
 
 If you only want to create a single imputed dataset, you can use
 [`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel)
-with the `datasets` parameter set to 1:
+with some default settings:
 
 ``` python
 # Create kernel. 
 kds = mf.ImputationKernel(
   iris_amp,
-  datasets=1,
   save_all_iterations=True,
   random_state=1991
 )
@@ -178,7 +177,7 @@ kds = mf.ImputationKernel(
 kds.mice(2)
 
 # Return the completed dataset.
-iris_complete = kds.complete_data(0)
+iris_complete = kds.complete_data()
 ```
 
 There are also an array of plotting functions available, these are
@@ -222,7 +221,7 @@ After we have run mice, we can obtain our completed dataset directly
 from the kernel:
 
 ``` python
-completed_dataset = kernel.complete_data(dataset=0)
+completed_dataset = kernel.complete_data(dataset=2)
 print(completed_dataset.isnull().sum(0))
 ```
 
@@ -395,7 +394,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.482109 seconds
+    ## New Data imputed in 0.540122 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
