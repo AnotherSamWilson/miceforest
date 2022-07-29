@@ -72,7 +72,7 @@ autodoc_typehints = "none"
 autoclass_content = 'class'
 
 # Generate autosummary pages.
-autosummary_generate = ['ImputationKernel.rst', "utils.rst"]
+autosummary_generate = ['ImputationKernel.rst', 'ImputedData.rst', "utils.rst", "MeanMatchScheme.rst"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

@@ -1,5 +1,6 @@
 from .compat import pd_Series, pd_DataFrame, PANDAS_INSTALLED
 from datetime import datetime as dt
+from typing import Dict, Any
 
 
 class Logger:
@@ -29,7 +30,7 @@ class Logger:
         if self.verbose:
             print(f"Initialized logger with name {name}")
 
-        self.time_seconds = {}
+        self.time_seconds: Dict[Any, float] = {}
 
     def __repr__(self):
         summary_string = f"miceforest logger: {self.name}"
@@ -51,10 +52,14 @@ class Logger:
     ):
         """
         Compares the current time with the start time, and records the time difference
-        in our time log in the appropriate register.
+        in our time log in the appropriate register. Times can stack for a context.
         """
         seconds = (dt.now() - self._start_time).total_seconds()
-        self.time_seconds[dataset, variable_name, iteration, timed_event] = seconds
+        time_key = (dataset, variable_name, iteration, timed_event)
+        if time_key in self.time_seconds:
+            self.time_seconds[time_key] += seconds
+        else:
+            self.time_seconds[time_key] = seconds
 
     def get_time_df_summary(self):
         """

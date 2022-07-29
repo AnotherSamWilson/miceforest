@@ -35,4 +35,6 @@ There are very extensive `beginner <https://github.com/AnotherSamWilson/micefore
    :caption: Contents:
 
    ImputationKernel
+   ImputedData
+   MeanMatchScheme
    utils

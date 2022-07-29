@@ -2,34 +2,20 @@ from .compat import pd_DataFrame, pd_Series, pd_read_parquet
 import numpy as np
 import blosc
 import dill
+from typing import Union, List, Dict, Optional
 
 
-_REGRESSIVE_OBJECTIVES = [
-    "regression",
-    "regression_l1",
-    "poisson",
-    "huber",
-    "fair",
-    "mape",
-    "cross_entropy",
-    "cross_entropy_lambda" "quantile",
-    "tweedie",
-    "gamma",
-]
-
-
-_CATEGORICAL_OBJECTIVES = [
-    "binary",
-    "multiclass",
-    "multiclassova",
-]
+_t_var_list = Union[List[str], List[int]]
+_t_var_dict = Union[Dict[str, List[str]], Dict[int, List[int]]]
+_t_var_sub = Union[Dict[Union[int, int], Union[int, float]]]
+_t_dat = Union[pd_DataFrame, np.ndarray]
 
 
 def ampute_data(
-    data,
-    variables=None,
-    perc=0.1,
-    random_state=None,
+    data: _t_dat,
+    variables: _t_var_list = None,
+    perc: float = 0.1,
+    random_state: Union[int, np.random.RandomState] = None,
 ):
     """
     Ampute Data
@@ -90,6 +76,37 @@ def ampute_data(
         amputed_data[na_ind] = np.NaN
 
     return amputed_data
+
+
+def load_kernel(filepath: str, n_threads: Optional[int] = None):
+    """
+    Loads a kernel that was saved using save_kernel().
+
+    Parameters
+    ----------
+    filepath: str
+        The filepath of the saved kernel
+
+    n_threads: int
+        The threads to use for decompression. By default, all threads are used.
+
+    Returns
+    -------
+    ImputationKernel
+    """
+    n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
+    blosc.set_nthreads(n_threads)
+    with open(filepath, "rb") as f:
+        kernel = dill.loads(blosc.decompress(dill.load(f)))
+
+    if kernel.original_data_class == "pd_DataFrame":
+        kernel.working_data = pd_read_parquet(kernel.working_data)
+        for col in kernel.working_data.columns:
+            kernel.working_data[col] = kernel.working_data[col].astype(
+                kernel.working_dtypes[col]
+            )
+
+    return kernel
 
 
 def stratified_subset(y, size, groups, cat, seed):
@@ -236,68 +253,21 @@ def ensure_rng(random_state) -> np.random.RandomState:
     return random_state
 
 
-def load_kernel(filepath, n_threads=None):
-    """
-    Loads a kernel that was saved using save_kernel().
-
-    Parameters
-    ----------
-    filepath: str
-        The filepath of the saved kernel
-
-    n_threads: int
-        The threads to use for decompression. By default, all threads are used.
-
-    Returns
-    -------
-    ImputationKernel
-    """
-    n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
-    blosc.set_nthreads(n_threads)
-    with open(filepath, "rb") as f:
-        kernel = dill.loads(blosc.decompress(dill.load(f)))
-
-    if kernel.original_data_class == "pd_DataFrame":
-        kernel.working_data = pd_read_parquet(kernel.working_data)
-        for col in kernel.working_data.columns:
-            kernel.working_data[col] = kernel.working_data[col].astype(
-                kernel.working_dtypes[col]
-            )
-
-    return kernel
-
-
-def _get_missing_stats(data: np.ndarray):
-    """
-    This function is seperate because this data is needed
-    at different times depending on the datatype passed
-    """
-    na_where = np.isnan(data)
-    data_shape = data.shape
-    na_counts = na_where.sum(0).tolist()
-    na_where = {col: np.where(na_where[:, col])[0] for col in range(data_shape[1])}
-    vars_with_any_missing = [int(col) for col, ind in na_where.items() if len(ind > 0)]
-
-    return na_where, data_shape, na_counts, vars_with_any_missing
-
-
-def _get_default_mmc(candidates=None) -> int:
-    if candidates is None:
-        return 5
-    else:
-        percent = 0.001
-        minimum = 5
-        maximum = 10
-        mean_match_candidates = min(maximum, max(minimum, int(percent * candidates)))
-        return mean_match_candidates
-
-
 def _ensure_iterable(x):
     """
     If the object is iterable, return the object.
     Else, return the object in a length 1 list.
     """
     return x if hasattr(x, "__iter__") else [x]
+
+
+def _assert_dataset_equivalent(ds1: _t_dat, ds2: _t_dat):
+    if isinstance(ds1, pd_DataFrame):
+        assert isinstance(ds2, pd_DataFrame)
+        assert ds1.equals(ds2)
+    else:
+        assert isinstance(ds2, np.ndarray)
+        np.testing.assert_array_equal(ds1, ds2)
 
 
 def _ensure_np_array(x):
@@ -309,19 +279,25 @@ def _ensure_np_array(x):
         raise ValueError("Can't cast to numpy array")
 
 
-def _get_default_mms(candidates) -> int:
-    return int(candidates)
-
-
-def _setequal(a, b):
-    if not hasattr(a, "__iter__"):
-        return a == b
+def _interpret_ds(val, avail_can):
+    if isinstance(val, int):
+        assert val <= avail_can, "data subset is more than available candidates"
+    elif isinstance(val, float):
+        assert (val <= 1.0) and (val > 0.0), "if float, 0.0 < data_subset <= 1.0"
+        val = int(val * avail_can)
     else:
-        return set(a) == set(b)
+        raise ValueError("malformed data_subset passed")
+    return val
 
 
-def _is_int(x):
-    return isinstance(x, int) | isinstance(x, np.int_)
+def _dict_set_diff(iter1, iter2) -> Dict[int, List[int]]:
+    """
+    Returns a dict, where the elements in iter1 are
+    the keys, and the values are the set differences
+    between the key and the values of iter2.
+    """
+    ret = {int(y): [int(x) for x in iter2 if int(x) != int(y)] for y in iter1}
+    return ret
 
 
 def _slice(dat, row_slice=slice(None), col_slice=slice(None)):
@@ -345,9 +321,17 @@ def _assign_col_values_without_copy(dat, row_ind, col_ind, val):
     row_ind = _ensure_iterable(row_ind)
 
     if isinstance(dat, pd_DataFrame):
+        # Remove iterable attribute if
+        # we are only assigning 1 value
+        if len(val) == 1:
+            val = val[0]
+
         dat.iloc[row_ind, col_ind] = val
+
     elif isinstance(dat, np.ndarray):
+        val.shape = -1
         dat[row_ind, col_ind] = val
+
     else:
         raise ValueError("Unknown data class passed.")
 
@@ -374,8 +358,16 @@ def _subset_data(dat, row_ind=None, col_ind=None, return_1d=False):
 
 
 def logodds(probability):
-    odds_ratio = probability / (1 - probability)
-    log_odds = np.log(odds_ratio)
+    try:
+        odds_ratio = probability / (1 - probability)
+        log_odds = np.log(odds_ratio)
+    except ZeroDivisionError:
+        raise ValueError(
+            "lightgbm output a probability of 1.0 or 0.0. "
+            "This is usually because of rare classes. "
+            "Try adjusting min_data_in_leaf."
+        )
+
     return log_odds
 
 

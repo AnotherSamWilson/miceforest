@@ -21,3 +21,4 @@ dev/
 .Rproj.user
 miceforest.Rproj
 .Rhistory
+benchmarks/*

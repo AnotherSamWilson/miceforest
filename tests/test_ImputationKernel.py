@@ -5,7 +5,10 @@ import pandas as pd
 import numpy as np
 import miceforest as mf
 from datetime import datetime
-from miceforest.mean_match_schemes import mean_match_scheme_fast_cat
+from miceforest import (
+    mean_match_fast_cat,
+    mean_match_shap
+)
 from matplotlib.pyplot import close
 from tempfile import mkstemp
 
@@ -18,6 +21,7 @@ boston["3"] = boston["3"].map({0: 'a', 1: 'b'}).astype('category')
 boston["8"] = boston["8"].astype("category")
 boston_amp = mf.ampute_data(boston, perc=0.25, random_state=random_state)
 
+
 def test_defaults_pandas():
 
     new_data = boston_amp.loc[range(10), :].copy()
@@ -25,16 +29,14 @@ def test_defaults_pandas():
     kernel = mf.ImputationKernel(
         data=boston_amp,
         datasets=2,
-        mean_match_scheme=mean_match_scheme_fast_cat,
-        save_models=1,
-        initialization="empty"
+        save_models=1
     )
     kernel.mice(iterations=2, compile_candidates=True, verbose=True)
 
     kernel2 = mf.ImputationKernel(
         data=boston_amp,
         datasets=1,
-        mean_match_scheme=mean_match_scheme_fast_cat
+        save_models=1
     )
     kernel2.mice(iterations=2)
 
@@ -44,7 +46,7 @@ def test_defaults_pandas():
 
 
     # Test mice after appendage
-    kernel.mice(1)
+    kernel.mice(1, verbose=True)
 
     kernel.complete_data(0, inplace=True)
     assert all(kernel.working_data.isnull().sum() == 0)
@@ -55,7 +57,7 @@ def test_defaults_pandas():
     # Make sure we didn't touch the original data
     assert all(boston_amp.isnull().sum() > 0)
 
-    imp_ds = kernel.impute_new_data(new_data)
+    imp_ds = kernel.impute_new_data(new_data, verbose=True)
     imp_ds.complete_data(2,inplace=True)
     assert all(imp_ds.working_data.isnull().sum(0) == 0)
     assert new_data.isnull().sum().sum() > 0
@@ -82,13 +84,17 @@ def test_complex_pandas():
     imputed_var_names = io
     non_imputed_var_names = [str(x) for x in range(13) if str(x) not in io]
 
+    from miceforest.builtin_mean_match_schemes import mean_match_shap
+    mean_match_custom = mean_match_shap.copy()
+    mean_match_custom.set_mean_match_candidates(mmc)
+
     kernel = mf.ImputationKernel(
         data=working_set,
         datasets=2,
         variable_schema=vs,
+        mean_match_scheme=mean_match_shap,
         imputation_order=io,
         train_nonmissing=True,
-        mean_match_candidates=mmc,
         data_subset=ds,
         categorical_feature=[3,8],
         copy_data=False
@@ -97,9 +103,9 @@ def test_complex_pandas():
         data=working_set,
         datasets=1,
         variable_schema=vs,
+        mean_match_scheme=mean_match_shap,
         imputation_order=io,
         train_nonmissing=True,
-        mean_match_candidates=mmc,
         data_subset=ds,
         categorical_feature=[3,8],
         copy_data=False
@@ -108,7 +114,6 @@ def test_complex_pandas():
     kernel2.save_kernel(filename)
     kernel2 = mf.utils.load_kernel(filename)
 
-    assert kernel.mean_match_candidates == {1: 4, 2: 3, 3: 0, 4: 5}, "mean_match_candidates initialization failed"
     assert kernel.data_subset == {1: 380, 2: 100, 3: 190, 4: 380}, "mean_match_subset initialization failed"
     assert kernel.iteration_count() == 0, "iteration initialization failed"
     assert kernel.categorical_variables == [3, 8], "categorical recognition failed."
@@ -204,7 +209,7 @@ def test_defaults_numpy():
         data=working_set,
         datasets=3,
         categorical_feature=[3,8],
-        mean_match_scheme=mean_match_scheme_fast_cat
+        mean_match_scheme=mean_match_fast_cat
     )
     kernel.mice(iterations=1, verbose=True)
     kernel.compile_candidate_preds()
@@ -266,11 +271,11 @@ def test_complex_numpy():
         variable_schema=vs,
         imputation_order=io,
         train_nonmissing=True,
-        mean_match_candidates=mmc,
         data_subset=ds,
-        mean_match_scheme=mean_match_scheme_fast_cat,
+        mean_match_scheme=mean_match_fast_cat,
         categorical_feature=[3,8],
-        copy_data=False
+        copy_data=False,
+        save_loggers=True
     )
 
     kernel2 = mf.ImputationKernel(
@@ -279,17 +284,16 @@ def test_complex_numpy():
         variable_schema=vs,
         imputation_order=io,
         train_nonmissing=True,
-        mean_match_candidates=mmc,
         data_subset=ds,
-        mean_match_scheme=mean_match_scheme_fast_cat,
+        mean_match_scheme=mean_match_fast_cat,
         categorical_feature=[3,8],
-        copy_data=False
+        copy_data=False,
+        save_loggers=True
     )
     new_file, filename = mkstemp()
     kernel2.save_kernel(filename)
     kernel2 = mf.utils.load_kernel(filename)
 
-    assert kernel.mean_match_candidates == {2: 3, 3: 0, 1: 4, 4: 5}, "mean_match_candidates initialization failed"
     assert kernel.data_subset == {2: 100, 3: 190, 1: 380, 4: 380}, "mean_match_subset initialization failed"
     assert kernel.iteration_count() == 0, "iteration initialization failed"
     assert kernel.categorical_variables == [3, 8], "categorical recognition failed."
