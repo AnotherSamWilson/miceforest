@@ -395,7 +395,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.456103 seconds
+    ## New Data imputed in 0.482109 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
@@ -908,11 +908,6 @@ print(acclist)
 
 In this instance, we went from a low accuracy (what is expected with
 random sampling) to a much higher accuracy.
-
-## Benchmarks
-
-Benchmarks for imputation quality and speed can be found in the
-benchmarks directory.
 
 ## The MICE Algorithm
 

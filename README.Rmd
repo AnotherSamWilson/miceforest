@@ -667,10 +667,6 @@ print(acclist)
 In this instance, we went from a low accuracy (what is expected with random sampling) to a much higher accuracy. 
 
 
-## Benchmarks  
-Benchmarks for imputation quality and speed can be found in the benchmarks directory.  
-
-  
 ## The MICE Algorithm
 Multiple Imputation by Chained Equations 'fills in' (imputes) missing data in a dataset through an iterative series of predictive models. In each iteration, each specified variable in the dataset is imputed using the other variables in the dataset. These iterations should be run until it appears that convergence has been met.  
 
