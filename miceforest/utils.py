@@ -358,8 +358,16 @@ def _subset_data(dat, row_ind=None, col_ind=None, return_1d=False):
 
 
 def logodds(probability):
-    odds_ratio = probability / (1 - probability)
-    log_odds = np.log(odds_ratio)
+    try:
+        odds_ratio = probability / (1 - probability)
+        log_odds = np.log(odds_ratio)
+    except ZeroDivisionError:
+        raise ValueError(
+            "lightgbm output a probability of 1.0 or 0.0. "
+            "This is usually because of rare classes. "
+            "Try adjusting min_data_in_leaf."
+        )
+
     return log_odds
 
 
