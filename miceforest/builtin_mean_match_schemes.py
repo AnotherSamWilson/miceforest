@@ -3,6 +3,7 @@ Built-in mean matching schemes.
 These schemes vary in their speed and accuracy.
 """
 
+from typing import Dict, Callable
 from .MeanMatchScheme import (
     MeanMatchScheme,
     _REGRESSIVE_OBJECTIVES,
@@ -33,13 +34,13 @@ _DEFAULT_OBJECTIVE_DTYPES = {
 ##################################
 ##### DEFAULT MEAN MATCHING SCHEME
 
-_MEAN_MATCH_FUNCTIONS_DEFAULT = {
+_MEAN_MATCH_FUNCTIONS_DEFAULT: Dict[str, Callable] = {
     "binary": _mean_match_binary_accurate,
     "multiclass": _mean_match_multiclass_accurate,
     "multiclassova": _mean_match_multiclass_accurate,
     **{o: _mean_match_reg for o in _REGRESSIVE_OBJECTIVES},
 }
-_LGB_PRED_FUNCTIONS_DEFAULT = {
+_LGB_PRED_FUNCTIONS_DEFAULT: Dict[str, Callable] = {
     "binary": predict_binary_logodds,
     "multiclass": predict_multiclass_logodds,
     "multiclassova": predict_multiclass_logodds,
@@ -73,13 +74,13 @@ The rules are:
 ###################################
 ##### FAST CAT MEAN MATCHING SCHEME
 
-_MEAN_MATCH_FUNCTIONS_FAST_CAT = {
+_MEAN_MATCH_FUNCTIONS_FAST_CAT: Dict[str, Callable] = {
     "binary": _mean_match_binary_fast,
     "multiclass": _mean_match_multiclass_fast,
     "multiclassova": _mean_match_multiclass_fast,
     **{o: _mean_match_reg for o in _REGRESSIVE_OBJECTIVES},
 }
-_LGB_PRED_FUNCTIONS_FAST_CAT = {
+_LGB_PRED_FUNCTIONS_FAST_CAT: Dict[str, Callable] = {
     "binary": predict_normal,
     "multiclass": predict_normal,
     "multiclassova": predict_normal,
@@ -112,13 +113,13 @@ The rules are:
 ###############################
 ##### SHAP MEAN MATCHING SCHEME
 
-_MEAN_MATCH_FUNCTIONS_SHAP = {
+_MEAN_MATCH_FUNCTIONS_SHAP: Dict[str, Callable] = {
     "binary": _mean_match_binary_accurate,
     "multiclass": _mean_match_multiclass_accurate,
     "multiclassova": _mean_match_multiclass_accurate,
     **{o: _mean_match_reg for o in _REGRESSIVE_OBJECTIVES},
 }
-_LGB_PRED_FUNCTIONS_SHAP = {
+_LGB_PRED_FUNCTIONS_SHAP: Dict[str, Callable] = {
     "binary": predict_normal_shap,
     "multiclass": predict_multiclass_shap,
     "multiclassova": predict_multiclass_shap,
@@ -133,7 +134,8 @@ mean_match_shap = MeanMatchScheme(
 mean_match_shap.__doc__ = """
 Built-in instance of miceforest.MeanMatchScheme.
 
-This scheme has the lowest speed and highest accuracy.
+This scheme has the lowest speed and 
+highest accuracy on high dimension data.
 
 The rules are:
     Categorical:

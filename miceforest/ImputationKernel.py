@@ -1,10 +1,14 @@
 from .ImputedData import ImputedData
 from .MeanMatchScheme import MeanMatchScheme
 from .utils import (
+    _t_dat,
+    _t_var_list,
+    _t_var_dict,
+    _t_var_sub,
+    _assert_dataset_equivalent,
     _draw_random_int32,
     _ensure_iterable,
     _interpret_ds,
-    _is_int,
     _subset_data,
     ensure_rng,
     hash_int32,
@@ -16,12 +20,13 @@ from .default_lightgbm_parameters import default_parameters, make_default_tuning
 from .logger import Logger
 import numpy as np
 from warnings import warn
-from lightgbm import train, Dataset, cv, log_evaluation, early_stopping
+from lightgbm import train, Dataset, cv, log_evaluation, early_stopping, Booster
 from lightgbm.basic import _ConfigAliases
 from io import BytesIO
 import blosc
 import dill
 from copy import copy
+from typing import Union, List, Dict, Any, Optional
 
 _DEFAULT_DATA_SUBSET = 1.0
 
@@ -249,20 +254,20 @@ class ImputationKernel(ImputedData):
 
     def __init__(
         self,
-        data,
-        datasets=5,
-        variable_schema=None,
-        imputation_order="ascending",
-        train_nonmissing=False,
-        mean_match_scheme=None,
-        data_subset=None,
-        categorical_feature="auto",
-        initialization="random",
-        save_all_iterations=True,
-        save_models=1,
-        copy_data=True,
-        save_loggers=False,
-        random_state=None,
+        data: _t_dat,
+        datasets: int = 5,
+        variable_schema: Union[_t_var_list, _t_var_dict] = None,
+        imputation_order: Union[str, _t_var_list] = "ascending",
+        train_nonmissing: bool = False,
+        mean_match_scheme: MeanMatchScheme = None,
+        data_subset: Union[int, float, _t_var_sub]=None,
+        categorical_feature: Union[str, _t_var_list] = "auto",
+        initialization: str = "random",
+        save_all_iterations: bool = True,
+        save_models: int = 1,
+        copy_data: bool = True,
+        save_loggers: bool = False,
+        random_state: Union[int, np.random.RandomState] = None,
     ):
 
         super().__init__(
@@ -280,14 +285,14 @@ class ImputationKernel(ImputedData):
         self.train_nonmissing = train_nonmissing
         self.save_models = save_models
         self.save_loggers = save_loggers
-        self.loggers = []
-        self.models = {}
-        self.candidate_preds = {}
-        self.optimal_parameters = {
+        self.loggers: List[Logger] = []
+        self.models: Dict[Any, Booster] = {}
+        self.candidate_preds: Dict[Any, np.ndarray] = {}
+        self.optimal_parameters: Dict[Any, Any] = {
             ds: {var: {} for var in self.variable_training_order}
             for ds in range(datasets)
         }
-        self.optimal_parameter_losses = {
+        self.optimal_parameter_losses: Dict[Any, Any] = {
             ds: {var: np.Inf for var in self.variable_training_order}
             for ds in range(datasets)
         }
@@ -303,7 +308,7 @@ class ImputationKernel(ImputedData):
         if set(data_subset) != set(self.variable_training_order):
             # Change variable names to indices
             for v in list(data_subset):
-                data_subset[self._get_variable_index(v)] = data_subset.pop(v)
+                data_subset[self._get_var_ind_from_scalar(v)] = data_subset.pop(v)
             ds_supplement = {
                 v: _DEFAULT_DATA_SUBSET
                 for v in self.variable_training_order
@@ -312,7 +317,7 @@ class ImputationKernel(ImputedData):
             data_subset.update(ds_supplement)
         for v, ds in data_subset.items():
             assert v in self.variable_training_order, (
-                f"Variable {self._get_variable_name(v)} will not have a model trained "
+                f"Variable {self._get_var_name_from_scalar(v)} will not have a model trained "
                 + "but it is in data_subset."
             )
             data_subset[v] = _interpret_ds(data_subset[v], available_candidates[v])
@@ -341,6 +346,19 @@ class ImputationKernel(ImputedData):
             assert (
                 data_subset[v] <= available_candidates[v]
             ), f"{v} data_subset > available candidates"
+
+        # Make sure all pandas categorical levels are used.
+        for cat in self.categorical_variables:
+            cat_name = self._get_var_name_from_scalar(cat)
+            cat_dat = self._get_nonmissing_values(cat)
+            cat_dtype = cat_dat.dtype
+            if cat_dtype.name == "category":
+                levels_in_data = set(cat_dat)
+                levels_in_catdt = set(cat_dtype.categories)
+                levels_not_in_data = levels_in_catdt - levels_in_data
+                assert len(levels_not_in_data) == 0, (
+                    f"{cat_name} has unused categories: {','.join(levels_not_in_data)}"
+                )
 
         # Manage randomness
         self._completely_random_kernel = random_state is None
@@ -493,7 +511,10 @@ class ImputationKernel(ImputedData):
 
         return params
 
-    def _format_variable_parameters(self, variable_parameters):
+    def _format_variable_parameters(
+            self,
+            variable_parameters: Optional[Dict]
+    ) -> Dict[int, Any]:
         """
         Unpacking will expect an empty dict at a minimum.
         This function collects parameters if they were
@@ -501,11 +522,13 @@ class ImputationKernel(ImputedData):
         """
         if variable_parameters is None:
 
-            vsp = {var: {} for var in self.variable_training_order}
+            vsp: Dict[int, Any] = {var: {} for var in self.variable_training_order}
 
         else:
 
-            variable_parameters = self._get_variable_index(variable_parameters)
+            for variable in list(variable_parameters):
+                variable_parameters[self._get_var_ind_from_scalar(variable)] = \
+                    variable_parameters.pop(variable)
             vsp_vars = set(variable_parameters)
 
             assert vsp_vars.issubset(
@@ -625,7 +648,7 @@ class ImputationKernel(ImputedData):
         """
         Returns the non-missing values of a column.
         """
-        var_indx = self._get_variable_index(variable)
+        var_indx = self._get_var_ind_from_scalar(variable)
         nonmissing_index = self._get_nonmissing_indx(variable)
         candidate_values = _subset_data(
             self.working_data, row_ind=nonmissing_index, col_ind=var_indx
@@ -637,7 +660,7 @@ class ImputationKernel(ImputedData):
         Returns a reproducible subset index of the
         non-missing values for a given variable.
         """
-        var_indx = self._get_variable_index(variable)
+        var_indx = self._get_var_ind_from_scalar(variable)
         nonmissing_index = self._get_nonmissing_indx(var_indx)
 
         # Get the subset indices
@@ -665,7 +688,7 @@ class ImputationKernel(ImputedData):
         """
         Returns a reproducible subset of the values of a variable.
         """
-        var_indx = self._get_variable_index(variable)
+        var_indx = self._get_var_ind_from_scalar(variable)
         candidate_subset = self._get_candidate_subset(
             var_indx, subset_count, random_seed
         )
@@ -680,7 +703,7 @@ class ImputationKernel(ImputedData):
         Makes a reproducible set of features and
         target needed to train a lightgbm model.
         """
-        var_indx = self._get_variable_index(variable)
+        var_indx = self._get_var_ind_from_scalar(variable)
         candidate_subset = self._get_candidate_subset(
             var_indx, subset_count, random_seed
         )
@@ -690,7 +713,7 @@ class ImputationKernel(ImputedData):
             self.working_data, row_ind=candidate_subset, col_ind=ret_cols
         )
         if self.original_data_class == "pd_DataFrame":
-            y_name = self._get_variable_name(var_indx)
+            y_name = self._get_var_name_from_scalar(var_indx)
             label = features.pop(y_name)
 
         elif self.original_data_class == "np_ndarray":
@@ -725,7 +748,7 @@ class ImputationKernel(ImputedData):
             The kernel to merge.
 
         """
-        assert self.working_data.shape == imputation_kernel.working_data.shape
+        _assert_dataset_equivalent(self.working_data, imputation_kernel.working_data)
         assert self.iteration_count() == imputation_kernel.iteration_count()
         assert self.variable_schema == imputation_kernel.variable_schema
         assert self.imputation_order == imputation_kernel.imputation_order
@@ -823,10 +846,19 @@ class ImputationKernel(ImputedData):
             "miceforest kernel should be initialized with datasets=1 if "
             + "being used in a sklearn pipeline."
         )
+        _assert_dataset_equivalent(self.working_data, X), (
+            "The dataset passed to fit() was not the same as the "\
+            "dataset passed to ImputationKernel()"
+        )
         self.mice(**fit_params)
         return self
 
-    def get_model(self, dataset, variable, iteration=None):
+    def get_model(
+            self,
+            dataset: int,
+            variable: Union[str, int],
+            iteration: Optional[int] = None
+    ):
         """
         Return the model for a specific dataset, variable, iteration.
 
@@ -834,18 +866,21 @@ class ImputationKernel(ImputedData):
         ----------
         dataset: int
             The dataset to return the model for.
+
         var: str
             The variable that was imputed
+
         iteration: int
             The model iteration to return. Keep in mind if save_models ==1,
-            the model was not saved.
+            the model was not saved. If none is provided, the latest model
+            is returned.
 
         Returns: lightgbm.Booster
             The model used to impute this specific variable, iteration.
 
         """
 
-        var_indx = self._get_variable_index(variable)
+        var_indx = self._get_var_ind_from_scalar(variable)
         itrn = (
             self.iteration_count(datasets=dataset, variables=var_indx)
             if iteration is None
@@ -858,12 +893,12 @@ class ImputationKernel(ImputedData):
 
     def get_raw_prediction(
         self,
-        variable,
-        imp_dataset=0,
-        imp_iteration=None,
-        model_dataset=None,
-        model_iteration=None,
-        dtype=None,
+        variable: Union[int, str],
+        imp_dataset: int = 0,
+        imp_iteration: Optional[int] = None,
+        model_dataset: Optional[int] = None,
+        model_iteration: Optional[int] = None,
+        dtype: Union[str, np.dtype] = None,
     ):
         """
         Get the raw model output for a specific variable.
@@ -903,7 +938,7 @@ class ImputationKernel(ImputedData):
 
         """
 
-        var_indx = self._get_variable_index(variable)
+        var_indx = self._get_var_ind_from_scalar(variable)
         predictor_variables = self.variable_schema[var_indx]
 
         # Get the latest imputation iteration if imp_iteration was not specified
@@ -1008,13 +1043,14 @@ class ImputationKernel(ImputedData):
 
                 for variable in self.variable_training_order:
 
-                    logger.log(" | " + self._get_variable_name(variable), end="")
+                    var_name = self._get_var_name_from_scalar(variable)
+                    logger.log(" | " + var_name, end="")
                     predictor_variables = self.variable_schema[variable]
                     data_subset = self.data_subset[variable]
                     nawhere = self.na_where[variable]
                     log_context = {
                         "dataset": ds,
-                        "variable_name": self._get_variable_name(variable),
+                        "variable_name": var_name,
                         "iteration": iter_abs,
                     }
 
@@ -1162,14 +1198,14 @@ class ImputationKernel(ImputedData):
 
     def tune_parameters(
         self,
-        dataset,
-        variables=None,
-        variable_parameters=None,
-        parameter_sampling_method="random",
-        nfold=10,
-        optimization_steps=5,
-        random_state=None,
-        verbose=False,
+        dataset: _t_dat,
+        variables: Union[List[int], List[str]] = None,
+        variable_parameters: Dict[Any, Any] = None,
+        parameter_sampling_method: str = "random",
+        nfold: int = 10,
+        optimization_steps: int = 5,
+        random_state: Union[int, np.random.RandomState] = None,
+        verbose: bool = False,
         **kwbounds,
     ):
         """
@@ -1319,7 +1355,7 @@ class ImputationKernel(ImputedData):
         if variables is None:
             variables = self.imputation_order
         else:
-            variables = self._get_variable_index(variables)
+            variables = self._get_var_ind_from_list(variables)
 
         self.complete_data(dataset, inplace=True)
 
@@ -1349,7 +1385,7 @@ class ImputationKernel(ImputedData):
 
             for var, parameter_space in variable_parameter_space.items():
 
-                logger.log(self._get_variable_name(var) + " | ", end="")
+                logger.log(self._get_var_name_from_scalar(var) + " | ", end="")
 
                 (
                     candidate_features,
@@ -1427,14 +1463,14 @@ class ImputationKernel(ImputedData):
 
     def impute_new_data(
         self,
-        new_data,
-        datasets=None,
-        iterations=None,
-        save_all_iterations=True,
-        copy_data=True,
-        random_state=None,
-        random_seed_array=None,
-        verbose=False,
+        new_data: _t_dat,
+        datasets: Optional[List[int]] = None,
+        iterations: Optional[int] = None,
+        save_all_iterations: bool = True,
+        copy_data: bool = True,
+        random_state: Union[int, np.random.RandomState] = None,
+        random_seed_array: np.ndarray = None,
+        verbose: bool = False,
     ) -> ImputedData:
         """
         Impute a new dataset
@@ -1523,9 +1559,8 @@ class ImputationKernel(ImputedData):
         """
 
         datasets = (
-            range(self.dataset_count())
-            if datasets is None
-            else _ensure_iterable(datasets)
+            list(range(self.dataset_count()))
+            if datasets is None else datasets
         )
         kernel_iterations = self.iteration_count()
         iterations = kernel_iterations if iterations is None else iterations
@@ -1597,10 +1632,11 @@ class ImputationKernel(ImputedData):
 
                 for var in imputed_data.imputation_order:
 
-                    logger.log(" | " + self._get_variable_name(var), end="")
+                    var_name = self._get_var_name_from_scalar(var)
+                    logger.log(" | " + var_name, end="")
                     log_context = {
                         "dataset": ds_kern,
-                        "variable_name": self._get_variable_name(var),
+                        "variable_name": var_name,
                         "iteration": iter_rel,
                     }
                     nawhere = imputed_data.na_where[var]
@@ -1891,10 +1927,12 @@ class ImputationKernel(ImputedData):
             ).round(2)
 
         imputed_var_names = [
-            self._get_variable_name(int(i)) for i in np.sort(self.imputation_order)
+            self._get_var_name_from_scalar(int(i))
+            for i in np.sort(self.imputation_order)
         ]
         predictor_var_names = [
-            self._get_variable_name(int(i)) for i in np.sort(self.predictor_vars)
+            self._get_var_name_from_scalar(int(i))
+            for i in np.sort(self.predictor_vars)
         ]
 
         params = {

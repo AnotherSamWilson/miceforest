@@ -1,7 +1,8 @@
 from .compat import pd_DataFrame
-from .utils import _is_int
 import inspect
 from copy import deepcopy
+from typing import Callable, Union, Dict, Set
+from numpy import dtype
 
 
 _REGRESSIVE_OBJECTIVES = [
@@ -37,14 +38,18 @@ AVAILABLE_MEAN_MATCH_ARGS = [
 
 _DEFAULT_MMC = 5
 
+_t_mmc = Union[int, Dict[str, int], Dict[int, int]]
+_t_obj_func = Dict[str, Callable]
+_t_np_dt = Union[Dict[str, str], Dict[str, dtype]]
+
 
 class MeanMatchScheme:
     def __init__(
         self,
-        mean_match_candidates,
-        mean_match_functions,
-        lgb_model_pred_functions,
-        objective_pred_dtypes,
+        mean_match_candidates: _t_mmc,
+        mean_match_functions: _t_obj_func,
+        lgb_model_pred_functions: _t_obj_func,
+        objective_pred_dtypes: _t_np_dt,
     ):
         """
         Stores information and methods surrounding how mean matching should
@@ -110,9 +115,9 @@ class MeanMatchScheme:
 
         """
 
-        self.mean_match_functions = {}
-        self.objective_args = {}
-        self.objective_pred_funcs = {}
+        self.mean_match_functions: Dict[str, Callable] = {}
+        self.objective_args: Dict[str, Set[str]] = {}
+        self.objective_pred_funcs: Dict[str, Callable] = {}
         self.objective_pred_dtypes = objective_pred_dtypes
 
         for objective, function in mean_match_functions.items():
@@ -124,7 +129,7 @@ class MeanMatchScheme:
         self.mean_match_candidates = mean_match_candidates
         self._mmc_formatted = False
 
-    def _add_mmf(self, objective, func):
+    def _add_mmf(self, objective: str, func: Callable):
         obj_args = set(inspect.getfullargspec(func).args)
         assert obj_args.issubset(
             set(AVAILABLE_MEAN_MATCH_ARGS)
@@ -132,7 +137,7 @@ class MeanMatchScheme:
         self.mean_match_functions[objective] = func
         self.objective_args[objective] = obj_args
 
-    def _add_lgbpred(self, objective, func):
+    def _add_lgbpred(self, objective: str, func: Callable):
         obj_args = set(inspect.getfullargspec(func).args)
         assert obj_args == {
             "data",
@@ -145,7 +150,7 @@ class MeanMatchScheme:
         var_indx_list = list(available_candidates)
         assert not self._mmc_formatted, "mmc are already formatted"
 
-        if _is_int(self.mean_match_candidates):
+        if isinstance(self.mean_match_candidates, int):
             mmc_formatted = {v: self.mean_match_candidates for v in var_indx_list}
 
         elif isinstance(self.mean_match_candidates, dict):
@@ -189,7 +194,7 @@ class MeanMatchScheme:
         """
         return deepcopy(self)
 
-    def set_mean_match_candidates(self, mean_match_candidates):
+    def set_mean_match_candidates(self, mean_match_candidates: _t_mmc):
         """
         Set the mean match candidates
 
@@ -214,7 +219,7 @@ class MeanMatchScheme:
         self.mean_match_candidates = mean_match_candidates
         self._mmc_formatted = False
 
-    def set_mean_match_function(self, mean_match_functions):
+    def set_mean_match_function(self, mean_match_functions: _t_obj_func):
         """
         Overwrite the current mean matching functions for certain
         objectives.
@@ -236,7 +241,7 @@ class MeanMatchScheme:
         for objective, function in mean_match_functions.items():
             self._add_mmf(objective, function)
 
-    def set_lgb_model_pred_functions(self, lgb_model_pred_functions):
+    def set_lgb_model_pred_functions(self, lgb_model_pred_functions: _t_obj_func):
         """
         Overwrite the current prediction functions for certain
         objectives.
@@ -255,7 +260,7 @@ class MeanMatchScheme:
         for objective, function in lgb_model_pred_functions.items():
             self._add_lgbpred(objective, function)
 
-    def set_objective_pred_dtypes(self, objective_pred_dtypes):
+    def set_objective_pred_dtypes(self, objective_pred_dtypes: _t_np_dt):
         """
         Overwrite the current datatypes for certain objectives.
         Predictions obtained from lightgbm are stored as these

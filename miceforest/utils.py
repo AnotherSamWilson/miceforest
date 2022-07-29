@@ -2,16 +2,20 @@ from .compat import pd_DataFrame, pd_Series, pd_read_parquet
 import numpy as np
 import blosc
 import dill
-from typing import Union, List
+from typing import Union, List, Dict, Optional
 
-__type_var = Union[List[str], List[int]]
+
+_t_var_list = Union[List[str], List[int]]
+_t_var_dict = Union[Dict[str, List[str]], Dict[int, List[int]]]
+_t_var_sub = Union[Dict[Union[int, int], Union[int, float]]]
+_t_dat = Union[pd_DataFrame, np.ndarray]
 
 
 def ampute_data(
-    data,
-    variables=None,
-    perc=0.1,
-    random_state=None,
+    data: _t_dat,
+    variables: _t_var_list = None,
+    perc: float = 0.1,
+    random_state: Union[int, np.random.RandomState] = None,
 ):
     """
     Ampute Data
@@ -74,7 +78,7 @@ def ampute_data(
     return amputed_data
 
 
-def load_kernel(filepath, n_threads=None):
+def load_kernel(filepath: str, n_threads: Optional[int] = None):
     """
     Loads a kernel that was saved using save_kernel().
 
@@ -257,6 +261,15 @@ def _ensure_iterable(x):
     return x if hasattr(x, "__iter__") else [x]
 
 
+def _assert_dataset_equivalent(ds1: _t_dat, ds2: _t_dat):
+    if isinstance(ds1, pd_DataFrame):
+        assert isinstance(ds2, pd_DataFrame)
+        assert ds1.equals(ds2)
+    else:
+        assert isinstance(ds2, np.ndarray)
+        np.testing.assert_array_equal(ds1, ds2)
+
+
 def _ensure_np_array(x):
     if isinstance(x, np.ndarray):
         return x
@@ -267,7 +280,7 @@ def _ensure_np_array(x):
 
 
 def _interpret_ds(val, avail_can):
-    if _is_int(val):
+    if isinstance(val, int):
         assert val <= avail_can, "data subset is more than available candidates"
     elif isinstance(val, float):
         assert (val <= 1.0) and (val > 0.0), "if float, 0.0 < data_subset <= 1.0"
@@ -277,8 +290,20 @@ def _interpret_ds(val, avail_can):
     return val
 
 
-def _is_int(x):
-    return isinstance(x, int) | isinstance(x, np.int_)
+def _dict_set_diff(iter1, iter2) -> Dict[int, List[int]]:
+    """
+    Returns a dict, where the elements in iter1 are
+    the keys, and the values are the set differences
+    between the key and the values of iter2.
+    """
+    ret = {
+        int(y): [
+            int(x) for x in iter2
+            if int(x) != int(y)
+        ]
+        for y in iter1
+    }
+    return ret
 
 
 def _slice(dat, row_slice=slice(None), col_slice=slice(None)):

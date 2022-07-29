@@ -1,6 +1,6 @@
 from .compat import pd_Series, pd_DataFrame, PANDAS_INSTALLED
 from datetime import datetime as dt
-
+from typing import Dict, Any
 
 class Logger:
     def __init__(self, name: str, verbose: bool = False) -> None:
@@ -29,7 +29,7 @@ class Logger:
         if self.verbose:
             print(f"Initialized logger with name {name}")
 
-        self.time_seconds = {}
+        self.time_seconds: Dict[Any, float] = {}
 
     def __repr__(self):
         summary_string = f"miceforest logger: {self.name}"
