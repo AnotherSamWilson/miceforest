@@ -2,6 +2,7 @@ from .compat import pd_Series, pd_DataFrame, PANDAS_INSTALLED
 from datetime import datetime as dt
 from typing import Dict, Any
 
+
 class Logger:
     def __init__(self, name: str, verbose: bool = False) -> None:
         """

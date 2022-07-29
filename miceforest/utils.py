@@ -296,13 +296,7 @@ def _dict_set_diff(iter1, iter2) -> Dict[int, List[int]]:
     the keys, and the values are the set differences
     between the key and the values of iter2.
     """
-    ret = {
-        int(y): [
-            int(x) for x in iter2
-            if int(x) != int(y)
-        ]
-        for y in iter1
-    }
+    ret = {int(y): [int(x) for x in iter2 if int(x) != int(y)] for y in iter1}
     return ret
 
 
