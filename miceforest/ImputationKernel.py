@@ -255,7 +255,7 @@ class ImputationKernel(ImputedData):
     def __init__(
         self,
         data: _t_dat,
-        datasets: int = 5,
+        datasets: int = 1,
         variable_schema: Union[_t_var_list, _t_var_dict] = None,
         imputation_order: Union[str, _t_var_list] = "ascending",
         train_nonmissing: bool = False,
