@@ -10,7 +10,7 @@ initlines = initlines[grep("__version__", initlines)]
 vrzn = gsub("\"","",gsub("__version__ = ","",initlines))
 ```
 
-[![Build Status](https://travis-ci.com/AnotherSamWilson/miceforest.svg?branch=master)](https://app.travis-ci.com/github/AnotherSamWilson/miceforest)
+[![Github Actions Test Status](https://github.com/AnotherSamWilson/miceforest/workflows/tests%20+%20mypy/badge.svg?branch=master)](https://github.com/AnotherSamWilson/miceforest/actions)
 [![Documentation Status](https://readthedocs.org/projects/miceforest/badge/?version=latest)](https://miceforest.readthedocs.io/en/latest/?badge=latest)
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
 [![Downloads](https://static.pepy.tech/badge/miceforest)](https://pepy.tech/project/miceforest)  

@@ -1,6 +1,6 @@
 
-[![Build
-Status](https://travis-ci.com/AnotherSamWilson/miceforest.svg?branch=master)](https://app.travis-ci.com/github/AnotherSamWilson/miceforest)
+[![Github Actions Test
+Status](https://github.com/AnotherSamWilson/miceforest/workflows/tests%20+%20mypy/badge.svg?branch=master)](https://github.com/AnotherSamWilson/miceforest/actions)
 [![Documentation
 Status](https://readthedocs.org/projects/miceforest/badge/?version=latest)](https://miceforest.readthedocs.io/en/latest/?badge=latest)
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
@@ -11,7 +11,7 @@ Version](https://img.shields.io/conda/vn/conda-forge/miceforest.svg)](https://an
 [![PyVersions](https://img.shields.io/pypi/pyversions/miceforest.svg?logo=python&logoColor=white)](https://pypi.org/project/miceforest/)
 <!-- [![MIT license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT) -->
 <!-- [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)   -->
-<!-- [![DEV_Version_Badge](https://img.shields.io/badge/Dev-5.6.0-blue.svg)](https://pypi.org/project/miceforest/) -->
+<!-- [![DEV_Version_Badge](https://img.shields.io/badge/Dev-5.6.1-blue.svg)](https://pypi.org/project/miceforest/) -->
 
 ## miceforest: Fast, Memory Efficient Imputation with LightGBM
 
@@ -394,7 +394,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.540122 seconds
+    ## New Data imputed in 0.477107 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
