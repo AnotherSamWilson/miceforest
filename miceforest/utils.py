@@ -51,6 +51,9 @@ def ampute_data(
             variables = [i for i in range(amputed_data.shape[1])]
         elif isinstance(variables, list):
             if isinstance(variables[0], str):
+                assert isinstance(data, pd_DataFrame), (
+                    "np array was passed but variables are strings"
+                )
                 variables = [data.columns.tolist().index(i) for i in variables]
 
         if isinstance(amputed_data, pd_DataFrame):

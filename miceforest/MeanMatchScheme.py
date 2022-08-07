@@ -40,7 +40,7 @@ _DEFAULT_MMC = 5
 
 _t_mmc = Union[int, Dict[str, int], Dict[int, int]]
 _t_obj_func = Dict[str, Callable]
-_t_np_dt = Union[Dict[str, str], Dict[str, dtype]]
+_t_np_dt = Dict[str, str]
 
 
 class MeanMatchScheme:
@@ -49,7 +49,7 @@ class MeanMatchScheme:
         mean_match_candidates: _t_mmc,
         mean_match_functions: _t_obj_func,
         lgb_model_pred_functions: _t_obj_func,
-        objective_pred_dtypes: _t_np_dt,
+        objective_pred_dtypes: Dict[str, str],
     ):
         """
         Stores information and methods surrounding how mean matching should
@@ -108,6 +108,7 @@ class MeanMatchScheme:
 
         objective_pred_dtypes: dict
             A dict of {objective: np.datatype} pairs.
+            Datatype must be the string datatype name, i.e. "float32"
             How prediction data types will be cast. Casting to a smaller bit
             value can be beneficial when compiling candidates. Depending on
             the data, smaller bit rates tend to result in imputations of
@@ -118,7 +119,7 @@ class MeanMatchScheme:
         self.mean_match_functions: Dict[str, Callable] = {}
         self.objective_args: Dict[str, Set[str]] = {}
         self.objective_pred_funcs: Dict[str, Callable] = {}
-        self.objective_pred_dtypes = objective_pred_dtypes
+        self.objective_pred_dtypes = objective_pred_dtypes.copy()
 
         for objective, function in mean_match_functions.items():
             self._add_mmf(objective, function)
@@ -260,7 +261,7 @@ class MeanMatchScheme:
         for objective, function in lgb_model_pred_functions.items():
             self._add_lgbpred(objective, function)
 
-    def set_objective_pred_dtypes(self, objective_pred_dtypes: _t_np_dt):
+    def set_objective_pred_dtypes(self, objective_pred_dtypes: Dict[str, str]):
         """
         Overwrite the current datatypes for certain objectives.
         Predictions obtained from lightgbm are stored as these
@@ -270,6 +271,7 @@ class MeanMatchScheme:
         ----------
         objective_pred_dtypes: dict
             A dict of {objective: np.datatype} pairs.
+            Datatype must be the string datatype name, i.e. "float32"
             How prediction data types will be cast. Casting to a smaller bit
             value can be beneficial when compiling candidates. Depending on
             the data, smaller bit rates tend to result in imputations of

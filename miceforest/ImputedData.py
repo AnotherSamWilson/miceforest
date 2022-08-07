@@ -134,10 +134,10 @@ class ImputedData:
             if categorical_feature == "auto":
                 categorical_variables = []
             elif isinstance(categorical_feature, list):
-                assert (
-                    max(categorical_feature) < self.working_data.shape[1]
-                ), "categorical_feature not in dataset"
                 categorical_variables = self._get_var_ind_from_list(categorical_feature)
+                assert (
+                    max(categorical_variables) < self.working_data.shape[1]
+                ), "categorical_feature not in dataset"
             else:
                 raise ValueError("categorical_feature not recognized")
 
@@ -188,8 +188,9 @@ class ImputedData:
                 imputation_order = self._get_var_ind_from_list(
                     np.argsort(list(na_counts.values())).tolist()
                     if imputation_order == "ascending"
-                    else np.argsort(na_counts)[::-1].tolist()
+                    else np.argsort(list(na_counts.values()))[::-1].tolist()
                 )
+                na_counts = {1:5, 2:6, 3:2}
                 imputation_order = [
                     int(i)
                     for i in imputation_order

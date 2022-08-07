@@ -7,7 +7,6 @@ from .utils import (
     _t_var_sub,
     _assert_dataset_equivalent,
     _draw_random_int32,
-    _ensure_iterable,
     _interpret_ds,
     _subset_data,
     ensure_rng,
@@ -16,6 +15,7 @@ from .utils import (
     stratified_continuous_folds,
     stratified_subset,
 )
+from .compat import pd_DataFrame, pd_Series
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
 from .logger import Logger
 import numpy as np
@@ -1208,7 +1208,7 @@ class ImputationKernel(ImputedData):
 
     def tune_parameters(
         self,
-        dataset: _t_dat,
+        dataset: int,
         variables: Union[List[int], List[str]] = None,
         variable_parameters: Dict[Any, Any] = None,
         parameter_sampling_method: str = "random",
@@ -1578,7 +1578,8 @@ class ImputationKernel(ImputedData):
             verbose=verbose,
         )
 
-        if self.original_data_class == "pd_DataFrame":
+        if isinstance(self.working_data, pd_DataFrame):
+            assert isinstance(new_data, pd_DataFrame)
             assert set(self.working_data.columns) == set(
                 new_data.columns
             ), "Different columns from original dataset."
@@ -1611,7 +1612,7 @@ class ImputationKernel(ImputedData):
             random_state = self._random_state
         else:
             random_state = ensure_rng(random_state)
-        use_seed_array = random_seed_array is not None
+        # use_seed_array = random_seed_array is not None
         random_seed_array = self._initialize_random_seed_array(
             random_seed_array=random_seed_array,
             expected_shape=imputed_data.data_shape[0],
@@ -1751,9 +1752,16 @@ class ImputationKernel(ImputedData):
                     if "random_state" in mean_match_args:
                         mm_kwargs["random_state"] = random_state
 
-                    seeds = random_seed_array[nawhere] if use_seed_array else None
                     if "hashed_seeds" in mean_match_args:
+                        assert random_seed_array is not None, (
+                            f"random_seed_array is required for objective {objective}"
+                        )
+                        seeds = random_seed_array[nawhere]
+                        rehash_seeds = True
                         mm_kwargs["hashed_seeds"] = seeds
+
+                    else:
+                        rehash_seeds = False
 
                     logger.set_start_time()
                     imp_values = self.mean_match_scheme._mean_match(
@@ -1764,7 +1772,8 @@ class ImputationKernel(ImputedData):
                         dataset=ds_new, variable_index=var, new_data=imp_values
                     )
                     # Refresh our seeds.
-                    if use_seed_array:
+                    if rehash_seeds:
+                        assert isinstance(random_seed_array, np.ndarray)
                         random_seed_array[nawhere] = hash_int32(seeds)
 
                     imputed_data.iterations[
