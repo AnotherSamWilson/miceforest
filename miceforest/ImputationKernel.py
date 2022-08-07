@@ -348,17 +348,30 @@ class ImputationKernel(ImputedData):
             ), f"{v} data_subset > available candidates"
 
         # Make sure all pandas categorical levels are used.
+        rare_levels = []
         for cat in self.categorical_variables:
             cat_name = self._get_var_name_from_scalar(cat)
             cat_dat = self._get_nonmissing_values(cat)
+            cat_levels, cat_count = np.unique(cat_dat, return_counts=True)
             cat_dtype = cat_dat.dtype
             if cat_dtype.name == "category":
-                levels_in_data = set(cat_dat)
+                levels_in_data = set(cat_levels)
                 levels_in_catdt = set(cat_dtype.categories)
                 levels_not_in_data = levels_in_catdt - levels_in_data
                 assert (
                     len(levels_not_in_data) == 0
-                ), f"{cat_name} has unused categ: {','.join(levels_not_in_data)}"
+                ), f"{cat_name} has unused categories: {','.join(levels_not_in_data)}"
+
+            if any(cat_count / cat_count.sum() < 0.002):
+                rare_levels.append(cat_name)
+
+        if len(rare_levels) > 0:
+            warn(
+                f"[{','.join(rare_levels)}] have very rare categories, it is a good "
+                "idea to group these, or set the min_data_in_leaf parameter to prevent"
+                "lightgbm from outputting 0.0 probabilities."
+            )
+
 
         # Manage randomness
         self._completely_random_kernel = random_state is None

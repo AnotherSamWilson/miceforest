@@ -81,21 +81,11 @@ class ImputedData:
 
             # Collect category counts.
             category_counts = {}
-            rare_levels = []
             for cat in categorical_variables:
                 cat_name = self._get_var_name_from_scalar(cat)
                 cat_dat = self.working_data.iloc[:, cat]
-                uniq, counts = np.unique(cat_dat.dropna(), return_counts=True)
+                uniq = set(cat_dat.dropna())
                 category_counts[cat] = len(uniq)
-                if np.any((counts / counts.sum()) < 0.002):
-                    rare_levels.append(cat_name)
-
-            if len(rare_levels) > 0:
-                warn(
-                    f"[{','.join(rare_levels)}] have very rare categories, it is a good "
-                    "idea to group these, or set the min_data_in_leaf parameter to prevent"
-                    "lightgbm from outputting 0.0 probabilities."
-                )
 
             # Collect info about what data is missing.
             na_where: Dict[int, np.ndarray] = {
@@ -153,22 +143,11 @@ class ImputedData:
 
             # Collect category counts.
             category_counts = {}
-            rare_levels = []
             for cat in categorical_variables:
-                cat_name = self._get_var_name_from_scalar(cat)
                 cat_dat = self.working_data[:, cat]
                 cat_dat = cat_dat[~np.isnan(cat_dat)]
-                uniq, counts = np.unique(cat_dat, return_counts=True)
+                uniq = set(cat_dat)
                 category_counts[cat] = len(uniq)
-                if np.any((counts / counts.sum()) < 0.002):
-                    rare_levels.append(cat_name)
-
-            if len(rare_levels) > 0:
-                warn(
-                    f"[{','.join(rare_levels)}] have very rare categories, it is a good "
-                    "idea to group these, or set the min_data_in_leaf parameter to prevent"
-                    "lightgbm from outputting 0.0 probabilities."
-                )
 
             # Keep track of datatype.
             self.working_dtypes = self.working_data.dtype
