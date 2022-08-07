@@ -190,7 +190,6 @@ class ImputedData:
                     if imputation_order == "ascending"
                     else np.argsort(list(na_counts.values()))[::-1].tolist()
                 )
-                na_counts = {1:5, 2:6, 3:2}
                 imputation_order = [
                     int(i)
                     for i in imputation_order
