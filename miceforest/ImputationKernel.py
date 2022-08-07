@@ -1753,11 +1753,14 @@ class ImputationKernel(ImputedData):
                         mm_kwargs["random_state"] = random_state
 
                     if "hashed_seeds" in mean_match_args:
-                        assert random_seed_array is not None, (
-                            f"random_seed_array is required for objective {objective}"
-                        )
-                        seeds = random_seed_array[nawhere]
-                        rehash_seeds = True
+                        if isinstance(random_seed_array, np.ndarray):
+                            seeds = random_seed_array[nawhere]
+                            rehash_seeds = True
+
+                        else:
+                            seeds = None
+                            rehash_seeds = False
+
                         mm_kwargs["hashed_seeds"] = seeds
 
                     else:
