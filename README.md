@@ -1,6 +1,6 @@
 
-[![Github Actions Test
-Status](https://github.com/AnotherSamWilson/miceforest/workflows/tests%20+%20mypy/badge.svg?branch=master)](https://github.com/AnotherSamWilson/miceforest/actions)
+[![tests +
+mypy](https://github.com/AnotherSamWilson/miceforest/actions/workflows/run_tests.yml/badge.svg)](https://github.com/AnotherSamWilson/miceforest/actions/workflows/run_tests.yml)
 [![Documentation
 Status](https://readthedocs.org/projects/miceforest/badge/?version=latest)](https://miceforest.readthedocs.io/en/latest/?badge=latest)
 [![CodeCov](https://codecov.io/gh/AnotherSamWilson/miceforest/branch/master/graphs/badge.svg?branch=master&service=github)](https://codecov.io/gh/AnotherSamWilson/miceforest)
@@ -394,7 +394,7 @@ new_data_imputed = kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    ## New Data imputed in 0.477107 seconds
+    ## New Data imputed in 0.479109 seconds
 
 All of the imputation parameters (variable\_schema,
 mean\_match\_candidates, etc) will be carried over from the original
