@@ -372,7 +372,6 @@ class ImputationKernel(ImputedData):
                 "lightgbm from outputting 0.0 probabilities."
             )
 
-
         # Manage randomness
         self._completely_random_kernel = random_state is None
         self._random_state = ensure_rng(random_state)
@@ -386,28 +385,28 @@ class ImputationKernel(ImputedData):
         summary_string = f'\n{" " * 14}Class: ImputationKernel\n{self._ids_info()}'
         return summary_string
 
-    def _mm_type_handling(self, mm, available_candidates) -> int:
-        if isinstance(mm, float):
-
-            assert (mm > 0.0) and (
-                mm <= 1.0
-            ), "mean_matching must be < 0.0 and >= 1.0 if a float"
-
-            ret = int(mm * available_candidates)
-
-        elif isinstance(mm, int):
-
-            assert mm >= 0, "mean_matching must be above 0 if an int is passed."
-            ret = mm
-
-        else:
-
-            raise ValueError(
-                "mean_match_candidates type not recognized. "
-                + "Any supplied values must be a 0.0 < float <= 1.0 or int >= 1"
-            )
-
-        return ret
+    # def _mm_type_handling(self, mm, available_candidates) -> int:
+    #     if isinstance(mm, float):
+    #
+    #         assert (mm > 0.0) and (
+    #             mm <= 1.0
+    #         ), "mean_matching must be < 0.0 and >= 1.0 if a float"
+    #
+    #         ret = int(mm * available_candidates)
+    #
+    #     elif isinstance(mm, int):
+    #
+    #         assert mm >= 0, "mean_matching must be above 0 if an int is passed."
+    #         ret = mm
+    #
+    #     else:
+    #
+    #         raise ValueError(
+    #             "mean_match_candidates type not recognized. "
+    #             + "Any supplied values must be a 0.0 < float <= 1.0 or int >= 1"
+    #         )
+    #
+    #     return ret
 
     def _initialize_random_seed_array(self, random_seed_array, expected_shape):
         """
@@ -457,9 +456,7 @@ class ImputationKernel(ImputedData):
         assert not imputed_data.initialized, "dataset has already been initialized"
 
         if self.initialization == "random":
-
             for var in imputed_data.imputation_order:
-
                 kernel_nonmissing_ind = self._get_nonmissing_indx(var)
                 candidate_values = _subset_data(
                     self.working_data, kernel_nonmissing_ind, var, return_1d=True
@@ -468,7 +465,6 @@ class ImputationKernel(ImputedData):
                 missing_ind = imputed_data.na_where[var]
 
                 for ds in range(imputed_data.dataset_count()):
-
                     # Initialize using the random_state if no record seeds were passed.
                     if random_seed_array is None:
                         imputed_data[ds, var, 0] = random_state.choice(
@@ -488,9 +484,7 @@ class ImputationKernel(ImputedData):
                         )
 
         elif self.initialization == "empty":
-
             for var in imputed_data.imputation_order:
-
                 for ds in range(imputed_data.dataset_count()):
                     # Saves space, since np.nan will be broadcast.
                     imputed_data[ds, var, 0] = np.array([np.nan])
@@ -574,10 +568,6 @@ class ImputationKernel(ImputedData):
         kwlgb: dict
             Any additional parameters that should take presidence
             over the defaults or user supplied.
-
-        Returns
-        -------
-
         """
 
         seed = _draw_random_int32(random_state, size=1)[0]
@@ -594,13 +584,17 @@ class ImputationKernel(ImputedData):
         default_lgb_params = {**default_parameters, **obj, "seed": seed}
 
         # Priority is [variable specific] > [global in kwargs] > [defaults]
-        # user_set_lgb_params = {**kwlgb, **vsp}
         params = self._reconcile_parameters(default_lgb_params, kwlgb)
         params = self._reconcile_parameters(params, vsp)
 
         return params
 
     def _get_random_sample(self, parameters, random_state):
+        """
+        Searches through a parameter set and selects a random
+        number between the values in any provided tuple of length 2.
+        """
+
         parameters = parameters.copy()
         for p, v in parameters.items():
             if hasattr(v, "__iter__"):
@@ -614,6 +608,10 @@ class ImputationKernel(ImputedData):
         return parameters
 
     def _make_params_digestible(self, params):
+        """
+        Cursory checks to force parameters to be digestible
+        """
+
         int_params = [
             "num_leaves",
             "min_data_in_leaf",
@@ -639,7 +637,6 @@ class ImputationKernel(ImputedData):
         """
 
         num_iterations = parameters.pop("num_iterations")
-
         lgbcv = cv(
             params=parameters,
             train_set=train_pointer,
@@ -655,12 +652,14 @@ class ImputationKernel(ImputedData):
         best_iteration = lgbcv["cvbooster"].best_iteration
         loss_metric_key = list(lgbcv)[0]
         loss = np.min(lgbcv[loss_metric_key])
+
         return loss, best_iteration
 
     def _get_nonmissing_values(self, variable):
         """
         Returns the non-missing values of a column.
         """
+
         var_indx = self._get_var_ind_from_scalar(variable)
         nonmissing_index = self._get_nonmissing_indx(variable)
         candidate_values = _subset_data(
@@ -673,6 +672,7 @@ class ImputationKernel(ImputedData):
         Returns a reproducible subset index of the
         non-missing values for a given variable.
         """
+
         var_indx = self._get_var_ind_from_scalar(variable)
         nonmissing_index = self._get_nonmissing_indx(var_indx)
 
@@ -699,8 +699,9 @@ class ImputationKernel(ImputedData):
 
     def _make_label(self, variable, subset_count, random_seed):
         """
-        Returns a reproducible subset of the values of a variable.
+        Returns a reproducible subset of the non-missing values of a variable.
         """
+
         var_indx = self._get_var_ind_from_scalar(variable)
         candidate_subset = self._get_candidate_subset(
             var_indx, subset_count, random_seed
@@ -716,6 +717,7 @@ class ImputationKernel(ImputedData):
         Makes a reproducible set of features and
         target needed to train a lightgbm model.
         """
+
         var_indx = self._get_var_ind_from_scalar(variable)
         candidate_subset = self._get_candidate_subset(
             var_indx, subset_count, random_seed
@@ -725,6 +727,7 @@ class ImputationKernel(ImputedData):
         features = _subset_data(
             self.working_data, row_ind=candidate_subset, col_ind=ret_cols
         )
+
         if self.original_data_class == "pd_DataFrame":
             y_name = self._get_var_name_from_scalar(var_indx)
             label = features.pop(y_name)
@@ -761,6 +764,7 @@ class ImputationKernel(ImputedData):
             The kernel to merge.
 
         """
+
         _assert_dataset_equivalent(self.working_data, imputation_kernel.working_data)
         assert self.iteration_count() == imputation_kernel.iteration_count()
         assert self.variable_schema == imputation_kernel.variable_schema
@@ -823,6 +827,7 @@ class ImputationKernel(ImputedData):
         Candidate predictions can be pre-generated before imputing new data.
         This can save a substantial amount of time, especially if save_models == 1.
         """
+
         compile_objectives = (
             self.mean_match_scheme.get_objectives_requiring_candidate_preds()
         )
@@ -848,6 +853,7 @@ class ImputationKernel(ImputedData):
         """
         Deletes the pre-computed candidate predictions.
         """
+
         self.candidate_preds = {}
 
     def fit(self, X, y, **fit_params):
@@ -855,6 +861,7 @@ class ImputationKernel(ImputedData):
         Method for fitting a kernel when used in a sklearn pipeline.
         Should not be called by the user directly.
         """
+
         assert self.dataset_count() == 1, (
             "miceforest kernel should be initialized with datasets=1 if "
             + "being used in a sklearn pipeline."
@@ -887,7 +894,6 @@ class ImputationKernel(ImputedData):
 
         Returns: lightgbm.Booster
             The model used to impute this specific variable, iteration.
-
         """
 
         var_indx = self._get_var_ind_from_scalar(variable)
@@ -1203,6 +1209,7 @@ class ImputationKernel(ImputedData):
         Method for calling a kernel when used in a sklearn pipeline.
         Should not be called by the user directly.
         """
+
         new_dat = self.impute_new_data(X, datasets=[0])
         return new_dat.complete_data(dataset=0, inplace=False)
 
@@ -1220,7 +1227,6 @@ class ImputationKernel(ImputedData):
     ):
         """
         Perform hyperparameter tuning on models at the current iteration.
-
 
         .. code-block:: text
 
@@ -1795,12 +1801,14 @@ class ImputationKernel(ImputedData):
         """
         Start saving loggers to self.loggers
         """
+
         self.save_loggers = True
 
     def stop_logging(self):
         """
         Stop saving loggers to self.loggers
         """
+
         self.save_loggers = False
 
     def save_kernel(
@@ -1842,8 +1850,8 @@ class ImputationKernel(ImputedData):
             kernel = self
 
         # convert working data to parquet bytes object
-        working_data_bytes = BytesIO()
         if kernel.original_data_class == "pd_DataFrame":
+            working_data_bytes = BytesIO()
             kernel.working_data.to_parquet(working_data_bytes)
             kernel.working_data = working_data_bytes
 
