@@ -166,6 +166,7 @@ class ImputedData:
 
             elif isinstance(variable_schema, dict):
                 variable_schema = self._get_var_ind_from_dict(variable_schema)
+
                 # Check for any self-impute attempts
                 self_impute_attempt = [
                     var for var, prd in variable_schema.items() if var in prd
@@ -307,7 +308,7 @@ save_all_iterations: {self.save_all_iterations}"""
                 int(self.column_names.index(v)) if isinstance(v, str) else int(v)
                 for v in value
             ]
-            indx[variable] = val
+            indx[variable] = sorted(val)
 
         return indx
 
