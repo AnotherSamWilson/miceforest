@@ -98,8 +98,8 @@ class ImputedData:
             vars_with_any_missing = [
                 col for col, ind in na_where.items() if len(ind > 0)
             ]
-            if len(vars_with_any_missing) == 0:
-                raise ValueError("No missing values to impute.")
+            # if len(vars_with_any_missing) == 0:
+            #     raise ValueError("No missing values to impute.")
 
             # Keep track of datatypes. Needed for loading kernels.
             self.working_dtypes = self.working_data.dtypes
@@ -242,8 +242,8 @@ class ImputedData:
         self.initialized = False
 
         # Sanity checks
-        if self.imputed_variable_count == 0:
-            raise ValueError("Something went wrong. No variables to impute.")
+        # if self.imputed_variable_count == 0:
+        #     raise ValueError("Something went wrong. No variables to impute.")
 
     # Subsetting allows us to get to the imputation values:
     def __getitem__(self, tup):
@@ -325,32 +325,6 @@ save_all_iterations: {self.save_all_iterations}"""
             variable = self.column_names.index(variable)
         variable = int(variable)
         return variable
-
-    # def _get_variable_index(self, var_obj):
-    #     """
-    #     Variables can commonly be specified by their names.
-    #     If names are passed, indexes are returned in the same structure.
-    #     If indexes are passed, the object is returned.
-    #     """
-    #     if var_obj is None:
-    #         indx = list(range(self.data_shape[1]))
-    #
-    #     elif isinstance(var_obj, str):
-    #         indx = self.column_names.index(var_obj)
-    #
-    #     elif _is_int(var_obj):
-    #         indx = var_obj
-    #
-    #     elif isinstance(var_obj, list):
-    #         indx = [
-    #             self.column_names.index(v) if isinstance(v, str) else v for v in var_obj
-    #         ]
-    #         assert all([_is_int(v) for v in indx])
-    #
-    #
-    #     else:
-    #         raise ValueError("var_obj type not recognized")
-    #     return indx
 
     def _get_nonmissing_indx(self, var):
         non_missing_ind = np.setdiff1d(
@@ -450,6 +424,8 @@ save_all_iterations: {self.save_all_iterations}"""
 
         iter_indx = [self.variable_training_order.index(v) for v in var]
         ds_uniq = np.unique(self.iterations[np.ix_(ds, iter_indx)])
+        if len(ds_uniq) == 0:
+            return -1
         if len(ds_uniq) > 1:
             raise ValueError(
                 "iterations were not consistent across provided datasets, variables."

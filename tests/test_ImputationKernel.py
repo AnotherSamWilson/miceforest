@@ -62,6 +62,12 @@ def test_defaults_pandas():
     assert all(imp_ds.working_data.isnull().sum(0) == 0)
     assert new_data.isnull().sum().sum() > 0
 
+    # Make sure fully-recognized data can be passed through with no changes
+    imp_fr = kernel.impute_new_data(boston)
+    comp_fr = imp_fr.complete_data(0)
+    assert np.all(comp_fr == boston), "values of fully-recognized data were modified"
+    assert imp_fr.iteration_count() == -1
+
 
 def test_complex_pandas():
     
@@ -172,8 +178,6 @@ def test_complex_pandas():
 
     new_imp_dat = kernel.impute_new_data(new_data=new_data, verbose=True)
     new_imp_complete = new_imp_dat.complete_data(0)
-    new_imp_dat.na_where[2]
-    new_imp_dat.imputation_values[0,2,3]
     assert all(new_imp_complete[["1","2","3","4"]].isnull().sum() == 0)
 
     # Plotting on multiple imputed dataset
@@ -194,19 +198,16 @@ def test_complex_pandas():
 
 def test_defaults_numpy():
     
-    working_set = boston_amp.copy()
-
-    working_set["3"] = working_set["3"].cat.codes
-    working_set["8"] = working_set["8"].cat.codes
-    working_set["3"].replace(-1,np.NaN, inplace=True)
-    working_set["8"].replace(-1, np.NaN, inplace=True)
-    new_data = working_set.loc[range(10), :].copy()
-    working_set = working_set.values
-    new_data = new_data.values
+    boston_np = boston.copy()
+    boston_np["3"] = boston_np["3"].cat.codes
+    boston_np["8"] = boston_np["8"].cat.codes
+    boston_np = boston_np.values
+    boston_np_amp = mf.ampute_data(boston_np, perc=0.25)
+    new_data = boston_np_amp[range(10), :].copy()
 
     s = datetime.now()
     kernel = mf.ImputationKernel(
-        data=working_set,
+        data=boston_np_amp,
         datasets=3,
         categorical_feature=[3,8],
         mean_match_scheme=mean_match_fast_cat
@@ -221,7 +222,7 @@ def test_defaults_numpy():
     # a copy, and did not affect internal data or original data.
     assert all(np.isnan(comp_dat).sum(0) == 0)
     assert all(np.isnan(kernel.working_data).sum(0) > 0)
-    assert all(np.isnan(working_set).sum(0) > 0)
+    assert all(np.isnan(boston_np_amp).sum(0) > 0)
 
     # Complete data in place
     kernel.complete_data(0, inplace=True)
@@ -229,9 +230,7 @@ def test_defaults_numpy():
     # We completed data in place. Make sure we only affected
     # the kernel.working_data and not the original data.
     assert all(np.isnan(kernel.working_data).sum(0) == 0)
-    assert all(np.isnan(working_set).sum(0) > 0)
-
-
+    assert all(np.isnan(boston_np_amp).sum(0) > 0)
 
     imp_ds = kernel.impute_new_data(new_data)
     imp_ds.complete_data(0,inplace=True)
@@ -239,53 +238,54 @@ def test_defaults_numpy():
     assert np.isnan(new_data).sum() > 0
     print(datetime.now() - s)
 
+    # Make sure fully-recognized data can be passed through with no changes
+    imp_fr = kernel.impute_new_data(boston_np)
+    comp_fr = imp_fr.complete_data(0)
+    assert np.all(comp_fr == boston_np), "values of fully-recognized data were modified"
+    assert imp_fr.iteration_count() == -1
+
 
 def test_complex_numpy():
 
-    working_set = boston_amp.copy()
-
-    # Switch our category columns to integer codes.
-    # Replace -1 with np.NaN or lightgbm will complain.
-    working_set["3"] = working_set["3"].cat.codes
-    working_set["8"] = working_set["8"].cat.codes
-    working_set["3"].replace(-1,np.NaN, inplace=True)
-    working_set["8"].replace(-1, np.NaN, inplace=True)
-    new_data = working_set.loc[range(100), :].copy()
-
-    working_set = working_set.values
-    new_data = new_data.values
+    boston_np = boston.copy()
+    boston_np["3"] = boston_np["3"].cat.codes
+    boston_np["8"] = boston_np["8"].cat.codes
+    boston_np = boston_np.values
+    boston_np_amp = mf.ampute_data(boston_np, perc=0.25)
+    new_data = boston_np_amp[range(25), :].copy()
 
     # Specify that models should be built for variables 1, 2, 3, 4
     vs = {1: [2,3,4,5], 2: [6,7], 3: [1,2,8], 4: [8,9,10]}
-    mmc = {1: 4, 2: 0.01, 3: 0}
+    mmc = {1: 4, 2: 1, 3: 0}
     ds = {2: 100, 3: 0.5}
     # Only variables 1, 2, 3 should be imputed using mice.
     io = [2,3,1]
-    niv = np.setdiff1d(np.arange(working_set.shape[1]), io)
-    nivs = np.setdiff1d(np.arange(working_set.shape[1]), list(vs))
+    niv = np.setdiff1d(np.arange(boston_np_amp.shape[1]), io)
+    nivs = np.setdiff1d(np.arange(boston_np_amp.shape[1]), list(vs))
 
-
+    mmfc = mean_match_fast_cat.copy()
+    mmfc.set_mean_match_candidates(mean_match_candidates=mmc)
     kernel = mf.ImputationKernel(
-        data=working_set,
+        data=boston_np_amp,
         datasets=2,
         variable_schema=vs,
         imputation_order=io,
         train_nonmissing=True,
         data_subset=ds,
-        mean_match_scheme=mean_match_fast_cat,
+        mean_match_scheme=mmfc,
         categorical_feature=[3,8],
         copy_data=False,
         save_loggers=True
     )
 
     kernel2 = mf.ImputationKernel(
-        data=working_set,
+        data=boston_np_amp,
         datasets=1,
         variable_schema=vs,
         imputation_order=io,
         train_nonmissing=True,
         data_subset=ds,
-        mean_match_scheme=mean_match_fast_cat,
+        mean_match_scheme=mmfc.copy(),
         categorical_feature=[3,8],
         copy_data=False,
         save_loggers=True
@@ -320,16 +320,16 @@ def test_complex_numpy():
     assert all(np.isnan(kernel.working_data).sum(0) > 0)
 
     # Should have no affect on working_set
-    assert all(np.isnan(working_set).sum(0) > 0)
+    assert all(np.isnan(boston_np_amp).sum(0) > 0)
 
     # Now complete the data in place
     kernel.complete_data(0, inplace=True)
 
     # Should have affect on working_data and original data
     assert all(np.isnan(kernel.working_data[:, io]).sum(0) == 0)
-    assert all(np.isnan(working_set[:, io]).sum(0) == 0)
+    assert all(np.isnan(boston_np_amp[:, io]).sum(0) == 0)
     assert all(np.isnan(kernel.working_data[:, niv]).sum(0) > 0)
-    assert all(np.isnan(working_set[:, niv]).sum(0) > 0)
+    assert all(np.isnan(boston_np_amp[:, niv]).sum(0) > 0)
 
     # Test the ability to tune parameters with custom setup
     optimization_steps = 2
