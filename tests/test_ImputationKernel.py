@@ -68,6 +68,11 @@ def test_defaults_pandas():
     assert np.all(comp_fr == boston), "values of fully-recognized data were modified"
     assert imp_fr.iteration_count() == -1
 
+    # Make sure single rows can be imputed
+    single_row = new_data.iloc[[0], :]
+    imp_sr = kernel.impute_new_data(single_row)
+    assert np.all(imp_sr.complete_data(0).dtypes == single_row.dtypes)
+
 
 def test_complex_pandas():
     
