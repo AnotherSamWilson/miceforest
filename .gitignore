@@ -22,3 +22,4 @@ dev/
 miceforest.Rproj
 .Rhistory
 benchmarks/*
+requirements.txt
