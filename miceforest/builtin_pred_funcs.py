@@ -30,8 +30,7 @@ def predict_normal_shap(model: Booster, data):
 def predict_binary_logodds(model: Booster, data):
     preds = logodds(
         model.predict(data).clip(
-            _LIGHTGBM_PROB_THRESHOLD,
-            1.0 - _LIGHTGBM_PROB_THRESHOLD
+            _LIGHTGBM_PROB_THRESHOLD, 1.0 - _LIGHTGBM_PROB_THRESHOLD
         )
     )
     return preds
@@ -39,8 +38,7 @@ def predict_binary_logodds(model: Booster, data):
 
 def predict_multiclass_logodds(model: Booster, data):
     preds = model.predict(data).clip(
-        _LIGHTGBM_PROB_THRESHOLD,
-        1.0 - _LIGHTGBM_PROB_THRESHOLD
+        _LIGHTGBM_PROB_THRESHOLD, 1.0 - _LIGHTGBM_PROB_THRESHOLD
     )
     preds = logodds(preds)
     return preds

@@ -1922,11 +1922,11 @@ class ImputationKernel(ImputedData):
         return importance_matrix
 
     def plot_feature_importance(
-            self,
-            dataset,
-            normalize: bool = True,
-            iteration: Optional[int] = None,
-            **kw_plot
+        self,
+        dataset,
+        normalize: bool = True,
+        iteration: Optional[int] = None,
+        **kw_plot,
     ):
         """
         Plot the feature importance. See get_feature_importance()
