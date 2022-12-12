@@ -5,6 +5,7 @@ from .utils import (
     _t_var_list,
     _t_var_dict,
     _t_var_sub,
+    _t_random_state,
     _assert_dataset_equivalent,
     _draw_random_int32,
     _interpret_ds,
@@ -19,6 +20,7 @@ from .compat import pd_DataFrame, pd_Series
 from .default_lightgbm_parameters import default_parameters, make_default_tuning_space
 from .logger import Logger
 import numpy as np
+from numpy.random import RandomState
 from warnings import warn
 from lightgbm import train, Dataset, cv, log_evaluation, early_stopping, Booster
 from lightgbm.basic import _ConfigAliases
@@ -256,18 +258,18 @@ class ImputationKernel(ImputedData):
         self,
         data: _t_dat,
         datasets: int = 1,
-        variable_schema: Union[_t_var_list, _t_var_dict] = None,
+        variable_schema: Union[_t_var_list, _t_var_dict, None] = None,
         imputation_order: Union[str, _t_var_list] = "ascending",
         train_nonmissing: bool = False,
-        mean_match_scheme: MeanMatchScheme = None,
-        data_subset: Union[int, float, _t_var_sub] = None,
+        mean_match_scheme: Optional[MeanMatchScheme] = None,
+        data_subset: Union[int, float, _t_var_sub, None] = None,
         categorical_feature: Union[str, _t_var_list] = "auto",
         initialization: str = "random",
         save_all_iterations: bool = True,
         save_models: int = 1,
         copy_data: bool = True,
         save_loggers: bool = False,
-        random_state: Union[int, np.random.RandomState] = None,
+        random_state: _t_random_state = None,
     ):
 
         super().__init__(
@@ -914,7 +916,7 @@ class ImputationKernel(ImputedData):
         imp_iteration: Optional[int] = None,
         model_dataset: Optional[int] = None,
         model_iteration: Optional[int] = None,
-        dtype: Union[str, np.dtype] = None,
+        dtype: Union[str, np.dtype, None] = None,
     ):
         """
         Get the raw model output for a specific variable.
@@ -947,6 +949,10 @@ class ImputationKernel(ImputedData):
         model_iteration: int
             The iteration from which to pull the trained model for this variable
             If None, it is selected to be the same as imp_iteration.
+
+        dtype: str, np.dtype
+            The datatype to cast the raw prediction as.
+            Passed to MeanMatchScheme.model_predict().
 
         Returns
         -------
@@ -1216,12 +1222,12 @@ class ImputationKernel(ImputedData):
     def tune_parameters(
         self,
         dataset: int,
-        variables: Union[List[int], List[str]] = None,
-        variable_parameters: Dict[Any, Any] = None,
+        variables: Union[List[int], List[str], None] = None,
+        variable_parameters: Optional[Dict[Any, Any]] = None,
         parameter_sampling_method: str = "random",
         nfold: int = 10,
         optimization_steps: int = 5,
-        random_state: Union[int, np.random.RandomState] = None,
+        random_state: _t_random_state = None,
         verbose: bool = False,
         **kwbounds,
     ):
@@ -1484,8 +1490,8 @@ class ImputationKernel(ImputedData):
         iterations: Optional[int] = None,
         save_all_iterations: bool = True,
         copy_data: bool = True,
-        random_state: Union[int, np.random.RandomState] = None,
-        random_seed_array: np.ndarray = None,
+        random_state: _t_random_state = None,
+        random_seed_array: Optional[np.ndarray] = None,
         verbose: bool = False,
     ) -> ImputedData:
         """
@@ -1916,7 +1922,11 @@ class ImputationKernel(ImputedData):
         return importance_matrix
 
     def plot_feature_importance(
-        self, dataset, normalize: bool = True, iteration: int = None, **kw_plot
+            self,
+            dataset,
+            normalize: bool = True,
+            iteration: Optional[int] = None,
+            **kw_plot
     ):
         """
         Plot the feature importance. See get_feature_importance()

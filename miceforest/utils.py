@@ -1,5 +1,6 @@
 from .compat import pd_DataFrame, pd_Series, pd_read_parquet
 import numpy as np
+from numpy.random import RandomState
 import blosc
 import dill
 from typing import Union, List, Dict, Optional
@@ -9,13 +10,14 @@ _t_var_list = Union[List[str], List[int]]
 _t_var_dict = Union[Dict[str, List[str]], Dict[int, List[int]]]
 _t_var_sub = Union[Dict[Union[int, int], Union[int, float]]]
 _t_dat = Union[pd_DataFrame, np.ndarray]
+_t_random_state = Union[int, RandomState, None]
 
 
 def ampute_data(
     data: _t_dat,
-    variables: _t_var_list = None,
+    variables: Optional[_t_var_list] = None,
     perc: float = 0.1,
-    random_state: Union[int, np.random.RandomState] = None,
+    random_state: _t_random_state = None,
 ):
     """
     Ampute Data
@@ -137,7 +139,7 @@ def stratified_subset(y, size, groups, cat, seed):
     The indices of y that have been chosen.
 
     """
-    rs = np.random.RandomState(seed)
+    rs = RandomState(seed)
 
     if isinstance(y, pd_Series):
         if y.dtype.name == "category":
@@ -241,18 +243,18 @@ def _draw_random_int32(random_state, size):
     return nums
 
 
-def ensure_rng(random_state) -> np.random.RandomState:
+def ensure_rng(random_state) -> RandomState:
     """
     Creates a random number generator based on an optional seed.  This can be
     an integer or another random state for a seeded rng, or None for an
     unseeded rng.
     """
     if random_state is None:
-        random_state = np.random.RandomState()
+        random_state = RandomState()
     elif isinstance(random_state, int):
-        random_state = np.random.RandomState(random_state)
+        random_state = RandomState(random_state)
     else:
-        assert isinstance(random_state, np.random.RandomState)
+        assert isinstance(random_state, RandomState)
     return random_state
 
 

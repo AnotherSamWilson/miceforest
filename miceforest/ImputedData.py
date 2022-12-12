@@ -28,7 +28,7 @@ class ImputedData:
         self,
         impute_data: _t_dat,
         datasets: int = 5,
-        variable_schema: Union[_t_var_list, _t_var_dict] = None,
+        variable_schema: Union[_t_var_list, _t_var_dict, None] = None,
         imputation_order: Union[str, _t_var_list] = "ascending",
         train_nonmissing: bool = False,
         categorical_feature: Union[str, _t_var_list] = "auto",
