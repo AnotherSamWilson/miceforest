@@ -368,7 +368,7 @@ class ImputationKernel(ImputedData):
         if len(rare_levels) > 0:
             warn(
                 f"[{','.join(rare_levels)}] have very rare categories, it is a good "
-                "idea to group these, or set the min_data_in_leaf parameter to prevent"
+                "idea to group these, or set the min_data_in_leaf parameter to prevent "
                 "lightgbm from outputting 0.0 probabilities."
             )
 
