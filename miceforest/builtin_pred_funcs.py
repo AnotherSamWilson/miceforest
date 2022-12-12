@@ -6,6 +6,11 @@ from lightgbm import Booster
 import numpy as np
 
 
+# Lightgbm can output 0.0 probabilities for extremely
+# rare categories. This causes logodds to return inf.
+_LIGHTGBM_PROB_THRESHOLD = 0.00000001
+
+
 def _adjust_shap_for_rf(model, sv):
     if model.params["boosting"] in ["random_forest", "rf"]:
         sv /= model.current_iteration()
@@ -23,12 +28,20 @@ def predict_normal_shap(model: Booster, data):
 
 
 def predict_binary_logodds(model: Booster, data):
-    preds = logodds(model.predict(data))
+    preds = logodds(
+        model.predict(data).clip(
+            _LIGHTGBM_PROB_THRESHOLD,
+            1.0 - _LIGHTGBM_PROB_THRESHOLD
+        )
+    )
     return preds
 
 
 def predict_multiclass_logodds(model: Booster, data):
-    preds = model.predict(data)
+    preds = model.predict(data).clip(
+        _LIGHTGBM_PROB_THRESHOLD,
+        1.0 - _LIGHTGBM_PROB_THRESHOLD
+    )
     preds = logodds(preds)
     return preds
 
