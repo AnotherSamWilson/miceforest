@@ -147,7 +147,6 @@ class MeanMatchScheme:
         self.objective_pred_funcs[objective] = func
 
     def _format_mean_match_candidates(self, data, available_candidates):
-
         var_indx_list = list(available_candidates)
         assert not self._mmc_formatted, "mmc are already formatted"
 
@@ -168,10 +167,17 @@ class MeanMatchScheme:
                     assert (
                         mmc <= available_candidates[v_ind]
                     ), f"{v} doesn't have enough candidates for mmc {mmc}"
-                    mmc_formatted[v_ind] = mmc
 
                 else:
-                    mmc_formatted[v] = mmc
+                    v_ind = v
+
+                if isinstance(mmc, float):
+                    assert 0.0 < mmc < 1.0, f"{v} mmc malformed"
+                    print("A")
+                    mmc_formatted[v_ind] = int(mmc * available_candidates[v_ind])
+                else:
+                    mmc_formatted[v_ind] = mmc
+                    print("B")
 
             for v in var_indx_list:
                 if v not in list(mmc_formatted):
