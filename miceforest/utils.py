@@ -74,7 +74,6 @@ def ampute_data(
                 amputed_data[na_ind, v] = np.NaN
 
     else:
-
         na_ind = random_state.choice(
             np.arange(data_shape[0]), replace=False, size=amp_rows
         )

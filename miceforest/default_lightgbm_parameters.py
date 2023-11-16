@@ -16,6 +16,7 @@ default_parameters = {
     "verbosity": -1,
 }
 
+
 # WHEN TUNING, THESE PARAMETERS OVERWRITE THE DEFAULTS ABOVE
 # These need to be main parameter names, not aliases
 def make_default_tuning_space(min_samples, max_samples):

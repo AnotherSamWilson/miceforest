@@ -35,7 +35,6 @@ class ImputedData:
         save_all_iterations: bool = True,
         copy_data: bool = True,
     ):
-
         # All references to the data should be through self.
         self.working_data = impute_data.copy() if copy_data else impute_data
         data_shape = self.working_data.shape
@@ -47,7 +46,6 @@ class ImputedData:
 
         # Collect metadata and format data
         if isinstance(self.working_data, pd_DataFrame):
-
             if len(self.working_data.shape) != 2 or self.working_data.shape[0] < 1:
                 raise ValueError("Input data must be 2 dimensional and non empty.")
 
@@ -105,7 +103,6 @@ class ImputedData:
             self.working_dtypes = self.working_data.dtypes
 
         elif isinstance(self.working_data, np.ndarray):
-
             if len(self.working_data.shape) != 2 or self.working_data.shape[0] < 1:
                 raise ValueError("Input data must be 2 dimensional and non empty.")
 
@@ -153,7 +150,6 @@ class ImputedData:
             self.working_dtypes = self.working_data.dtype
 
         else:
-
             raise ValueError("impute_data not recognized.")
 
         # Formatting of variable_schema.
@@ -333,7 +329,6 @@ save_all_iterations: {self.save_all_iterations}"""
         return non_missing_ind
 
     def _insert_new_data(self, dataset, variable_index, new_data):
-
         current_iter = self.iteration_count(datasets=dataset, variables=variable_index)
 
         # We need to insert the categories if the raw data is stored as a category.

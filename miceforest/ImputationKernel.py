@@ -271,7 +271,6 @@ class ImputationKernel(ImputedData):
         save_loggers: bool = False,
         random_state: _t_random_state = None,
     ):
-
         super().__init__(
             impute_data=data,
             datasets=datasets,
@@ -529,11 +528,9 @@ class ImputationKernel(ImputedData):
         provided, and returns empty dicts if they weren't.
         """
         if variable_parameters is None:
-
             vsp: Dict[int, Any] = {var: {} for var in self.variable_training_order}
 
         else:
-
             for variable in list(variable_parameters):
                 variable_parameters[
                     self._get_var_ind_from_scalar(variable)
@@ -1047,7 +1044,6 @@ class ImputationKernel(ImputedData):
         vsp = self._format_variable_parameters(variable_parameters)
 
         for ds in range(self.dataset_count()):
-
             logger.log("Dataset " + str(ds))
 
             # set self.working_data to the most current iteration.
@@ -1055,7 +1051,6 @@ class ImputationKernel(ImputedData):
             last_iteration = False
 
             for iter_abs, iter_rel in iter_pairs:
-
                 logger.log(str(iter_abs) + " ", end="")
                 if iter_rel == iterations:
                     last_iteration = True
@@ -1064,7 +1059,6 @@ class ImputationKernel(ImputedData):
                 )
 
                 for variable in self.variable_training_order:
-
                     var_name = self._get_var_name_from_scalar(variable)
                     logger.log(" | " + var_name, end="")
                     predictor_variables = self.variable_schema[variable]
@@ -1390,7 +1384,6 @@ class ImputationKernel(ImputedData):
         variable_parameter_space = {}
 
         for var in variables:
-
             default_tuning_space = make_default_tuning_space(
                 self.category_counts[var] if var in self.categorical_variables else 1,
                 int((self.data_shape[0] - len(self.na_where[var])) / 10),
@@ -1404,9 +1397,7 @@ class ImputationKernel(ImputedData):
             )
 
         if parameter_sampling_method == "random":
-
             for var, parameter_space in variable_parameter_space.items():
-
                 logger.log(self._get_var_name_from_scalar(var) + " | ", end="")
 
                 (
@@ -1428,14 +1419,12 @@ class ImputationKernel(ImputedData):
                 is_categorical = var in self.categorical_variables
 
                 for step in range(optimization_steps):
-
                     logger.log(str(step), end="")
 
                     # Make multiple attempts to learn something.
                     non_learners = 0
                     learning_attempts = 10
                     while non_learners < learning_attempts:
-
                         # Pointer and folds need to be re-initialized after every run.
                         train_pointer = Dataset(
                             data=candidate_features,
@@ -1634,14 +1623,12 @@ class ImputationKernel(ImputedData):
         )
 
         for ds_kern in datasets:
-
             logger.log("Dataset " + str(ds_kern))
             self.complete_data(dataset=ds_kern, inplace=True)
             ds_new = datasets.index(ds_kern)
             imputed_data.complete_data(dataset=ds_new, inplace=True)
 
             for iter_abs, iter_rel in iter_pairs:
-
                 logger.log(str(iter_rel) + " ", end="")
 
                 # Determine which model iteration to grab
@@ -1651,7 +1638,6 @@ class ImputationKernel(ImputedData):
                     iter_model = iter_abs
 
                 for var in imputed_data.imputation_order:
-
                     var_name = self._get_var_name_from_scalar(var)
                     logger.log(" | " + var_name, end="")
                     log_context = {
@@ -1706,7 +1692,6 @@ class ImputationKernel(ImputedData):
                         "candidate_features",
                         "candidate_preds",
                     }.intersection(mean_match_args):
-
                         # Need to return candidate features if we need to calculate
                         # candidate_preds or candidate_features is needed by mean matching function
                         calculate_candidate_preds = (
