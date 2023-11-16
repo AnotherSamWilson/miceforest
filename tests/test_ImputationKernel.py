@@ -1,6 +1,5 @@
 
-
-from sklearn.datasets import load_boston
+from sklearn.datasets import load_iris
 import pandas as pd
 import numpy as np
 import miceforest as mf
@@ -14,27 +13,33 @@ from tempfile import mkstemp
 
 # Make random state and load data
 # Define data
-random_state = np.random.RandomState(5)
-boston = pd.DataFrame(load_boston(return_X_y=True)[0])
-boston.columns = [str(i) for i in boston.columns]
-boston["3"] = boston["3"].map({0: 'a', 1: 'b'}).astype('category')
-boston["8"] = boston["8"].astype("category")
-boston_amp = mf.ampute_data(boston, perc=0.25, random_state=random_state)
+random_state = np.random.RandomState(1991)
+iris = pd.concat(load_iris(as_frame=True, return_X_y=True), axis=1)
+iris['sp'] = iris['target'].astype('category')
+del iris['target']
+iris.rename({
+    'sepal length (cm)': 'sl',
+    'sepal width (cm)': 'ws',
+    'petal length (cm)': 'pl',
+    'petal width (cm)': 'pw',
+}, axis=1, inplace=True)
+iris['bc'] = pd.Series(np.random.binomial(n=1, p=0.5, size=150)).astype('category')
+iris_amp = mf.ampute_data(iris, perc=0.25, random_state=random_state)
 
 
 def test_defaults_pandas():
 
-    new_data = boston_amp.loc[range(10), :].copy()
+    new_data = iris_amp.loc[range(10), :].copy()
 
     kernel = mf.ImputationKernel(
-        data=boston_amp,
+        data=iris_amp,
         datasets=2,
         save_models=1
     )
     kernel.mice(iterations=2, compile_candidates=True, verbose=True)
 
     kernel2 = mf.ImputationKernel(
-        data=boston_amp,
+        data=iris_amp,
         datasets=1,
         save_models=1
     )
@@ -51,11 +56,11 @@ def test_defaults_pandas():
     kernel.complete_data(0, inplace=True)
     assert all(kernel.working_data.isnull().sum() == 0)
     assert kernel.get_model(0, 0, 3).params['objective'] == 'regression'
-    assert kernel.get_model(0, 3, 3).params['objective'] == 'binary'
-    assert kernel.get_model(0, 8, 3).params['objective'] == 'multiclass'
+    assert kernel.get_model(0, 'bc', 3).params['objective'] == 'binary'
+    assert kernel.get_model(0, 'sp', 3).params['objective'] == 'multiclass'
 
     # Make sure we didn't touch the original data
-    assert all(boston_amp.isnull().sum() > 0)
+    assert all(iris_amp.isnull().sum() > 0)
 
     imp_ds = kernel.impute_new_data(new_data, verbose=True)
     imp_ds.complete_data(2,inplace=True)
@@ -63,9 +68,9 @@ def test_defaults_pandas():
     assert new_data.isnull().sum().sum() > 0
 
     # Make sure fully-recognized data can be passed through with no changes
-    imp_fr = kernel.impute_new_data(boston)
+    imp_fr = kernel.impute_new_data(iris)
     comp_fr = imp_fr.complete_data(0)
-    assert np.all(comp_fr == boston), "values of fully-recognized data were modified"
+    assert np.all(comp_fr == iris), "values of fully-recognized data were modified"
     assert imp_fr.iteration_count() == -1
 
     # Make sure single rows can be imputed
@@ -76,24 +81,23 @@ def test_defaults_pandas():
 
 def test_complex_pandas():
     
-    working_set = boston_amp.copy()
-
-    # Switch our category columns to integer codes.
-    # Replace -1 with np.NaN or lightgbm will complain.
-    working_set["3"] = working_set["3"].cat.codes
-    working_set["8"] = working_set["8"].cat.codes
-    working_set["3"].replace(-1,np.NaN, inplace=True)
-    working_set["8"].replace(-1, np.NaN, inplace=True)
+    working_set = iris_amp.copy()
     new_data = working_set.loc[range(10), :].copy()
 
     # Customize everything.
-    vs = {"1": ["2","3","4","5"], "2": ["6","7"], "3": ["1","2","8"], "4": ["8","9","10"]}
-    mmc = {"1": 4, "2": 0.01, "3": 0}
-    ds = {"2": 100, "3": 0.5}
-    io = ["2", "3", "1"]
+    vs = {
+        'sl': ['ws', 'pl', 'pw', 'sp', 'bc'],
+        'ws': ['sl'],
+        'pl': ['sp', 'bc'],
+        'sp': ['sl', 'ws', 'pl', 'pw', 'bc'],
+        'pw': ['sl', 'ws', 'pl', 'sp', 'bc'],
+    }
+    mmc = {"sl": 4, 'ws': 0.01, "pl": 0}
+    ds = {"sl": 100, "ws": 0.5}
+    io = ['pw', 'pl', 'ws', 'sl']
 
     imputed_var_names = io
-    non_imputed_var_names = [str(x) for x in range(13) if str(x) not in io]
+    non_imputed_var_names = [c for c in iris_amp if c not in imputed_var_names]
 
     from miceforest.builtin_mean_match_schemes import mean_match_shap
     mean_match_custom = mean_match_shap.copy()
@@ -107,7 +111,7 @@ def test_complex_pandas():
         imputation_order=io,
         train_nonmissing=True,
         data_subset=ds,
-        categorical_feature=[3,8],
+        categorical_feature='auto',
         copy_data=False
     )
     kernel2 = mf.ImputationKernel(
@@ -118,16 +122,16 @@ def test_complex_pandas():
         imputation_order=io,
         train_nonmissing=True,
         data_subset=ds,
-        categorical_feature=[3,8],
+        categorical_feature='auto',
         copy_data=False
     )
     new_file, filename = mkstemp()
     kernel2.save_kernel(filename)
     kernel2 = mf.utils.load_kernel(filename)
 
-    assert kernel.data_subset == {1: 380, 2: 100, 3: 190, 4: 380}, "mean_match_subset initialization failed"
+    assert kernel.data_subset == {0: 100, 1: 56, 3: 113, 2: 113, 4: 113}, "mean_match_subset initialization failed"
     assert kernel.iteration_count() == 0, "iteration initialization failed"
-    assert kernel.categorical_variables == [3, 8], "categorical recognition failed."
+    assert kernel.categorical_variables == [4, 5], "categorical recognition failed."
 
     # This section tests many things:
         # After saving / loading a kernel, and appending 2 kernels together:
@@ -139,16 +143,16 @@ def test_complex_pandas():
     kernel.mice(
         nround - 1,
         compile_candidates=True,
-        variable_parameters={"1": {"n_iter": 15}},
+        variable_parameters={"sl": {"n_iter": 15}},
         num_trees=10,
         verbose=True
     )
     kernel.compile_candidate_preds()
-    kernel2.mice(nround - 1, variable_parameters={"1": {"n_estimators": 15}}, n_estimators=10, verbose=True)
+    kernel2.mice(nround - 1, variable_parameters={"sl": {"n_estimators": 15}}, n_estimators=10, verbose=True)
     kernel.append(kernel2)
     kernel.compile_candidate_preds()
-    assert kernel.get_model(0, 1, nround - 1).num_trees() == 15
-    assert kernel.get_model(0, 2, nround - 1).num_trees() == 10
+    assert kernel.get_model(0, 0, nround - 1).num_trees() == 15
+    assert kernel.get_model(0, 1, nround - 1).num_trees() == 10
     kernel.mice(1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
     assert kernel.iteration_count() == nround, "iteration counting is incorrect."
     assert kernel.get_model(0, 1, nround).num_trees() == 15
@@ -183,7 +187,7 @@ def test_complex_pandas():
 
     new_imp_dat = kernel.impute_new_data(new_data=new_data, verbose=True)
     new_imp_complete = new_imp_dat.complete_data(0)
-    assert all(new_imp_complete[["1","2","3","4"]].isnull().sum() == 0)
+    assert all(new_imp_complete[imputed_var_names].isnull().sum() == 0)
 
     # Plotting on multiple imputed dataset
     new_imp_dat.plot_mean_convergence()
@@ -203,18 +207,17 @@ def test_complex_pandas():
 
 def test_defaults_numpy():
     
-    boston_np = boston.copy()
-    boston_np["3"] = boston_np["3"].cat.codes
-    boston_np["8"] = boston_np["8"].cat.codes
-    boston_np = boston_np.values
-    boston_np_amp = mf.ampute_data(boston_np, perc=0.25)
-    new_data = boston_np_amp[range(10), :].copy()
+    iris_np = iris.copy()
+    iris_np["sp"] = iris_np["sp"].cat.codes
+    iris_np = iris_np.values
+    iris_np_amp = mf.ampute_data(iris_np, perc=0.25)
+    new_data = iris_np_amp[range(10), :].copy()
 
     s = datetime.now()
     kernel = mf.ImputationKernel(
-        data=boston_np_amp,
+        data=iris_np_amp,
         datasets=3,
-        categorical_feature=[3,8],
+        categorical_feature=[4],
         mean_match_scheme=mean_match_fast_cat
     )
     kernel.mice(iterations=1, verbose=True)
@@ -227,7 +230,7 @@ def test_defaults_numpy():
     # a copy, and did not affect internal data or original data.
     assert all(np.isnan(comp_dat).sum(0) == 0)
     assert all(np.isnan(kernel.working_data).sum(0) > 0)
-    assert all(np.isnan(boston_np_amp).sum(0) > 0)
+    assert all(np.isnan(iris_np_amp).sum(0) > 0)
 
     # Complete data in place
     kernel.complete_data(0, inplace=True)
@@ -235,63 +238,66 @@ def test_defaults_numpy():
     # We completed data in place. Make sure we only affected
     # the kernel.working_data and not the original data.
     assert all(np.isnan(kernel.working_data).sum(0) == 0)
-    assert all(np.isnan(boston_np_amp).sum(0) > 0)
+    assert all(np.isnan(iris_np_amp).sum(0) > 0)
 
     imp_ds = kernel.impute_new_data(new_data)
     imp_ds.complete_data(0,inplace=True)
     assert all(np.isnan(imp_ds.working_data).sum(0) == 0)
     assert np.isnan(new_data).sum() > 0
-    print(datetime.now() - s)
 
     # Make sure fully-recognized data can be passed through with no changes
-    imp_fr = kernel.impute_new_data(boston_np)
+    imp_fr = kernel.impute_new_data(iris_np)
     comp_fr = imp_fr.complete_data(0)
-    assert np.all(comp_fr == boston_np), "values of fully-recognized data were modified"
+    assert np.all(comp_fr == iris_np), "values of fully-recognized data were modified"
     assert imp_fr.iteration_count() == -1
 
 
 def test_complex_numpy():
 
-    boston_np = boston.copy()
-    boston_np["3"] = boston_np["3"].cat.codes
-    boston_np["8"] = boston_np["8"].cat.codes
-    boston_np = boston_np.values
-    boston_np_amp = mf.ampute_data(boston_np, perc=0.25)
-    new_data = boston_np_amp[range(25), :].copy()
+    iris_np = iris.copy()
+    iris_np["sp"] = iris_np["sp"].cat.codes
+    iris_np = iris_np.values
+    iris_np_amp = mf.ampute_data(iris_np, perc=0.25)
+    new_data = iris_np_amp[range(25), :].copy()
 
     # Specify that models should be built for variables 1, 2, 3, 4
-    vs = {1: [2,3,4,5], 2: [6,7], 3: [1,2,8], 4: [8,9,10]}
-    mmc = {1: 4, 2: 1, 3: 0}
-    ds = {2: 100, 3: 0.5}
-    # Only variables 1, 2, 3 should be imputed using mice.
-    io = [2,3,1]
-    niv = np.setdiff1d(np.arange(boston_np_amp.shape[1]), io)
-    nivs = np.setdiff1d(np.arange(boston_np_amp.shape[1]), list(vs))
+    # Customize everything.
+    vs = {
+        0: [1, 2, 3, 4, 5],
+        1: [0],
+        2: [4, 5],
+        3: [0, 1, 2, 4, 5],
+        4: [0, 1, 2, 3, 5],
+    }
+    mmc = {0: 4, 1: 0.1, 2: 0}
+    ds = {0: 100, 1: 0.5}
+    io = [0, 1, 2, 3, 4]
+    niv = [v for v in range(iris_amp.shape[1]) if v not in list(vs)]
 
     mmfc = mean_match_fast_cat.copy()
     mmfc.set_mean_match_candidates(mean_match_candidates=mmc)
     kernel = mf.ImputationKernel(
-        data=boston_np_amp,
+        data=iris_np_amp,
         datasets=2,
         variable_schema=vs,
         imputation_order=io,
         train_nonmissing=True,
         data_subset=ds,
         mean_match_scheme=mmfc,
-        categorical_feature=[3,8],
+        categorical_feature=[4],
         copy_data=False,
         save_loggers=True
     )
 
     kernel2 = mf.ImputationKernel(
-        data=boston_np_amp,
+        data=iris_np_amp,
         datasets=1,
         variable_schema=vs,
         imputation_order=io,
         train_nonmissing=True,
         data_subset=ds,
         mean_match_scheme=mmfc.copy(),
-        categorical_feature=[3,8],
+        categorical_feature=[4],
         copy_data=False,
         save_loggers=True
     )
@@ -299,9 +305,9 @@ def test_complex_numpy():
     kernel2.save_kernel(filename)
     kernel2 = mf.utils.load_kernel(filename)
 
-    assert kernel.data_subset == {2: 100, 3: 190, 1: 380, 4: 380}, "mean_match_subset initialization failed"
+    assert kernel.data_subset == {0: 100, 1: 56, 2: 113, 3: 113, 4: 113}, "mean_match_subset initialization failed"
     assert kernel.iteration_count() == 0, "iteration initialization failed"
-    assert kernel.categorical_variables == [3, 8], "categorical recognition failed."
+    assert kernel.categorical_variables == [4], "categorical recognition failed."
 
     nround = 2
     kernel.mice(nround - 1, variable_parameters={1: {"n_iter": 15}}, num_trees=10, verbose=True)
@@ -325,16 +331,16 @@ def test_complex_numpy():
     assert all(np.isnan(kernel.working_data).sum(0) > 0)
 
     # Should have no affect on working_set
-    assert all(np.isnan(boston_np_amp).sum(0) > 0)
+    assert all(np.isnan(iris_np_amp).sum(0) > 0)
 
     # Now complete the data in place
     kernel.complete_data(0, inplace=True)
 
     # Should have affect on working_data and original data
     assert all(np.isnan(kernel.working_data[:, io]).sum(0) == 0)
-    assert all(np.isnan(boston_np_amp[:, io]).sum(0) == 0)
+    assert all(np.isnan(iris_np_amp[:, io]).sum(0) == 0)
     assert all(np.isnan(kernel.working_data[:, niv]).sum(0) > 0)
-    assert all(np.isnan(boston_np_amp[:, niv]).sum(0) > 0)
+    assert all(np.isnan(iris_np_amp[:, niv]).sum(0) > 0)
 
     # Test the ability to tune parameters with custom setup
     optimization_steps = 2
@@ -364,7 +370,7 @@ def test_complex_numpy():
     # Not in place
     new_imp_complete = new_imp_dat.complete_data(0, inplace=False)
     assert all(np.isnan(new_imp_complete[:, list(vs)]).sum(0) == 0)
-    assert all(np.isnan(new_imp_complete[:, nivs]).sum(0) > 0)
+    assert all(np.isnan(new_imp_complete[:, niv]).sum(0) > 0)
 
 
     # Should have no affect on working_data or original data
@@ -374,7 +380,7 @@ def test_complex_numpy():
     # complete data in place
     new_imp_dat.complete_data(0, inplace=True)
     assert all(np.isnan(new_imp_dat.working_data[:, list(vs)]).sum(0) == 0)
-    assert all(np.isnan(new_data[:, nivs]).sum(0) > 0)
+    assert all(np.isnan(new_data[:, niv]).sum(0) > 0)
 
     # Alter in place
     new_imp_dat = kernel.impute_new_data(new_data=new_data, copy_data=False, verbose=True)
@@ -385,16 +391,16 @@ def test_complex_numpy():
 
     # Complete data not in place
     new_imp_complete = new_imp_dat.complete_data(0, inplace=False)
-    assert all(np.isnan(new_imp_complete[:, nivs]).sum(0) > 0)
+    assert all(np.isnan(new_imp_complete[:, niv]).sum(0) > 0)
     assert all(np.isnan(new_imp_complete[:, list(vs)]).sum(0) == 0)
     assert all(np.isnan(new_data).sum(0) > 0)
     assert all(np.isnan(new_imp_dat.working_data).sum(0) > 0)
 
     # Complete data in place
     new_imp_dat.complete_data(0, inplace=True)
-    assert all(np.isnan(new_data[:, nivs]).sum(0) > 0)
+    assert all(np.isnan(new_data[:, niv]).sum(0) > 0)
     assert all(np.isnan(new_data[:, list(vs)]).sum(0) == 0)
-    assert all(np.isnan(new_imp_dat.working_data[:, nivs]).sum(0) > 0)
+    assert all(np.isnan(new_imp_dat.working_data[:, niv]).sum(0) > 0)
     assert all(np.isnan(new_imp_dat.working_data[:, list(vs)]).sum(0) == 0)
 
 
