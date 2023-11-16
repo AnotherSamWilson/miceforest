@@ -18,7 +18,7 @@ from .builtin_mean_match_schemes import (
     mean_match_shap,
 )
 
-__version__ = "5.6.3"
+__version__ = "5.7.0"
 
 __all__ = [
     "ImputedData",
