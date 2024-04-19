@@ -1,7 +1,7 @@
 from .compat import pd_DataFrame, pd_Series, pd_read_parquet
 import numpy as np
 from numpy.random import RandomState
-import blosc
+import blosc2
 import dill
 from typing import Union, List, Dict, Optional
 

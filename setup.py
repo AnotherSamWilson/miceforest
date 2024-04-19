@@ -17,7 +17,7 @@ setup(
     install_requires=[
         'lightgbm >= 3.3.1',
         'numpy',
-        "blosc",
+        "blosc2",
         "dill"
         ],
     extras_require={

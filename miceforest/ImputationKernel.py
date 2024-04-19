@@ -25,7 +25,7 @@ from warnings import warn
 from lightgbm import train, Dataset, cv, log_evaluation, early_stopping, Booster
 from lightgbm.basic import _ConfigAliases
 from io import BytesIO
-import blosc
+import blosc2
 import dill
 from copy import copy
 from typing import Union, List, Dict, Any, Optional
@@ -294,7 +294,7 @@ class ImputationKernel(ImputedData):
             for ds in range(datasets)
         }
         self.optimal_parameter_losses: Dict[Any, Any] = {
-            ds: {var: np.Inf for var in self.variable_training_order}
+            ds: {var: np.inf for var in self.variable_training_order}
             for ds in range(datasets)
         }
 
@@ -1449,7 +1449,7 @@ class ImputationKernel(ImputedData):
                                 categorical_feature=feature_cat_index,
                             )
                         except:
-                            loss, best_iteration = np.Inf, 0
+                            loss, best_iteration = np.inf, 0
 
                         if best_iteration > 1:
                             break
