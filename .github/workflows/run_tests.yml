@@ -27,7 +27,7 @@ jobs:
           pip install mypy
           pip install codecov
           pip install pytest-cov
-          pip install blosc
+          pip install blosc2
           pip install dill
           pip install pandas
           pip install seaborn
