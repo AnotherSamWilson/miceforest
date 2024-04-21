@@ -98,10 +98,10 @@ def load_kernel(filepath: str, n_threads: Optional[int] = None):
     -------
     ImputationKernel
     """
-    n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
-    blosc.set_nthreads(n_threads)
+    n_threads = blosc2.detect_number_of_cores() if n_threads is None else n_threads
+    blosc2.set_nthreads(n_threads)
     with open(filepath, "rb") as f:
-        kernel = dill.loads(blosc.decompress(dill.load(f)))
+        kernel = dill.loads(blosc2.decompress(dill.load(f)))
 
     if kernel.original_data_class == "pd_DataFrame":
         kernel.working_data = pd_read_parquet(kernel.working_data)

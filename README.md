@@ -411,7 +411,7 @@ to the original mice procedure.
 
 Kernels can be saved using the `.save_kernel()` method, and then loaded
 again using the `utils.load_kernel()` function. Internally, this
-procedure uses `blosc` and `dill` packages to do the following:
+procedure uses `blosc2` and `dill` packages to do the following:
 
 1.  Convert working data to parquet bytes (if it is a pandas dataframe)
 2.  Serialize the kernel  

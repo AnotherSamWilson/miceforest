@@ -1814,11 +1814,11 @@ class ImputationKernel(ImputedData):
             The file to save to.
 
         clevel: int
-            The compression level, sent to clevel argument in blosc.compress()
+            The compression level, sent to clevel argument in blosc2.compress()
 
         cname: str
             The compression algorithm used.
-            Sent to cname argument in blosc.compress.
+            Sent to cname argument in blosc2.compress.
             If None is specified, the default is lz4hc.
 
         n_threads: int
@@ -1833,7 +1833,7 @@ class ImputationKernel(ImputedData):
 
         clevel = 9 if clevel is None else clevel
         cname = "lz4hc" if cname is None else cname
-        n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
+        n_threads = blosc2.detect_number_of_cores() if n_threads is None else n_threads
 
         if copy_while_saving:
             kernel = copy(self)
@@ -1846,15 +1846,15 @@ class ImputationKernel(ImputedData):
             kernel.working_data.to_parquet(working_data_bytes)
             kernel.working_data = working_data_bytes
 
-        blosc.set_nthreads(n_threads)
+        blosc2.set_nthreads(n_threads)
 
         with open(filepath, "wb") as f:
             dill.dump(
-                blosc.compress(
+                blosc2.compress(
                     dill.dumps(kernel),
                     clevel=clevel,
                     typesize=8,
-                    shuffle=blosc.NOSHUFFLE,
+                    shuffle=blosc2.NOSHUFFLE,
                     cname=cname,
                 ),
                 f,
