@@ -30,7 +30,8 @@ setup(
         ],
         "Testing": [
             "pandas",
-            "sklearn"
+            "sklearn",
+            "pyarrow"
         ],
     },
     url="https://github.com/AnotherSamWilson/miceforest",

@@ -1833,6 +1833,26 @@ class ImputationKernel(ImputedData):
 
         clevel = 9 if clevel is None else clevel
         cname = "lz4hc" if cname is None else cname
+
+        # make interface compatible
+        codec_mapping = {
+            "blosclz": blosc2.Codec.BLOSCLZ,
+            "lz4":blosc2.Codec.LZ4,
+            "lz4hc":blosc2.Codec.LZ4HC,
+            "zlib":blosc2.Codec.ZLIB,
+            "zstd":blosc2.Codec.ZSTD,
+            "ndlz":blosc2.Codec.NDLZ,
+            "zfp_acc":blosc2.Codec.ZFP_ACC,
+            "zfp_prec":blosc2.Codec.ZFP_PREC,
+            "zfp_rate":blosc2.Codec.ZFP_RATE,
+            "openhtj2k":blosc2.Codec.OPENHTJ2K,
+            "grok":blosc2.Codec.GROK
+        }
+        if cname in codec_mapping.keys():
+            codec=codec_mapping[cname]
+        else:
+            codec=blosc2.Codec.LZ4HC
+
         n_threads = blosc2.detect_number_of_cores() if n_threads is None else n_threads
 
         if copy_while_saving:
@@ -1847,15 +1867,14 @@ class ImputationKernel(ImputedData):
             kernel.working_data = working_data_bytes
 
         blosc2.set_nthreads(n_threads)
-
+        
         with open(filepath, "wb") as f:
             dill.dump(
                 blosc2.compress(
                     dill.dumps(kernel),
                     clevel=clevel,
-                    typesize=8,
-                    shuffle=blosc2.NOSHUFFLE,
-                    cname=cname,
+                    filter=blosc2.Filter.NOFILTER,
+                    codec=codec,
                 ),
                 f,
             )
