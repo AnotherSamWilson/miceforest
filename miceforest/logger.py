@@ -1,10 +1,15 @@
 from .compat import pd_Series, pd_DataFrame, PANDAS_INSTALLED
-from datetime import datetime as dt
-from typing import Dict, Any
+from datetime import datetime, timedelta
+from typing import Dict, Any, List, Tuple, Optional
 
 
 class Logger:
-    def __init__(self, name: str, verbose: bool = False) -> None:
+    def __init__(
+            self, 
+            name: str, 
+            recording_levels: Tuple,
+            verbose: bool = False,
+        ) -> None:
         """
         miceforest logger.
 
@@ -24,8 +29,10 @@ class Logger:
             Should information be printed.
         """
         self.name = name
+        self.recording_levels = recording_levels
         self.verbose = verbose
-        self.initialization_time = dt.now()
+        self.initialization_time = datetime.now()
+        self._start_time: Optional[datetime] = None
 
         if self.verbose:
             print(f"Initialized logger with name {name}")
@@ -41,20 +48,19 @@ class Logger:
             print(*args, **kwargs)
 
     def set_start_time(self):
-        self._start_time = dt.now()
+        assert self._start_time is None, 'Recording has already started'
+        self._start_time = datetime.now()
 
     def record_time(
         self,
-        dataset: int,
-        variable_name: str,
-        iteration: int,
-        timed_event: str,
+        level_items: Dict[str, str],
     ):
         """
         Compares the current time with the start time, and records the time difference
         in our time log in the appropriate register. Times can stack for a context.
         """
-        seconds = (dt.now() - self._start_time).total_seconds()
+        seconds = (datetime.now() - self._start_time).total_seconds()
+        self._start_time = None
         time_key = (dataset, variable_name, iteration, timed_event)
         if time_key in self.time_seconds:
             self.time_seconds[time_key] += seconds

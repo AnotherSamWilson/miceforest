@@ -10,22 +10,14 @@ https://github.com/AnotherSamWilson/miceforest
 
 
 from .utils import ampute_data, load_kernel
-from .ImputedData import ImputedData
-from .ImputationKernel import ImputationKernel
-from .builtin_mean_match_schemes import (
-    mean_match_default,
-    mean_match_fast_cat,
-    mean_match_shap,
-)
+from .ImputedData import ImputedPandasDataFrame
+from .impute import ImputationKernel
 
-__version__ = "5.7.0"
+# __version__ = "5.7.0"
 
 __all__ = [
-    "ImputedData",
+    "ImputedPandasDataFrame",
     "ImputationKernel",
-    "mean_match_default",
-    "mean_match_fast_cat",
-    "mean_match_shap",
     "ampute_data",
     "load_kernel",
 ]

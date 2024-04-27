@@ -4,10 +4,6 @@ import pandas as pd
 import numpy as np
 import miceforest as mf
 from datetime import datetime
-from miceforest import (
-    mean_match_fast_cat,
-    mean_match_shap
-)
 from matplotlib.pyplot import close
 from tempfile import mkstemp
 

@@ -1,258 +1,153 @@
 import numpy as np
 from .compat import pd_DataFrame
+from pandas import DataFrame, MultiIndex
 from .utils import (
+    get_best_int_downcast,
     _t_dat,
     _t_var_list,
     _t_var_dict,
     _ensure_iterable,
-    _dict_set_diff,
-    _assign_col_values_without_copy,
-    _slice,
-    _subset_data,
 )
 from itertools import combinations
 from typing import Dict, List, Union, Any, Optional
 from warnings import warn
 
 
-class ImputedData:
-    """
-    Imputed Data
-
-    This class should not be instantiated directly.
-    Instead, it is returned when ImputationKernel.impute_new_data() is called.
-    For parameter arguments, see ImputationKernel documentation.
-    """
-
+class ImputedPandasDataFrame:
     def __init__(
         self,
-        impute_data: _t_dat,
-        datasets: int = 5,
-        variable_schema: Union[_t_var_list, _t_var_dict, None] = None,
-        imputation_order: Union[str, _t_var_list] = "ascending",
-        train_nonmissing: bool = False,
-        categorical_feature: Union[str, _t_var_list] = "auto",
-        save_all_iterations: bool = True,
+        impute_data: pd_DataFrame,
+        num_datasets: int = 5,
+        variable_schema: Union[List[str], Dict[str, str]] = None,
+        imputation_order: str = "ascending",
         copy_data: bool = True,
     ):
         # All references to the data should be through self.
         self.working_data = impute_data.copy() if copy_data else impute_data
         data_shape = self.working_data.shape
-        int_storage_types = ["uint64", "uint32", "uint16", "uint8"]
-        na_where_type = "uint64"
-        for st in int_storage_types:
-            if data_shape[0] <= np.iinfo(st).max:
-                na_where_type = st
 
-        # Collect metadata and format data
-        if isinstance(self.working_data, pd_DataFrame):
-            if len(self.working_data.shape) != 2 or self.working_data.shape[0] < 1:
-                raise ValueError("Input data must be 2 dimensional and non empty.")
+        column_names = []
+        pd_dtypes_orig = {}
+        for col, series in self.working_data.items():
+            assert isinstance(col, str), 'column names must be strings'
+            assert series.dtype.name != 'object', 'convert object dtypes to something else'
+            column_names.append(col)
+            pd_dtypes_orig[col] = series.dtype.name
 
-            original_data_class = "pd_DataFrame"
-            column_names: List[str] = [str(x) for x in self.working_data.columns]
-            self.column_names = column_names
-            pd_dtypes_orig = self.working_data.dtypes
+        column_names: List[str] = [str(x) for x in self.working_data.columns]
+        self.column_names = column_names
+        pd_dtypes_orig = self.working_data.dtypes
 
-            if any([x.name == "object" for x in pd_dtypes_orig]):
-                raise ValueError(
-                    "Please convert object columns to categorical or some numeric type."
-                )
 
-            # Assume categories are set dtypes.
-            if categorical_feature == "auto":
-                categorical_variables = [
-                    column_names.index(var)
-                    for var in pd_dtypes_orig.index
-                    if pd_dtypes_orig[var].name in ["category"]
-                ]
+        # Collect info about what data is missing.
+        na_where = {}
+        for col in column_names:
+            nas = np.where(self.working_data[col].isnull())[0]
+            best_downcast = get_best_int_downcast(nas.max())
+            na_where[col] = nas.astype(best_downcast)
+        na_counts = {col: len(nw) for col, nw in na_where.items()}
+        vars_with_any_missing = [
+            col for col, ind in na_where.items() if len(ind > 0)
+        ]
 
-            elif isinstance(categorical_feature, list):
-                if any([x.name == "category" for x in pd_dtypes_orig]):
-                    raise ValueError(
-                        "If categories are already encoded as such, set categorical_feature = auto"
-                    )
-                categorical_variables = self._get_var_ind_from_list(categorical_feature)
-
-            else:
-                raise ValueError("Unknown categorical_feature")
-
-            # Collect category counts.
-            category_counts = {}
-            for cat in categorical_variables:
-                cat_name = self._get_var_name_from_scalar(cat)
-                cat_dat = self.working_data.iloc[:, cat]
-                uniq = set(cat_dat.dropna())
-                category_counts[cat] = len(uniq)
-
-            # Collect info about what data is missing.
-            na_where: Dict[int, np.ndarray] = {
-                col: np.where(self.working_data.iloc[:, col].isnull())[0].astype(
-                    na_where_type
-                )
-                for col in range(data_shape[1])
-            }
-            na_counts = {col: len(nw) for col, nw in na_where.items()}
-            vars_with_any_missing = [
-                col for col, ind in na_where.items() if len(ind > 0)
-            ]
-            # if len(vars_with_any_missing) == 0:
-            #     raise ValueError("No missing values to impute.")
-
-            # Keep track of datatypes. Needed for loading kernels.
-            self.working_dtypes = self.working_data.dtypes
-
-        elif isinstance(self.working_data, np.ndarray):
-            if len(self.working_data.shape) != 2 or self.working_data.shape[0] < 1:
-                raise ValueError("Input data must be 2 dimensional and non empty.")
-
-            original_data_class = "np_ndarray"
-
-            # DATASET ALTERATION
-            if (
-                self.working_data.dtype != np.float32
-                and self.working_data.dtype != np.float64
-            ):
-                self.working_data = self.working_data.astype(np.float32)
-
-            # Collect information about dataset
-            column_names = [str(x) for x in range(self.working_data.shape[1])]
-            self.column_names = column_names
-            na_where = {
-                col: np.where(np.isnan(self.working_data[:, col]))[0].astype(
-                    na_where_type
-                )
-                for col in range(data_shape[1])
-            }
-            na_counts = {col: len(nw) for col, nw in na_where.items()}
-            vars_with_any_missing = [
-                int(col) for col, ind in na_where.items() if len(ind > 0)
-            ]
-            if categorical_feature == "auto":
-                categorical_variables = []
-            elif isinstance(categorical_feature, list):
-                categorical_variables = self._get_var_ind_from_list(categorical_feature)
-                assert (
-                    max(categorical_variables) < self.working_data.shape[1]
-                ), "categorical_feature not in dataset"
-            else:
-                raise ValueError("categorical_feature not recognized")
-
-            # Collect category counts.
-            category_counts = {}
-            for cat in categorical_variables:
-                cat_dat = self.working_data[:, cat]
-                cat_dat = cat_dat[~np.isnan(cat_dat)]
-                uniq = set(cat_dat)
-                category_counts[cat] = len(uniq)
-
-            # Keep track of datatype.
-            self.working_dtypes = self.working_data.dtype
-
-        else:
-            raise ValueError("impute_data not recognized.")
-
-        # Formatting of variable_schema.
+        # If variable_schema was passed, use that as the 
+        # list of variables that should have models trained.
+        # Otherwise, only train models on variables that have
+        # missing values, unless train_nonmissing, in which
+        # case we build imputation models for all variables.
         if variable_schema is None:
-            variable_schema = _dict_set_diff(range(data_shape[1]), range(data_shape[1]))
+            modeled_variables = vars_with_any_missing
+            variable_schema = {
+                target: [
+                    regressor
+                    for regressor in column_names
+                    if regressor != target
+                ]
+                for target in modeled_variables
+            }
         else:
             if isinstance(variable_schema, list):
-                var_schem = self._get_var_ind_from_list(variable_schema)
-                variable_schema = _dict_set_diff(var_schem, range(data_shape[1]))
-
+                variable_schema = {
+                    target: [
+                        regressor
+                        for regressor in column_names
+                        if regressor != target
+                    ]
+                    for target in variable_schema
+                }
             elif isinstance(variable_schema, dict):
-                variable_schema = self._get_var_ind_from_dict(variable_schema)
+                for target, regressors in variable_schema.items():
+                    if target in regressors:
+                        raise ValueError(f'{target} being used to impute itself')
 
-                # Check for any self-impute attempts
-                self_impute_attempt = [
-                    var for var, prd in variable_schema.items() if var in prd
-                ]
-                if len(self_impute_attempt) > 0:
-                    raise ValueError(
-                        ",".join(self._get_var_name_from_list(self_impute_attempt))
-                        + " variables cannot be used to impute itself."
-                    )
+        # variable schema at this point should only 
+        # contain the variables that are to have models trained.
+        modeled_variables = list(variable_schema)
+        imputed_variables = [
+            col for col in modeled_variables
+            if col in vars_with_any_missing
+        ]
+        modeled_but_not_imputed_variables = [
+            col for col in modeled_variables
+            if col not in imputed_variables
+        ]
 
-        # Format imputation order
-        if isinstance(imputation_order, list):
-            imputation_order = self._get_var_ind_from_list(imputation_order)
-            assert set(imputation_order).issubset(
-                variable_schema
-            ), "variable_schema does not include all variables to be imputed."
-            imputation_order = [i for i in imputation_order if na_counts[i] > 0]
-        elif isinstance(imputation_order, str):
-            if imputation_order in ["ascending", "descending"]:
-                imputation_order = self._get_var_ind_from_list(
-                    np.argsort(list(na_counts.values())).tolist()
-                    if imputation_order == "ascending"
-                    else np.argsort(list(na_counts.values()))[::-1].tolist()
-                )
-                imputation_order = [
-                    int(i)
-                    for i in imputation_order
-                    if na_counts[i] > 0 and i in list(variable_schema)
-                ]
-            elif imputation_order == "roman":
-                imputation_order = list(variable_schema).copy()
-            elif imputation_order == "arabic":
-                imputation_order = list(variable_schema).copy()
-                imputation_order.reverse()
-            else:
-                raise ValueError("imputation_order not recognized.")
-
-        self.imputation_order = imputation_order
-        self.variable_schema = variable_schema
-        self.unimputed_variables = list(
-            np.setdiff1d(np.arange(data_shape[1]), imputation_order)
-        )
-        if train_nonmissing:
-            self.variable_training_order = [
-                v
-                for v in self.imputation_order + self.unimputed_variables
-                if v in list(self.variable_schema)
-            ]
+        # Model Training Order:
+            # Variables with missing data are always trained 
+            # first, according to imputation_order. Afterwards, 
+            # variables with no missing values have models trained.
+        if imputation_order in ["ascending", "descending"]:
+            na_counts_of_imputed_variables = {
+                key: value 
+                for key, value in self.na_counts.items()
+                if key in imputed_variables
+            }
+            self.imputation_order = list(sorted(
+                na_counts_of_imputed_variables.items(), 
+                key=lambda item: item[1]
+            ))
+            if imputation_order == "decending":
+                self.imputation_order.reverse()
+        elif imputation_order == "roman":
+            self.imputation_order = imputed_variables.copy()
+        elif imputation_order == "arabic":
+            self.imputation_order = imputed_variables.copy()
+            self.imputation_order.reverse()
         else:
-            self.variable_training_order = self.imputation_order
-        predictor_vars = [prd for prd in variable_schema.values()]
-        self.predictor_vars = list(
-            dict.fromkeys([item for sublist in predictor_vars for item in sublist])
-        )
-        self.categorical_feature = categorical_feature
-        self.categorical_variables = categorical_variables
-        self.category_counts = category_counts
-        self.original_data_class = original_data_class
-        self.save_all_iterations = save_all_iterations
+            raise ValueError("imputation_order not recognized.")
+        
+        model_training_order = self.imputation_order + modeled_but_not_imputed_variables
+
+        self.variable_schema = variable_schema
+        self.model_training_order = model_training_order
         self.data_shape = data_shape
         self.na_counts = na_counts
         self.na_where = na_where
         self.vars_with_any_missing = vars_with_any_missing
-        self.imputed_variable_count = len(imputation_order)
-        self.modeled_variable_count = len(self.variable_training_order)
+        self.imputed_variable_count = len(self.imputation_order)
+        self.modeled_variable_count = len(self.model_training_order)
         self.iterations = np.zeros(
-            shape=(datasets, self.modeled_variable_count)
+            shape=(num_datasets, self.modeled_variable_count)
         ).astype(int)
 
-        # Create structure to store imputation values.
-        # These will be initialized by an ImputationKernel.
-        self.imputation_values: Dict[Any, np.ndarray] = {}
-        self.initialized = False
-
-        # Sanity checks
-        # if self.imputed_variable_count == 0:
-        #     raise ValueError("Something went wrong. No variables to impute.")
+        iv_multiindex = MultiIndex.from_arrays([np.arange(num_datasets), [0]], names=('dataset', 'iteration'))
+        self.imputation_values = {
+            var: DataFrame(index=na_where[var], columns=iv_multiindex).astype(pd_dtypes_orig[var])
+            for var in self.imputation_order
+        }
 
     # Subsetting allows us to get to the imputation values:
     def __getitem__(self, tup):
-        ds, var, iter = tup
-        return self.imputation_values[ds, var, iter]
+        var, ds, iter = tup
+        return self.imputation_values[var].loc[:, (ds, iter)]
 
     def __setitem__(self, tup, newitem):
-        ds, var, iter = tup
-        self.imputation_values[ds, var, iter] = newitem
+        var, ds, iter = tup
+        self.imputation_values[var].loc[:, (ds, iter)] = newitem
 
     def __delitem__(self, tup):
-        ds, var, iter = tup
-        del self.imputation_values[ds, var, iter]
+        var, ds, iter = tup
+        del self.imputation_values[var][ds, iter]
 
     def __repr__(self):
         summary_string = f'\n{" " * 14}Class: ImputedData\n{self._ids_info()}'
@@ -264,88 +159,23 @@ class ImputedData:
          Iterations: {self.iteration_count()}
        Data Samples: {self.data_shape[0]}
        Data Columns: {self.data_shape[1]}
-  Imputed Variables: {len(self.imputation_order)}
-save_all_iterations: {self.save_all_iterations}"""
+  Imputed Variables: {self.imputed_variable_count}
+  Modeled Variables: {self.modeled_variable_count}
+        """
         return summary_string
 
-    def dataset_count(self):
-        """
-        Return the number of datasets.
-        Datasets are defined by how many different sets of imputation
-        values we have accumulated.
-        """
-        return self.iterations.shape[0]
-
-    def _get_var_name_from_scalar(self, ind: Union[str, int]) -> str:
-        """
-        Gets the variable name from an index.
-        Returns a list of names if a list of indexes was passed.
-        Otherwise, returns the variable name directly from self.column_names.
-        """
-        if isinstance(ind, str):
-            return ind
-        else:
-            return self.column_names[ind]
-
-    def _get_var_name_from_list(self, variable_list: _t_var_list) -> List[str]:
-        ret = [
-            self.column_names[x] if isinstance(x, int) else str(x)
-            for x in variable_list
-        ]
-        return ret
-
-    def _get_var_ind_from_dict(self, variable_dict) -> Dict[int, List[int]]:
-        indx: Dict[int, List[int]] = {}
-        for variable, value in variable_dict.items():
-            if isinstance(variable, str):
-                variable = self.column_names.index(variable)
-            variable = int(variable)
-            val = [
-                int(self.column_names.index(v)) if isinstance(v, str) else int(v)
-                for v in value
-            ]
-            indx[variable] = sorted(val)
-
-        return indx
-
-    def _get_var_ind_from_list(self, variable_list) -> List[int]:
-        ret = [
-            int(self.column_names.index(x)) if isinstance(x, str) else int(x)
-            for x in variable_list
-        ]
-
-        return ret
-
-    def _get_var_ind_from_scalar(self, variable) -> int:
-        if isinstance(variable, str):
-            variable = self.column_names.index(variable)
-        variable = int(variable)
-        return variable
-
-    def _get_nonmissing_indx(self, var):
-        non_missing_ind = np.setdiff1d(
-            np.arange(self.data_shape[0]), self.na_where[var]
-        )
+    def _get_nonmissing_index(self, column):
+        na_where = self.na_where[column]
+        dtype = na_where.dtype
+        non_missing_ind = np.setdiff1d(np.arange(self.data_shape[0], dtype=dtype), na_where)
         return non_missing_ind
+    
+    def _get_nonmissing_values(self, column):
+        ind = self._get_nonmissing_index(column)
+        return self.working_data.loc[ind, column]
 
-    def _insert_new_data(self, dataset, variable_index, new_data):
+    def _add_imputed_values(self, dataset, variable_index, new_data):
         current_iter = self.iteration_count(datasets=dataset, variables=variable_index)
-
-        # We need to insert the categories if the raw data is stored as a category.
-        # Otherwise, pandas won't let us insert.
-        view = _slice(self.working_data, col_slice=variable_index)
-        if view.dtype.name == "category":
-            new_data = np.array(view.cat.categories)[new_data]
-
-        _assign_col_values_without_copy(
-            dat=self.working_data,
-            row_ind=self.na_where[variable_index],
-            col_ind=variable_index,
-            val=new_data,
-        )
-        self[dataset, variable_index, current_iter + 1] = new_data
-        if not self.save_all_iterations:
-            del self[dataset, variable_index, current_iter]
 
     def _ampute_original_data(self):
         """Need to put self.working_data back in its original form"""
@@ -357,7 +187,11 @@ save_all_iterations: {self.save_all_iterations}"""
                 val=np.array([np.nan]),
             )
 
-    def _get_num_vars(self, subset: Optional[List] = None):
+    def _get_numeric_columns(
+            self,
+            imputed: bool = True,
+            modeled: bool = True,
+        ):
         """Returns the non-categorical imputed variable indexes."""
 
         num_vars = [
@@ -600,7 +434,7 @@ save_all_iterations: {self.save_all_iterations}"""
                 ds: self[ds, var, iteration] for ds in datasets
             }
             plt.sca(ax[axr, axc])
-            non_missing_ind = self._get_nonmissing_indx(var)
+            non_missing_ind = self._get_nonmissing_index(var)
             nonmissing_values = _subset_data(
                 self.working_data, row_ind=non_missing_ind, col_ind=var, return_1d=True
             )
