@@ -354,7 +354,7 @@ save_all_iterations: {self.save_all_iterations}"""
                 dat=self.working_data,
                 row_ind=self.na_where[c],
                 col_ind=c,
-                val=np.array([np.NaN]),
+                val=np.array([np.nan]),
             )
 
     def _get_num_vars(self, subset: Optional[List] = None):

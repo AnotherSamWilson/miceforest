@@ -17,7 +17,7 @@ setup(
     install_requires=[
         'lightgbm >= 3.3.1',
         'numpy',
-        "blosc",
+        "blosc2",
         "dill"
         ],
     extras_require={
@@ -30,7 +30,8 @@ setup(
         ],
         "Testing": [
             "pandas",
-            "sklearn"
+            "sklearn",
+            "pyarrow"
         ],
     },
     url="https://github.com/AnotherSamWilson/miceforest",
@@ -39,8 +40,6 @@ setup(
         'Natural Language :: English',
         'Operating System :: MacOS',
         'Operating System :: Microsoft :: Windows',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',

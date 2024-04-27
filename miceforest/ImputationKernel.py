@@ -25,7 +25,7 @@ from warnings import warn
 from lightgbm import train, Dataset, cv, log_evaluation, early_stopping, Booster
 from lightgbm.basic import _ConfigAliases
 from io import BytesIO
-import blosc
+import blosc2
 import dill
 from copy import copy
 from typing import Union, List, Dict, Any, Optional
@@ -294,7 +294,7 @@ class ImputationKernel(ImputedData):
             for ds in range(datasets)
         }
         self.optimal_parameter_losses: Dict[Any, Any] = {
-            ds: {var: np.Inf for var in self.variable_training_order}
+            ds: {var: np.inf for var in self.variable_training_order}
             for ds in range(datasets)
         }
 
@@ -1449,7 +1449,7 @@ class ImputationKernel(ImputedData):
                                 categorical_feature=feature_cat_index,
                             )
                         except:
-                            loss, best_iteration = np.Inf, 0
+                            loss, best_iteration = np.inf, 0
 
                         if best_iteration > 1:
                             break
@@ -1814,11 +1814,11 @@ class ImputationKernel(ImputedData):
             The file to save to.
 
         clevel: int
-            The compression level, sent to clevel argument in blosc.compress()
+            The compression level, sent to clevel argument in blosc2.compress()
 
         cname: str
             The compression algorithm used.
-            Sent to cname argument in blosc.compress.
+            Sent to cname argument in blosc2.compress.
             If None is specified, the default is lz4hc.
 
         n_threads: int
@@ -1833,7 +1833,27 @@ class ImputationKernel(ImputedData):
 
         clevel = 9 if clevel is None else clevel
         cname = "lz4hc" if cname is None else cname
-        n_threads = blosc.detect_number_of_cores() if n_threads is None else n_threads
+
+        # make interface compatible
+        codec_mapping = {
+            "blosclz": blosc2.Codec.BLOSCLZ,
+            "lz4":blosc2.Codec.LZ4,
+            "lz4hc":blosc2.Codec.LZ4HC,
+            "zlib":blosc2.Codec.ZLIB,
+            "zstd":blosc2.Codec.ZSTD,
+            "ndlz":blosc2.Codec.NDLZ,
+            "zfp_acc":blosc2.Codec.ZFP_ACC,
+            "zfp_prec":blosc2.Codec.ZFP_PREC,
+            "zfp_rate":blosc2.Codec.ZFP_RATE,
+            "openhtj2k":blosc2.Codec.OPENHTJ2K,
+            "grok":blosc2.Codec.GROK
+        }
+        if cname in codec_mapping.keys():
+            codec=codec_mapping[cname]
+        else:
+            codec=blosc2.Codec.LZ4HC
+
+        n_threads = blosc2.detect_number_of_cores() if n_threads is None else n_threads
 
         if copy_while_saving:
             kernel = copy(self)
@@ -1846,16 +1866,15 @@ class ImputationKernel(ImputedData):
             kernel.working_data.to_parquet(working_data_bytes)
             kernel.working_data = working_data_bytes
 
-        blosc.set_nthreads(n_threads)
-
+        blosc2.set_nthreads(n_threads)
+        
         with open(filepath, "wb") as f:
             dill.dump(
-                blosc.compress(
+                blosc2.compress(
                     dill.dumps(kernel),
                     clevel=clevel,
-                    typesize=8,
-                    shuffle=blosc.NOSHUFFLE,
-                    cname=cname,
+                    filter=blosc2.Filter.NOFILTER,
+                    codec=codec,
                 ),
                 f,
             )
