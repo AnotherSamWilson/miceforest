@@ -11,12 +11,12 @@ package-mode = true
 python = "^3.10"
 
 lightgbm = "^4.0.0"
-pandas = "^2.2.0"
+pandas = {extras = ["parquet"], version = "2.2.0"}
 numpy = "^1.26.0"
 blosc2 = "^2.6.0"
 dill = "^0.3.7"
 scipy = "^1.11.1"
-seaborn = "^0.11.0"
+seaborn = "^0.13.0"
 matplotlib = "^3.3.0"
 scikit-learn = "^1.4.0"
 

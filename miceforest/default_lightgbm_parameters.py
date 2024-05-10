@@ -3,6 +3,7 @@
 # These need to be main parameter names, not aliases
 default_parameters = {
     "boosting": "random_forest",
+    "data_sample_strategy": "bagging",
     "num_iterations": 48,
     "max_depth": 8,
     "num_leaves": 128,
@@ -10,8 +11,9 @@ default_parameters = {
     "min_sum_hessian_in_leaf": 0.00001,
     "min_gain_to_split": 0.0,
     "bagging_fraction": 0.632,
-    "feature_fraction": 1.0,
-    "feature_fraction_bynode": 0.632,
+    # "feature_fraction": 1.0,
+    "feature_fraction": 0.632,
+    # "feature_fraction_bynode": 0.632,
     "bagging_freq": 1,
     "verbosity": -1,
 }

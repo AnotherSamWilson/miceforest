@@ -6,11 +6,6 @@ import numpy as np
 import miceforest as mf
 from miceforest.utils import logistic_function
 from sklearn.metrics import roc_auc_score
-from miceforest import (
-    mean_match_fast_cat,
-    mean_match_default,
-    mean_match_shap
-)
 
 random_state = np.random.RandomState(5)
 iris = pd.concat(load_iris(return_X_y=True, as_frame=True), axis=1)
@@ -23,25 +18,26 @@ iris_amp = mf.utils.ampute_data(iris, perc=0.20)
 iris_new = iris.iloc[random_state.choice(iris.index, iris.shape[0], replace=False)].reset_index(drop=True)
 iris_new_amp = mf.utils.ampute_data(iris_new, perc=0.20)
 
-
 def mse(x, y):
     return np.mean((x-y) ** 2)
 
 iterations = 2
 
+
 kernel_sm2 = mf.ImputationKernel(
     iris_amp,
-    datasets=1,
-    data_subset=0.75,
-    mean_match_scheme=mean_match_fast_cat,
-    save_models=2,
-    random_state=1
+    num_datasets=1,
+    data_subset=0,
+    mean_match_candidates=0,
+    random_state=1,
 )
 kernel_sm2.mice(
     iterations,
     boosting='random_forest',
-    num_iterations=100,
-    num_leaves=31
+    learning_rate=0.02,
+    num_iterations=50,
+    num_leaves=31,
+    verbose=True
 )
 
 kernel_sm1 = mf.ImputationKernel(
@@ -78,23 +74,34 @@ kernel_shap.mice(
 def test_sm2_mice_cat():
 
     # Binary
-    col = 5
+    col = 'binary'
     ind = kernel_sm2.na_where[col]
-    orig = iris.values[ind, col]
-    imps = kernel_sm2[0, col, iterations]
-    preds = logistic_function(kernel_sm2.get_raw_prediction(col, dtype="float32"))
-    roc = roc_auc_score(orig, preds[ind])
+    orig = iris.loc[ind, col]
+    imps = kernel_sm2[col, 0, iterations]
+    model = kernel_sm2.get_model(col, 0, -1)
+    bf = kernel_sm2.get_bachelor_features(col)
+    preds = model.predict(bf)
+    roc = roc_auc_score(orig, preds)
     acc = (imps == orig).mean()
     assert roc > 0.6
     assert acc > 0.6
 
+    pd.Series(preds).groupby(imps).mean()
+    dat = pd.DataFrame({'preds': preds, 'orig': orig, 'imps': imps})
+    import seaborn as sb
+    fig = sb.displot(data=dat, x='preds', hue='orig')
+    fig.savefig('temp.png')
+
+    iris_amp.columns[4]
     # Multiclass
-    col = 4
+    col = 'target'
     ind = kernel_sm2.na_where[col]
-    orig = iris.values[ind, col]
-    imps = kernel_sm2[0, col, iterations]
-    preds = kernel_sm2.get_raw_prediction(col, dtype="float32")
-    roc = roc_auc_score(orig, preds[ind,:], multi_class='ovr', average='macro')
+    orig = iris.loc[ind, col]
+    imps = kernel_sm2[col, 0, iterations]
+    model = kernel_sm2.get_model(col, 0, -1)
+    bf = kernel_sm2.get_bachelor_features(col)
+    preds = model.predict(bf)
+    roc = roc_auc_score(orig, preds, multi_class='ovr', average='macro')
     acc = (imps == orig).mean()
     assert roc > 0.7
     assert acc > 0.7
@@ -105,17 +112,20 @@ def test_sm2_mice_reg():
     imputed_errors = {}
     modeled_errors = {}
     random_sample_error = {}
-    for col in [0,1,2,3]:
+    for col in ['sepallength(cm)', 'sepalwidth(cm)', 'petallength(cm)','petalwidth(cm)']:
         ind = kernel_sm2.na_where[col]
         nonmissind = np.delete(range(iris.shape[0]), ind)
-        orig = iris.iloc[ind, col]
-        preds = kernel_sm2.get_raw_prediction(col)
-        imps = kernel_sm2[0, col, iterations]
-        random_sample_error[col] = mse(orig, np.mean(iris.iloc[nonmissind, col]))
+        ind = kernel_sm2.na_where[col]
+        orig = iris.loc[ind, col]
+        imps = kernel_sm2[col, 0, iterations]
+        random_sample_error[col] = mse(orig, np.mean(iris.loc[nonmissind, col]))
+
         modeled_errors[col] = mse(orig, preds[ind])
         imputed_errors[col] = mse(orig, imps)
         assert random_sample_error[col] > modeled_errors[col]
         assert random_sample_error[col] > imputed_errors[col]
+
+        iris_amp.columns
 
 
 def test_sm1_mice_cat():

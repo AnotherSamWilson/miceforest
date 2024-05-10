@@ -7,11 +7,26 @@ from pandas import Series, DataFrame, read_parquet
 from typing import Union, List, Dict, Optional
 
 
+def _to_2d(x):
+    """
+    Ensures an array is 2 dimensional, in place.
+    """
+    if x.ndim == 1:
+        x.shape = (-1, 1)
+
+def _to_1d(x):
+    """
+    Ensures an array is 1 dimensional, in place.
+    """
+    if x.ndim == 2:
+        assert x.shape[1] == 1
+        x.shape = (-1)
+
 def get_best_int_downcast(x: int):
     assert isinstance(x, int)
     int_dtypes = ['uint8', 'uint16', 'uint32', 'uint64']
     np_iinfo_max = {
-        np.iinfo(dtype).max
+        dtype: np.iinfo(dtype).max
         for dtype in int_dtypes
     }
     for dtype, max in np_iinfo_max.items():
@@ -54,12 +69,13 @@ def ampute_data(
     """
     amputed_data = data.copy()
     num_rows = amputed_data.shape[0]
-    amp_rows = int(perc * num_rows[0])
+    amp_rows = int(perc * num_rows)
     random_state = ensure_rng(random_state)
+    variables = list(data.columns) if variables is None else variables
 
-    for col in ampute_data.columns:
+    for col in variables:
         ind = random_state.choice(amputed_data.index, size=amp_rows, replace=False)
-        ampute_data.loc[ind, col] = np.nan
+        amputed_data.loc[ind, col] = np.nan
 
     return amputed_data
 
@@ -207,18 +223,38 @@ def stratified_categorical_folds(y: Series, nfold: int):
 # We don't really need to worry that much about diffusion
 # since we take % n at the end, and n (mmc) is usually
 # very small. This hash performs well enough in testing.
-def hash_int32(x):
+def hash_int32(x: np.ndarray):
     """
     A hash function which generates random uniform (enough)
     int32 integers. Used in mean matching and initialization.
     """
     assert isinstance(x, np.ndarray)
-    assert x.dtype == "int32", "x must be int32"
+    assert x.dtype in ["uint32", "int32"], "x must be int32"
     x = ((x >> 16) ^ x) * 0x45D9F3B
     x = ((x >> 16) ^ x) * 0x45D9F3B
     x = (x >> 16) ^ x
     return x
 
+
+def hash_uint64(x: np.ndarray):
+    assert isinstance(x, np.ndarray)
+    assert x.dtype == "uint64", "x must be int32"
+    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9
+    x = (x ^ (x >> 27)) * 0x94d049bb133111eb
+    x = x ^ (x >> 31)
+    return x
+
+def hash_numpy_int_array(x: np.ndarray, ind: Optional[np.ndarray] = None):
+    if ind is None:
+        ind = slice(None)
+    assert isinstance(x, np.ndarray)
+    if x.dtype in ["uint32", "int32"]:
+        x[ind] = hash_int32(x[ind])
+    elif x.dtype == 'uint64':
+        x[ind] = hash_uint64(x[ind])
+    else:
+        raise ValueError('random_seed_array must be uint32, int32, or uint64 datatype')
+    return x
 
 def _draw_random_int32(random_state, size):
     nums = random_state.randint(
@@ -276,7 +312,7 @@ def _expand_value_to_dict(default, value, keys):
         }
     else:
         assert default.__class__ == value.__class__
-        ret = {key: default for key in keys}
+        ret = {key: value for key in keys}
 
     return ret
 
