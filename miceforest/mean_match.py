@@ -1,4 +1,3 @@
-
 from pandas import Series, DataFrame
 import inspect
 from copy import deepcopy
@@ -45,14 +44,14 @@ def predict_normal(model: Booster, data):
 
 
 def predict_normal_shap(model: Booster, data):
-    preds = model.predict(data, pred_contrib=True)[:, :-1] # type: ignore
+    preds = model.predict(data, pred_contrib=True)[:, :-1]  # type: ignore
     adjust_shap_for_rf(model, preds)
     return preds
 
 
 def predict_binary_logodds(model: Booster, data):
     preds = logodds(
-        model.predict(data).clip( # type: ignore
+        model.predict(data).clip(  # type: ignore
             _LIGHTGBM_PROB_THRESHOLD, 1.0 - _LIGHTGBM_PROB_THRESHOLD
         )
     )
@@ -60,7 +59,7 @@ def predict_binary_logodds(model: Booster, data):
 
 
 def predict_multiclass_logodds(model: Booster, data):
-    preds = model.predict(data).clip( # type: ignore
+    preds = model.predict(data).clip(  # type: ignore
         _LIGHTGBM_PROB_THRESHOLD, 1.0 - _LIGHTGBM_PROB_THRESHOLD
     )
     preds = logodds(preds)
@@ -75,12 +74,12 @@ def predict_multiclass_shap(model: Booster, data: DataFrame):
     """
     preds = model.predict(data, pred_contrib=True)
     samples, cols = data.shape
-    classes = model._Booster__num_class # type: ignore
-    p = np.empty(shape=(samples, cols * classes), dtype=preds.dtype) # type: ignore
+    classes = model._Booster__num_class  # type: ignore
+    p = np.empty(shape=(samples, cols * classes), dtype=preds.dtype)  # type: ignore
     for c in range(classes):
         s1 = slice(c * cols, (c + 1) * cols)
         s2 = slice(c * (cols + 1), (c + 1) * (cols + 1) - 1)
-        p[:, s1] = preds[:, s2] # type: ignore
+        p[:, s1] = preds[:, s2]  # type: ignore
 
     # If objective is random forest, the shap values are summed
     # without ever taking an average, so we divide by the iters

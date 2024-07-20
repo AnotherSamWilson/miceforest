@@ -1,5 +1,7 @@
-
-from miceforest.default_lightgbm_parameters import default_parameters, make_default_tuning_space
+from miceforest.default_lightgbm_parameters import (
+    default_parameters,
+    make_default_tuning_space,
+)
 from miceforest.logger import Logger
 from miceforest.imputed_data import ImputedData
 from miceforest.utils import (
@@ -8,34 +10,33 @@ from miceforest.utils import (
     _list_union,
     _draw_random_int32,
     ensure_rng,
-    hash_numpy_int_array,
     stratified_categorical_folds,
     stratified_continuous_folds,
-    stratified_subset,
     _to_2d,
-    _to_1d
+    _to_1d,
 )
 import numpy as np
 from warnings import warn
 from lightgbm import train, Dataset, cv, log_evaluation, early_stopping, Booster
 from lightgbm.basic import _ConfigAliases
 from io import BytesIO
-import blosc2
 from scipy.spatial import KDTree
-import dill
 from copy import copy
 from typing import Union, List, Dict, Any, Optional, Tuple
 from pandas import Series, DataFrame, MultiIndex, read_parquet, Categorical
+from pandas.api.types import is_integer_dtype
 
 
 _DEFAULT_DATA_SUBSET = 0
 _DEFAULT_MEANMATCH_CANDIDATES = 5
-_DEFAULT_MEANMATCH_STRATEGY = 'normal'
-_MICE_TIMED_LEVELS = ['Dataset', 'Iteration', 'Variable', 'Event']
-_IMPUTE_NEW_DATA_TIMED_LEVELS = ['Dataset', 'Iteration', 'Variable', 'Event']
+_DEFAULT_MEANMATCH_STRATEGY = "normal"
+_MICE_TIMED_LEVELS = ["Dataset", "Iteration", "Variable", "Event"]
+_IMPUTE_NEW_DATA_TIMED_LEVELS = ["Dataset", "Iteration", "Variable", "Event"]
+_PRE_LINK_DATATYPE = "float16"
 
 # These can inherently be 2D, Series cannot.
 _MEAN_MATCH_PRED_TYPE = Union[np.ndarray, DataFrame]
+
 
 class ImputationKernel(ImputedData):
     """
@@ -44,7 +45,7 @@ class ImputationKernel(ImputedData):
 
     Parameters
     ----------
-    data : np.ndarray or pandas DataFrame.
+    data : pandas DataFrame.
 
         .. code-block:: text
 
@@ -56,13 +57,12 @@ class ImputationKernel(ImputedData):
 
             Specifies the feature - target relationships used to train models.
             This parameter also controls which models are built. Models can be built
-            even if a variable contains no missing values, or is not being imputed
-            (train_nonmissing must be set to True).
+            even if a variable contains no missing values, or is not being imputed.
 
-                - If None, all columns will be used as features in the training of each model.
+                - If None, all columns with missing values will have models trained, and all
+                    columns will be used as features in these models.
                 - If list, all columns in data are used to impute the variables in the list
-                - If dict the values will be used to impute the keys. Can be either column
-                    indices or names (if data is a pd.DataFrame).
+                - If dict the values will be used to impute the keys.
 
             No models will be trained for variables not specified by variable_schema
             (either by None, a list, or in dict keys).
@@ -71,22 +71,13 @@ class ImputationKernel(ImputedData):
 
         .. code-block:: text
 
-            The order the imputations should occur in. If a string from the
-            items below, all variables specified by variable_schema with
-            missing data are imputed:
-                ascending: variables are imputed from least to most missing
-                descending: most to least missing
-                roman: from left to right in the dataset
-                arabic: from right to left in the dataset.
-            If a list is provided:
-                - the variables will be imputed in that order.
-                - only variables with missing values should be included in the list.
-                - must be a subset of variables specified by variable_schema.
-            If a variable with missing values is in variable_schema, but not in
-            imputation_order, then models to impute that variable will be trained,
-            but the actual values will not be imputed. See examples for details.
+            The order the imputations should occur in.
+                - ascending: variables are imputed from least to most missing
+                - descending: most to least missing
+                - roman: from left to right in the dataset
+                - arabic: from right to left in the dataset.
 
-    data_subset: None or int or float or dict.
+    data_subset: None or int or dict.
 
         .. code-block:: text
 
@@ -97,7 +88,6 @@ class ImputationKernel(ImputedData):
             The number of rows used for each variable is (# rows in raw data) - (# missing variable values)
             for each variable. data_subset takes a random sample of this.
 
-            If float, must be 0.0 < data_subset <= 1.0. Interpreted as a percentage of available candidates
             If int must be data_subset >= 0. Interpreted as the number of candidates.
             If 0, no subsetting is done.
             If dict, keys must be variable names, and values must follow two above rules.
@@ -117,7 +107,7 @@ class ImputationKernel(ImputedData):
                     is selected at random weighted by the class probabilities.
                 - "shap" - Similar to "normal" but more robust. A K-nearest-neighbors
                     search is performed on the shap values of the candidate predictions
-                    and the bachelor predictions. A value from the top MMC closest candidate 
+                    and the bachelor predictions. A value from the top MMC closest candidate
                     values is chosen at random.
 
             A dict of strategies by variable can be passed as well. Any unmentioned variables
@@ -147,16 +137,14 @@ class ImputationKernel(ImputedData):
         .. code-block:: text
 
             If True, missing data is not filled in randomly before model training starts.
-            LightGBM is capable of learning from missing data - this might result in 
-            faster convergence, or data leakage, depending on the data passed in.
 
-    save_all_iterations: boolean, optional(default=True)
+    save_all_iterations_data: boolean, optional(default=True)
 
         .. code-block:: text
 
-            Save all the imputation values from all iterations, or just
-            the latest. Saving all iterations allows for additional
-            plotting, but may take more memory
+            Setting to False will cause the process to not store the models and
+            candidate values obtained at each iteration. This can save significant
+            amounts of memory, but it means `impute_new_data()` will not be callable.
 
     copy_data: boolean (default = False)
 
@@ -165,23 +153,7 @@ class ImputationKernel(ImputedData):
             Should the dataset be referenced directly? If False, this will cause
             the dataset to be altered in place. If a copy is created, it is saved
             in self.working_data. There are different ways in which the dataset
-            can be altered:
-
-            1) complete_data() will fill in missing values
-            2) To save space, mice() references and manipulates self.working_data directly.
-                If self.working_data is a reference to the original dataset, the original
-                dataset will undergo these manipulations during the mice process.
-                At the end of the mice process, missing values will be set back to np.NaN
-                where they were originally missing.
-
-    save_loggers: boolean (default = False)
-
-        .. code-block:: text
-
-            A logger is created each time mice() or impute_new_data() is called.
-            If True, the loggers are stored in a list ImputationKernel.loggers.
-            If you wish to start saving logs, call ImputationKernel.start_logging().
-            If you wish to stop saving logs, call ImputationKernel.stop_logging().
+            can be altered.
 
     random_state: None,int, or numpy.random.RandomState
 
@@ -201,8 +173,12 @@ class ImputationKernel(ImputedData):
         num_datasets: int = 1,
         variable_schema: Union[List[str], Dict[str, str]] = None,
         imputation_order: str = "ascending",
-        mean_match_candidates: Union[int, Dict[str, int]] = _DEFAULT_MEANMATCH_CANDIDATES,
-        mean_match_strategy: Optional[Union[str, Dict[str, str]]] = _DEFAULT_MEANMATCH_STRATEGY,
+        mean_match_candidates: Union[
+            int, Dict[str, int]
+        ] = _DEFAULT_MEANMATCH_CANDIDATES,
+        mean_match_strategy: Optional[
+            Union[str, Dict[str, str]]
+        ] = _DEFAULT_MEANMATCH_STRATEGY,
         data_subset: Union[int, Dict[str, int]] = _DEFAULT_DATA_SUBSET,
         initialize_empty: bool = False,
         save_all_iterations_data: bool = True,
@@ -216,20 +192,22 @@ class ImputationKernel(ImputedData):
             variable_schema=variable_schema,
             save_all_iterations_data=save_all_iterations_data,
             copy_data=copy_data,
-            random_seed_array=None
+            random_seed_array=None,
         )
 
         # Model Training / Imputation Order:
-            # Variables with missing data are always trained 
-            # first, according to imputation_order. Afterwards, 
-            # variables with no missing values have models trained.
+        # Variables with missing data are always trained
+        # first, according to imputation_order. Afterwards,
+        # variables with no missing values have models trained.
         if imputation_order in ["ascending", "descending"]:
             _na_counts = {
-                key: value 
+                key: value
                 for key, value in self.na_counts.items()
                 if key in self.imputed_variables
             }
-            self.imputation_order = list(Series(_na_counts).sort_values(ascending=False).index)
+            self.imputation_order = list(
+                Series(_na_counts).sort_values(ascending=False).index
+            )
             if imputation_order == "decending":
                 self.imputation_order.reverse()
         elif imputation_order == "roman":
@@ -239,10 +217,9 @@ class ImputationKernel(ImputedData):
             self.imputation_order.reverse()
         else:
             raise ValueError("imputation_order not recognized.")
-        
+
         modeled_but_not_imputed_variables = [
-            col for col in self.modeled_variables
-            if col not in self.imputed_variables
+            col for col in self.modeled_variables if col not in self.imputed_variables
         ]
         model_training_order = self.imputation_order + modeled_but_not_imputed_variables
         self.model_training_order = model_training_order
@@ -261,24 +238,22 @@ class ImputationKernel(ImputedData):
 
         # Determine available candidates and interpret data subset.
         available_candidates = {
-            v: (self.shape[0] - self.na_counts[v])
-            for v in self.model_training_order
+            v: (self.shape[0] - self.na_counts[v]) for v in self.model_training_order
         }
         data_subset = _expand_value_to_dict(
-            _DEFAULT_DATA_SUBSET,
-            data_subset,
-            keys=self.model_training_order
+            _DEFAULT_DATA_SUBSET, data_subset, keys=self.model_training_order
         )
         for col in self.model_training_order:
-            assert data_subset[col] <= available_candidates[col], (
-                f'data_subset is more than available candidates for {col}'
-            )
+            assert (
+                data_subset[col] <= available_candidates[col]
+            ), f"data_subset is more than available candidates for {col}"
         self.available_candidates = available_candidates
         self.data_subset = data_subset
 
         # Collect category information.
         categorical_columns: List[str] = [
-            var for var, dtype in self.working_data.dtypes.items()
+            var
+            for var, dtype in self.working_data.dtypes.items()
             if dtype.name == "category"
         ]
         category_counts = {
@@ -286,8 +261,7 @@ class ImputationKernel(ImputedData):
             for col in categorical_columns
         }
         numeric_columns = [
-            col for col in self.working_data.columns
-            if col not in categorical_columns
+            col for col in self.working_data.columns if col not in categorical_columns
         ]
         binary_columns = []
         for col, count in category_counts.items():
@@ -301,9 +275,15 @@ class ImputationKernel(ImputedData):
         assert set(binary_columns).isdisjoint(set(numeric_columns))
 
         self.category_counts = category_counts
-        self.modeled_categorical_columns = _list_union(categorical_columns, self.model_training_order)
-        self.modeled_numeric_columns = _list_union(numeric_columns, self.model_training_order)
-        self.modeled_binary_columns = _list_union(binary_columns, self.model_training_order)
+        self.modeled_categorical_columns = _list_union(
+            categorical_columns, self.model_training_order
+        )
+        self.modeled_numeric_columns = _list_union(
+            numeric_columns, self.model_training_order
+        )
+        self.modeled_binary_columns = _list_union(
+            binary_columns, self.model_training_order
+        )
 
         # Make sure all pandas categorical levels are used.
         rare_level_cols = []
@@ -321,30 +301,27 @@ class ImputationKernel(ImputedData):
         self.mean_match_candidates = _expand_value_to_dict(
             _DEFAULT_MEANMATCH_CANDIDATES,
             mean_match_candidates,
-            self.model_training_order
+            self.model_training_order,
         )
         self.mean_match_strategy = _expand_value_to_dict(
-            _DEFAULT_MEANMATCH_STRATEGY,
-            mean_match_strategy,
-            self.model_training_order
+            _DEFAULT_MEANMATCH_STRATEGY, mean_match_strategy, self.model_training_order
         )
 
         for col in self.model_training_order:
             mmc = self.mean_match_candidates[col]
             mms = self.mean_match_strategy[col]
             assert not ((mmc == 0) and (mms == "shap")), (
-                f'Failing because {col} mean_match_candidates == 0 and '
-                'mean_match_strategy == shap. This implies an unintentional setup.'
+                f"Failing because {col} mean_match_candidates == 0 and "
+                "mean_match_strategy == shap. This implies an unintentional setup."
             )
 
-        # Determine if the mean matching scheme will 
+        # Determine if the mean matching scheme will
         # require candidate information for each variable
         self.mean_matching_requires_candidates = []
         for variable in self.model_training_order:
             mean_match_strategy = self.mean_match_strategy[variable]
-            if (
-                (mean_match_strategy in ['normal', 'shap']) or
-                (variable in self.modeled_numeric_columns)
+            if (mean_match_strategy in ["normal", "shap"]) or (
+                variable in self.modeled_numeric_columns
             ):
                 self.mean_matching_requires_candidates.append(variable)
 
@@ -356,7 +333,7 @@ class ImputationKernel(ImputedData):
 
         # Set initial imputations (iteration 0).
         self._initialize_dataset(
-            self, random_state=self._random_state, random_seed_array=None
+            self, random_state=self._random_state
         )
 
     def __getstate__(self):
@@ -365,9 +342,9 @@ class ImputationKernel(ImputedData):
         """
         # Copy the entire object, minus the big stuff
 
-        special_handling = ['imputation_values']
+        special_handling = ["imputation_values"]
         if self.save_all_iterations_data:
-            special_handling.append('candidate_preds')
+            special_handling.append("candidate_preds")
 
         state = {
             key: value
@@ -375,20 +352,20 @@ class ImputationKernel(ImputedData):
             if key not in special_handling
         }.copy()
 
-        state['imputation_values'] = {}
-        state['candidate_preds'] = {}
+        state["imputation_values"] = {}
+        state["candidate_preds"] = {}
 
         for col, df in self.imputation_values.items():
             byte_stream = BytesIO()
             df.to_parquet(byte_stream)
-            state['imputation_values'][col] = byte_stream
+            state["imputation_values"][col] = byte_stream
         for col, df in self.candidate_preds.items():
             byte_stream = BytesIO()
             df.to_parquet(byte_stream)
-            state['candidate_preds'][col] = byte_stream
+            state["candidate_preds"][col] = byte_stream
 
         return state
-    
+
     def __setstate__(self, state):
         """
         For unpickling
@@ -406,7 +383,7 @@ class ImputationKernel(ImputedData):
         summary_string = f'\n{" " * 14}Class: ImputationKernel\n{self.__ids_info()}'
         return summary_string
 
-    def _initialize_dataset(self, imputed_data, random_state, random_seed_array):
+    def _initialize_dataset(self, imputed_data, random_state):
         """
         Sets initial imputation values for iteration 0.
         If "random", draw values from the working data at random.
@@ -416,7 +393,7 @@ class ImputationKernel(ImputedData):
 
         assert not imputed_data.initialized, "dataset has already been initialized"
 
-        if self.initialize_empty :
+        if self.initialize_empty:
             # The default value when initialized is np.nan, nothing to do here
             pass
         else:
@@ -431,35 +408,25 @@ class ImputationKernel(ImputedData):
 
                 for dataset in range(imputed_data.num_datasets):
                     # Initialize using the random_state if no record seeds were passed.
-                    if random_seed_array is None:
-                        imputation_values = (
-                            candidate_values
-                            .sample(n=missing_num, replace=True, random_state=random_state)
+                    if imputed_data.random_seed_array is None:
+                        imputation_values = candidate_values.sample(
+                            n=missing_num, replace=True, random_state=random_state
                         )
                         imputation_values.index = missing_ind
                         imputed_data[variable, 0, dataset] = imputation_values
                     else:
                         assert (
-                            len(random_seed_array) == imputed_data.shape[0]
+                            len(imputed_data.random_seed_array) == imputed_data.shape[0]
                         ), "The random_seed_array did not match the number of rows being imputed."
-                        selection_ind = random_seed_array[missing_ind] % candidate_num
+                        hashed_seeds = imputed_data._get_hashed_seeds(variable=variable)
+                        selection_ind = hashed_seeds % candidate_num
                         imputation_values = candidate_values.iloc[selection_ind]
                         imputation_values.index = missing_ind
                         imputed_data[variable, 0, dataset] = imputation_values
-                        random_seed_array = hash_numpy_int_array(
-                            x=random_seed_array,
-                            ind=missing_ind
-                        )
 
         imputed_data.initialized = True
 
-    def _get_lgb_params(
-        self, 
-        variable, 
-        variable_parameters, 
-        random_state,
-        **kwlgb
-    ):
+    def _get_lgb_params(self, variable, variable_parameters, random_state, **kwlgb):
         """
         Builds the parameters for a lightgbm model. Infers objective based on
         datatype of the response variable, assigns a random seed, finds
@@ -493,7 +460,7 @@ class ImputationKernel(ImputedData):
 
         lgb_params = default_parameters.copy()
         lgb_params.update(obj)
-        lgb_params['seed'] = seed
+        lgb_params["seed"] = seed
 
         # Priority is [variable specific] > [global in kwargs] > [defaults]
         lgb_params.update(kwlgb)
@@ -577,18 +544,14 @@ class ImputationKernel(ImputedData):
 
         data_subset = self.data_subset[variable]
         available_candidates = self.available_candidates[variable]
+        nonmissing_ind = self._get_nonmissing_index(variable=variable)
         if (data_subset == 0) or (data_subset >= available_candidates):
-            subset_index = slice(None)
+            subset_index = nonmissing_ind
         else:
-            nonmissing_ind = self._get_nonmissing_index(variable=variable)
             rs = np.random.RandomState(seed)
-            subset_index = rs.choice(
-                nonmissing_ind,
-                size=data_subset,
-                replace=False
-            )
+            subset_index = rs.choice(nonmissing_ind, size=data_subset, replace=False)
         return subset_index
-    
+
     def _make_label(self, variable: str, seed: int):
         """
         Returns a reproducible subset of the non-missing values of a variable.
@@ -606,7 +569,9 @@ class ImputationKernel(ImputedData):
         """
         subset_index = self._get_nonmissing_subset_index(variable=variable, seed=seed)
         predictor_columns = self.variable_schema[variable]
-        features = self.working_data.loc[subset_index, predictor_columns + [variable]].copy()
+        features = self.working_data.loc[
+            subset_index, predictor_columns + [variable]
+        ].copy()
         label = features.pop(variable)
         return features, label
 
@@ -651,15 +616,17 @@ class ImputationKernel(ImputedData):
         """
         assert self.num_datasets == 1, (
             "miceforest kernel should be initialized with datasets=1 if "
-            + "being used in a sklearn pipeline."
+            "being used in a sklearn pipeline."
         )
         assert X.equals(self.working_data), (
-            'Data passed was not the same as original '
-            'data used to train ImputationKernel.'
+            "It looks like this kernel is being used in a sklearn pipeline. "
+            "The data passed in fit() should be the same as the data that "
+            "was originally passed to the kernel. If this kernel is not being "
+            "used in an sklearn pipeline, please just use the mice() method."
         )
         self.mice(**fit_params)
         return self
-    
+
     @staticmethod
     def _mean_match_nearest_neighbors(
         mean_match_candidates: int,
@@ -673,7 +640,7 @@ class ImputationKernel(ImputedData):
         Determines the values of candidates which will be used to impute the bachelors
         """
 
-        assert mean_match_candidates > 0, 'Do not use nearest_neighbors with 0 mmc.'
+        assert mean_match_candidates > 0, "Do not use nearest_neighbors with 0 mmc."
 
         _to_2d(bachelor_preds)
         _to_2d(candidate_preds)
@@ -704,7 +671,6 @@ class ImputationKernel(ImputedData):
         imp_values = candidate_values.iloc[index_choice]
 
         return imp_values
-
 
     @staticmethod
     def _mean_match_binary_fast(
@@ -751,123 +717,128 @@ class ImputationKernel(ImputedData):
         else:
             num_bachelors = bachelor_preds.shape[0]
 
-            # Turn bachelor_preds into discrete cdf:
-            bachelor_preds = bachelor_preds.cumsum(axis=1)
-
-            # Randomly choose uniform numbers 0-1
             if hashed_seeds is None:
-                # This is the fastest way to adjust for numeric
-                # imprecision of float16 dtype. Actually ends up
-                # barely taking any time at all.
-                bp_dtype = bachelor_preds.dtype
-                unif = np.minimum(
-                    random_state.uniform(0, 1, size=num_bachelors).astype(bp_dtype),
-                    bachelor_preds[:, -1],
-                )
-            else:
-                unif = []
-                for i in range(num_bachelors):
-                    np.random.seed(seed=hashed_seeds[i])
-                    unif.append(np.random.uniform(0, 1, size=1)[0])
-                unif = np.array(unif)
+                # Turn bachelor_preds into discrete cdf, and choose
+                bachelor_preds = bachelor_preds.cumsum(axis=1)
+                compare = random_state.uniform(0, 1, size=(num_bachelors, 1))
+                imp_values = (bachelor_preds < compare).sum(1)
 
-            # Choose classes according to their cdf.
-            # Distribution will match probabilities
-            imp_values = np.array(
-                [
-                    np.searchsorted(bachelor_preds[i, :], unif[i])
-                    for i in range(num_bachelors)
-                ]
-            )
+            else:
+                dtype = hashed_seeds.dtype
+                dtype_max = np.iinfo(dtype).max
+                compare = np.abs(hashed_seeds / dtype_max)
+                imp_values = (bachelor_preds < compare).sum(1)
 
         return imp_values
-    
+
+    def _mean_match_fast(
+        self,
+        variable: str,
+        mean_match_candidates: int,
+        bachelor_preds: np.ndarray,
+        random_state: np.random.RandomState,
+        hashed_seeds: Optional[np.ndarray],
+    ):
+        """
+        Dispatcher and formatter for the fast mean matching functions
+        """
+        if variable in self.modeled_categorical_columns:
+            imputation_values = self._mean_match_multiclass_fast(
+                mean_match_candidates=mean_match_candidates,
+                bachelor_preds=bachelor_preds,
+                random_state=random_state,
+                hashed_seeds=hashed_seeds,
+            )
+        elif variable in self.modeled_binary_columns:
+            imputation_values = self._mean_match_binary_fast(
+                mean_match_candidates=mean_match_candidates,
+                bachelor_preds=bachelor_preds,
+                random_state=random_state,
+                hashed_seeds=hashed_seeds,
+            )
+        else:
+            raise ValueError("Shouldnt be able to get here")
+
+        _to_1d(imputation_values)
+        dtype = self.working_data[variable].dtype
+        imputation_values = Categorical.from_codes(codes=imputation_values, dtype=dtype)
+
+        return imputation_values
+
     def _impute_with_predictions(
         self,
         variable: str,
-        bachelor_preds: _MEAN_MATCH_PRED_TYPE,
+        lgbmodel: Booster,
+        bachelor_features: DataFrame,
     ):
-
+        bachelor_preds = lgbmodel.predict(
+            bachelor_features,
+            pred_contrib=False,
+            raw_score=False,
+        )
         dtype = self.working_data[variable].dtype
         if variable in self.modeled_numeric_columns:
+            if is_integer_dtype(dtype):
+                bachelor_preds = bachelor_preds.round(0)
             return Series(bachelor_preds, dtype=dtype)
         else:
             if variable in self.modeled_binary_columns:
-                selection_ind = np.floor(bachelor_preds + 0.5)
+                selection_ind = (bachelor_preds > 0.5).astype("uint8")
             else:
-                assert variable in self.modeled_categorical_columns, (
-                    f'{variable} is not in numeric, binary or categorical columns'
-                )
+                assert (
+                    variable in self.modeled_categorical_columns
+                ), f"{variable} is not in numeric, binary or categorical columns"
                 selection_ind = np.argmax(bachelor_preds, axis=1)
             values = dtype.categories[selection_ind]
             return Series(values, dtype=dtype)
-        
-    def _get_candidate_preds(
+
+    def _get_candidate_preds_mice(
         self,
         variable: str,
         lgbmodel: Booster,
-        candidate_features: Optional[DataFrame],
-        pred_contrib: bool,
-        is_logistic_link: bool,
+        candidate_features: DataFrame,
         dataset: int,
         iteration: int,
-        mice: bool,
     ):
-        
-        if mice:
-            assert hasattr(lgbmodel, 'train_set'), (
-                'Model was passed that does not have training data.'
-            )
-            if pred_contrib:
-                print(f'Getting {variable} preds from pred_contrib')
-                candidate_preds = lgbmodel.predict(
-                    candidate_features, 
-                    pred_contrib=True,
-                )
-            else:
-                print(f'Getting {variable} preds from inner predict')
-                candidate_preds = lgbmodel._Booster__inner_predict(0)
-                if is_logistic_link and not pred_contrib:
-                    candidate_preds = logodds(candidate_preds)
-                
-            candidate_preds = self._prepare_prediction_multiindex(
-                variable=variable,
-                preds=candidate_preds,
-                pred_contrib=pred_contrib,
-                dataset=dataset,
-                iteration=iteration,
-            )
+        """
+        This function also records the candidate predictions
+        """
+        shap = self.mean_match_strategy[variable] == "shap"
+        fast = self.mean_match_strategy[variable] == "fast"
+        logistic = variable not in self.modeled_numeric_columns
 
-            if self.save_all_iterations_data:
-                self._record_candidate_preds(
-                    variable=variable,
-                    candidate_preds=candidate_preds,
-                )
-        
+        assert hasattr(
+            lgbmodel, "train_set"
+        ), "Model was passed that does not have training data."
+        if shap:
+            candidate_preds = lgbmodel.predict(
+                candidate_features,
+                pred_contrib=True,
+            ).astype(_PRE_LINK_DATATYPE)
         else:
+            candidate_preds = lgbmodel._Booster__inner_predict(0)
+            if logistic and not (shap or fast):
+                candidate_preds = logodds(candidate_preds).astype(_PRE_LINK_DATATYPE)
 
-            # Candidate predictions are only stored 
-            # for imputed variables during mice
-            if variable in self.imputed_variables:
-                print(f'Getting {variable} preds from store')
-                candidate_preds = self._get_candidate_preds_from_store(
-                    variable=variable,
-                    iteration=iteration,
-                    dataset=dataset,
-                )
-            # We need to make the features and get the 
-            # predictions if they weren't saved during mice
-            else:
-                print(f'Getting {variable} preds from features')
-                seed = lgbmodel.params['seed']
-                candidate_features, _ = self._make_features_label(variable=variable, seed=seed)
-                candidate_preds = lgbmodel.predict(candidate_features)
+        candidate_preds = self._prepare_prediction_multiindex(
+            variable=variable,
+            preds=candidate_preds,
+            shap=shap,
+            dataset=dataset,
+            iteration=iteration,
+        )
+
+        if self.save_all_iterations_data:
+            self._record_candidate_preds(
+                variable=variable,
+                candidate_preds=candidate_preds,
+            )
 
         return candidate_preds
 
     def _get_candidate_preds_from_store(
-        self, 
-        variable: str, 
+        self,
+        variable: str,
         dataset: int,
         iteration: int,
     ) -> DataFrame:
@@ -878,8 +849,44 @@ class ImputationKernel(ImputedData):
         assert isinstance(ret, DataFrame)
         return ret
 
-    def mean_match(
-        self, 
+    def _get_bachelor_preds(
+        self,
+        variable: str,
+        lgbmodel: Booster,
+        bachelor_features: DataFrame,
+        dataset: int,
+        iteration: int,
+    ) -> np.ndarray:
+
+        shap = self.mean_match_strategy[variable] == "shap"
+        fast = self.mean_match_strategy[variable] == "fast"
+        logistic = variable not in self.modeled_numeric_columns
+
+        bachelor_preds = lgbmodel.predict(
+            bachelor_features,
+            pred_contrib=shap,
+        )
+
+        if shap:
+            bachelor_preds = bachelor_preds.astype(_PRE_LINK_DATATYPE)
+
+        # We want the logods if running k-nearest
+        # neighbors on logistic-link predictions
+        if logistic and not (shap or fast):
+            bachelor_preds = logodds(bachelor_preds).astype(_PRE_LINK_DATATYPE)
+
+        bachelor_preds = self._prepare_prediction_multiindex(
+            variable=variable,
+            preds=bachelor_preds,
+            shap=shap,
+            dataset=dataset,
+            iteration=iteration,
+        )
+
+        return bachelor_preds
+
+    def mean_match_mice(
+        self,
         variable: str,
         lgbmodel: Booster,
         bachelor_features: DataFrame,
@@ -887,79 +894,104 @@ class ImputationKernel(ImputedData):
         candidate_values: Series,
         dataset: int,
         iteration: int,
-        mice: bool,
-        hashed_seeds: Optional[np.ndarray] = None,
     ):
-        """
-        Efficient mean matching called during MICE.
-        """
-        mean_match_strategy = self.mean_match_strategy[variable]
         mean_match_candidates = self.mean_match_candidates[variable]
         using_candidate_data = variable in self.mean_matching_requires_candidates
+
         use_mean_matching = mean_match_candidates > 0
-        pred_contrib = mean_match_strategy == 'shap'
-        is_logistic_link = variable in (self.modeled_binary_columns + self.modeled_categorical_columns)
-
-        # Special handling for imputing with predictions.
-        # Takes priority over other mean match settings.
         if not use_mean_matching:
-            assert mean_match_strategy != 'shap', (
-                'Should have failed before this, please open an issue on github. '
-                'mean_match_strategy == shap and mean_match_candidates == 0. '
-                'This implies an unintentional setup.'
-            )
-
-            print(f'Imputing {variable} with Predictions')
-            
-            # Get bachelor predictions
-            bachelor_preds = lgbmodel.predict(
-                bachelor_features, 
-                pred_contrib=False,
-                raw_score=False,
-            )
-
             imputation_values = self._impute_with_predictions(
                 variable=variable,
-                bachelor_preds=bachelor_preds,
+                lgbmodel=lgbmodel,
+                bachelor_features=bachelor_features,
             )
             return imputation_values
 
+        # Get bachelor predictions
+        bachelor_preds = self._get_bachelor_preds(
+            variable=variable,
+            lgbmodel=lgbmodel,
+            bachelor_features=bachelor_features,
+            dataset=dataset,
+            iteration=iteration,
+        )
+
         if using_candidate_data:
 
-            print(f'Mean matching {variable} using nearest neighbor')
-
-            # Get bachelor predictions
-            bachelor_preds = lgbmodel.predict(
-                bachelor_features, 
-                pred_contrib=pred_contrib,
-            )
-            if is_logistic_link and not pred_contrib:
-                bachelor_preds = logodds(bachelor_preds)
-            _to_2d(bachelor_preds)
-            bachelor_preds = self._prepare_prediction_multiindex(
-                variable=variable,
-                preds=bachelor_preds,
-                pred_contrib=pred_contrib,
-                dataset=dataset,
-                iteration=iteration,
-            )
-
-            candidate_preds = self._get_candidate_preds(
+            candidate_preds = self._get_candidate_preds_mice(
                 variable=variable,
                 lgbmodel=lgbmodel,
                 candidate_features=candidate_features,
-                pred_contrib=pred_contrib,
-                is_logistic_link=is_logistic_link,
                 dataset=dataset,
                 iteration=iteration,
-                mice=mice,
             )
 
-            if candidate_values is None:
-                candidate_values = self._make_label(
-                    variable=variable,
-                    seed = lgbmodel.params['seed']
-                )
+            # By now, a numeric variable will be post-link, and
+            # categorical / binary variables will be pre-link.
+            imputation_values = self._mean_match_nearest_neighbors(
+                mean_match_candidates=mean_match_candidates,
+                bachelor_preds=bachelor_preds,
+                candidate_preds=candidate_preds,
+                candidate_values=candidate_values,
+                random_state=self._random_state,
+                hashed_seeds=None,
+            )
+
+        else:
+
+            imputation_values = self._mean_match_fast(
+                variable=variable,
+                mean_match_candidates=mean_match_candidates,
+                bachelor_preds=bachelor_preds,
+                random_state=self._random_state,
+                hashed_seeds=None,
+            )
+
+        return imputation_values
+
+    def mean_match_ind(
+        self,
+        variable: str,
+        lgbmodel: Booster,
+        bachelor_features: DataFrame,
+        dataset: int,
+        iteration: int,
+        hashed_seeds: Optional[np.ndarray] = None,
+    ):
+        mean_match_candidates = self.mean_match_candidates[variable]
+        using_candidate_data = variable in self.mean_matching_requires_candidates
+        use_mean_matching = mean_match_candidates > 0
+
+        if not use_mean_matching:
+            imputation_values = self._impute_with_predictions(
+                variable=variable,
+                lgbmodel=lgbmodel,
+                bachelor_features=bachelor_features,
+            )
+            return imputation_values
+
+        # Get bachelor predictions
+        bachelor_preds = self._get_bachelor_preds(
+            variable=variable,
+            lgbmodel=lgbmodel,
+            bachelor_features=bachelor_features,
+            dataset=dataset,
+            iteration=iteration,
+        )
+
+        if using_candidate_data:
+
+            print(f"Mean matching {variable} using nearest neighbor")
+
+            candidate_preds = self._get_candidate_preds_from_store(
+                variable=variable,
+                dataset=dataset,
+                iteration=iteration,
+            )
+
+            candidate_values = self._make_label(
+                variable=variable, seed=lgbmodel.params["seed"]
+            )
 
             # By now, a numeric variable will be post-link, and
             # categorical / binary variables will be pre-link.
@@ -974,47 +1006,16 @@ class ImputationKernel(ImputedData):
 
         else:
 
-            # Get bachelor predictions
-            bachelor_preds = lgbmodel.predict(
-                bachelor_features, 
-                pred_contrib=False,
-                raw_score=False,
+            imputation_values = self._mean_match_fast(
+                variable=variable,
+                mean_match_candidates=mean_match_candidates,
+                bachelor_preds=bachelor_preds,
+                random_state=self._random_state,
+                hashed_seeds=hashed_seeds,
             )
-            _to_2d(bachelor_preds)
-
-            if variable in self.modeled_categorical_columns:
-                print(f'Mean matching {variable} using fast multiclass')
-                imputation_values = self._mean_match_multiclass_fast(
-                    mean_match_candidates=mean_match_candidates,
-                    bachelor_preds=bachelor_preds,
-                    random_state=self._random_state,
-                    hashed_seeds=hashed_seeds
-                )
-                _to_1d(imputation_values)
-                dtype = self.working_data[variable].dtype
-                imputation_values = Categorical.from_codes(
-                    codes=imputation_values,
-                    dtype=dtype
-                )
-            elif variable in self.modeled_binary_columns:
-                print(f'Mean matching {variable} using fast binary')
-                imputation_values = self._mean_match_binary_fast(
-                    mean_match_candidates=mean_match_candidates,
-                    bachelor_preds=bachelor_preds,
-                    random_state=self._random_state,
-                    hashed_seeds=hashed_seeds
-                )
-                _to_1d(imputation_values)
-                dtype = self.working_data[variable].dtype
-                imputation_values = Categorical.from_codes(
-                    codes=imputation_values, 
-                    dtype=dtype
-                )
-            else:
-                raise ValueError('Shouldnt be able to get here')
 
         return imputation_values
-    
+
     def _record_candidate_preds(
         self,
         variable: str,
@@ -1024,48 +1025,52 @@ class ImputationKernel(ImputedData):
         assign_col_index = candidate_preds.columns
 
         if variable not in self.candidate_preds.keys():
-            inferred_iteration = assign_col_index.get_level_values('iteration').unique()
-            assert len(inferred_iteration) == 1, f'Malformed iteration multiindex for {variable}: {print(assign_col_index)}'
+            inferred_iteration = assign_col_index.get_level_values("iteration").unique()
+            assert (
+                len(inferred_iteration) == 1
+            ), f"Malformed iteration multiindex for {variable}: {print(assign_col_index)}"
             inferred_iteration = inferred_iteration[0]
-            assert inferred_iteration == 1, 'Adding initial candidate preds after iteration 1.'
+            assert (
+                inferred_iteration == 1
+            ), "Adding initial candidate preds after iteration 1."
             self.candidate_preds[variable] = candidate_preds
         else:
             self.candidate_preds[variable][assign_col_index] = candidate_preds
 
     def _prepare_prediction_multiindex(
-            self,
-            variable: str,
-            preds: np.ndarray,
-            pred_contrib: bool,
-            dataset: int,
-            iteration: int,
+        self,
+        variable: str,
+        preds: np.ndarray,
+        shap: bool,
+        dataset: int,
+        iteration: int,
     ) -> DataFrame:
 
         multiclass = variable in self.modeled_categorical_columns
-        cols = self.variable_schema[variable] + ['Intercept']
+        cols = self.variable_schema[variable] + ["Intercept"]
 
-        if pred_contrib:
+        if shap:
 
             if multiclass:
 
                 categories = self.working_data[variable].dtype.categories
                 cat_count = self.category_counts[variable]
                 preds = DataFrame(preds, columns=cols * cat_count)
-                del preds['Intercept']
-                cols.remove('Intercept')
+                del preds["Intercept"]
+                cols.remove("Intercept")
                 assign_col_index = MultiIndex.from_product(
                     [[iteration], [dataset], categories, cols],
-                    names=('iteration', 'dataset', 'categories', 'predictor')
+                    names=("iteration", "dataset", "categories", "predictor"),
                 )
                 preds.columns = assign_col_index
 
             else:
                 preds = DataFrame(preds, columns=cols)
-                del preds['Intercept']
-                cols.remove('Intercept')
+                del preds["Intercept"]
+                cols.remove("Intercept")
                 assign_col_index = MultiIndex.from_product(
                     [[iteration], [dataset], cols],
-                    names=('iteration', 'dataset', 'predictor')
+                    names=("iteration", "dataset", "predictor"),
                 )
                 preds.columns = assign_col_index
 
@@ -1077,7 +1082,7 @@ class ImputationKernel(ImputedData):
                 preds = DataFrame(preds, columns=categories)
                 assign_col_index = MultiIndex.from_product(
                     [[iteration], [dataset], categories],
-                    names=('iteration', 'dataset', 'categories')
+                    names=("iteration", "dataset", "categories"),
                 )
                 preds.columns = assign_col_index
 
@@ -1085,13 +1090,11 @@ class ImputationKernel(ImputedData):
 
                 preds = DataFrame(preds, columns=[variable])
                 assign_col_index = MultiIndex.from_product(
-                    [[iteration], [dataset]],
-                    names=('iteration', 'dataset')
+                    [[iteration], [dataset]], names=("iteration", "dataset")
                 )
                 preds.columns = assign_col_index
 
         return preds
-
 
     def mice(
         self,
@@ -1143,8 +1146,6 @@ class ImputationKernel(ImputedData):
         current_iterations = self.iteration_count()
         start_iter = current_iterations + 1
         end_iter = current_iterations + iterations + 1
-
-        # Delete models and candidate_preds if we shouldn't be saving every iteration
         logger = Logger(
             name=f"MICE Iterations {current_iterations + 1} - {current_iterations + iterations}",
             timed_levels=_MICE_TIMED_LEVELS,
@@ -1152,10 +1153,12 @@ class ImputationKernel(ImputedData):
         )
 
         if len(variable_parameters) > 0:
-            assert isinstance(variable_parameters, dict), 'variable_parameters should be a dict.'
+            assert isinstance(
+                variable_parameters, dict
+            ), "variable_parameters should be a dict."
             assert set(variable_parameters).issubset(self.model_training_order), (
-                'Variables in variable_parameters will not have models trained. '
-                'Check kernel.model_training_order'
+                "Variables in variable_parameters will not have models trained. "
+                "Check kernel.model_training_order"
             )
 
         for iteration in range(start_iter, end_iter, 1):
@@ -1174,19 +1177,18 @@ class ImputationKernel(ImputedData):
                     # Define the lightgbm parameters
                     lgbpars = self._get_lgb_params(
                         variable,
-                        variable_parameters.get(variable, {}), 
-                        self._random_state, 
-                        **kwlgb
+                        variable_parameters.get(variable, {}),
+                        self._random_state,
+                        **kwlgb,
                     )
 
-                    time_key = dataset, iteration, variable, 'Prepare XY'
+                    time_key = dataset, iteration, variable, "Prepare XY"
                     logger.set_start_time(time_key)
                     (
                         candidate_features,
                         candidate_values,
                     ) = self._make_features_label(
-                        variable=variable,
-                        seed=lgbpars['seed']
+                        variable=variable, seed=lgbpars["seed"]
                     )
 
                     # lightgbm requires integers for label. Categories won't work.
@@ -1202,7 +1204,7 @@ class ImputationKernel(ImputedData):
                     )
                     logger.record_time(time_key)
 
-                    time_key = dataset, iteration, variable, 'Training'
+                    time_key = dataset, iteration, variable, "Training"
                     logger.set_start_time(time_key)
                     current_model = train(
                         params=lgbpars,
@@ -1215,10 +1217,12 @@ class ImputationKernel(ImputedData):
                     # Only perform mean matching and insertion
                     # if variable is being imputed.
                     if variable in self.imputation_order:
-                        time_key = dataset, iteration, variable, 'Mean Matching'
+                        time_key = dataset, iteration, variable, "Mean Matching"
                         logger.set_start_time(time_key)
-                        bachelor_features = self.get_bachelor_features(variable=variable)
-                        imputation_values = self.mean_match(
+                        bachelor_features = self.get_bachelor_features(
+                            variable=variable
+                        )
+                        imputation_values = self.mean_match_mice(
                             variable=variable,
                             lgbmodel=current_model,
                             bachelor_features=bachelor_features,
@@ -1226,8 +1230,6 @@ class ImputationKernel(ImputedData):
                             candidate_values=candidate_values,
                             dataset=dataset,
                             iteration=iteration,
-                            mice=True,
-                            hashed_seeds=None,
                         )
                         imputation_values.index = self.na_where[variable]
                         logger.record_time(time_key)
@@ -1238,17 +1240,29 @@ class ImputationKernel(ImputedData):
 
                         # Insert the imputation_values we obtained
                         self[variable, iteration, dataset] = imputation_values
-                        
+
                         if not self.save_all_iterations_data:
                             del self[variable, iteration - 1, dataset]
 
                     else:
 
-                        
+                        # This is called to save the candidate predictions
+                        _ = self._get_candidate_preds_mice(
+                            variable=variable,
+                            lgbmodel=current_model,
+                            candidate_features=candidate_features,
+                            dataset=dataset,
+                            iteration=iteration,
+                        )
+                        del _
 
                     # Save the model, if we should be
                     if self.save_all_iterations_data:
-                        self.models[variable, iteration, dataset] = current_model.free_dataset()
+                        self.models[variable, iteration, dataset] = (
+                            current_model.free_dataset()
+                        )
+
+                    self.iteration_tab[variable, dataset] += 1
 
                 logger.log("\n", end="")
 
@@ -1256,18 +1270,18 @@ class ImputationKernel(ImputedData):
         self.loggers.append(logger)
 
     def get_model(
-            self,
-            variable: str,
-            dataset: int,
-            iteration: Optional[int] = None,
-        ):
+        self,
+        variable: str,
+        dataset: int,
+        iteration: Optional[int] = None,
+    ):
         # Allow passing -1 to get the latest iteration's model
         if (iteration is None) or (iteration == -1):
             iteration = self.iteration_count(dataset=dataset, variable=variable)
         try:
             model = self.models[variable, iteration, dataset]
         except KeyError:
-            raise ValueError('Model was not saved.')
+            raise ValueError("Model was not saved.")
         return model
 
     def transform(self, X, y=None):
@@ -1282,8 +1296,8 @@ class ImputationKernel(ImputedData):
     def tune_parameters(
         self,
         dataset: int,
-        variables: Union[List[int], List[str], None] = None,
-        variable_parameters: Optional[Dict[Any, Any]] = None,
+        variables: Optional[List[str]] = None,
+        variable_parameters: Optional[Dict[str, Any]] = None,
         parameter_sampling_method: str = "random",
         nfold: int = 10,
         optimization_steps: int = 5,
@@ -1638,8 +1652,8 @@ class ImputationKernel(ImputedData):
         """
 
         assert self.save_all_iterations_data, (
-            'Cannot recreate imputation procedure, data was not saved during MICE. '
-            'To save this data, set save_all_iterations_data to True when making kernel.'
+            "Cannot recreate imputation procedure, data was not saved during MICE. "
+            "To save this data, set save_all_iterations_data to True when making kernel."
         )
 
         datasets = list(range(self.num_datasets)) if datasets is None else datasets
@@ -1652,13 +1666,15 @@ class ImputationKernel(ImputedData):
         )
 
         assert isinstance(new_data, DataFrame)
-        assert self.working_data.columns.equals(new_data.columns), (
-            "Different columns from original dataset."
-        )
-        assert np.all([
-            self.working_data[col].dtype == new_data[col].dtype
-            for col in self.column_names
-        ]), "Column types are not the same as the original data. Check categorical columns."
+        assert self.working_data.columns.equals(
+            new_data.columns
+        ), "Different columns from original dataset."
+        assert np.all(
+            [
+                self.working_data[col].dtype == new_data[col].dtype
+                for col in self.column_names
+            ]
+        ), "Column types are not the same as the original data. Check categorical columns."
 
         imputed_data = ImputedData(
             impute_data=new_data,
@@ -1666,10 +1682,11 @@ class ImputationKernel(ImputedData):
             variable_schema=self.variable_schema.copy(),
             save_all_iterations_data=save_all_iterations_data,
             copy_data=copy_data,
-            random_seed_array=random_seed_array
+            random_seed_array=random_seed_array,
         )
         new_imputation_order = [
-            col for col in self.model_training_order
+            col
+            for col in self.model_training_order
             if col in imputed_data.vars_with_any_missing
         ]
 
@@ -1683,9 +1700,8 @@ class ImputationKernel(ImputedData):
             random_state = ensure_rng(random_state)
 
         self._initialize_dataset(
-            imputed_data, 
-            random_state=random_state, 
-            random_seed_array=random_seed_array,
+            imputed_data,
+            random_state=random_state,
         )
 
         for iteration in range(1, iterations + 1):
@@ -1702,30 +1718,28 @@ class ImputationKernel(ImputedData):
 
                     # Select our model.
                     current_model = self.get_model(
-                        variable=variable, 
-                        dataset=dataset, 
-                        iteration=iteration
+                        variable=variable, dataset=dataset, iteration=iteration
                     )
 
-                    time_key = dataset, iteration, variable, 'Getting Bachelor Features'
+                    time_key = dataset, iteration, variable, "Getting Bachelor Features"
                     logger.set_start_time(time_key)
                     bachelor_features = imputed_data.get_bachelor_features(variable)
+                    hashed_seeds = imputed_data._get_hashed_seeds(variable)
                     logger.record_time(time_key)
 
-                    time_key = dataset, iteration, variable, 'Mean Matching'
+                    time_key = dataset, iteration, variable, "Mean Matching"
                     logger.set_start_time(time_key)
-                    imputation_values = self.mean_match(
+                    na_where = imputed_data.na_where[variable]
+                    imputation_values = self.mean_match_ind(
                         variable=variable,
                         lgbmodel=current_model,
                         bachelor_features=bachelor_features,
-                        candidate_features=None,
-                        candidate_values=None,
                         dataset=dataset,
                         iteration=iteration,
-                        mice=False,
-                        hashed_seeds=None
+                        hashed_seeds=hashed_seeds,
                     )
-                    imputation_values.index = imputed_data.na_where[variable]
+                    # self.cycle_random_seed_array(variable)
+                    imputation_values.index = na_where
                     logger.record_time(time_key)
 
                     assert imputation_values.shape == (
@@ -1745,63 +1759,63 @@ class ImputationKernel(ImputedData):
 
         return imputed_data
 
-    def save_kernel(
-        self, filepath, clevel=None, cname=None, n_threads=None, copy_while_saving=True
-    ):
-        """
-        Compresses and saves the kernel to a file.
+    # def save_kernel(
+    #     self, filepath, clevel=None, cname=None, n_threads=None, copy_while_saving=True
+    # ):
+    #     """
+    #     Compresses and saves the kernel to a file.
 
-        Parameters
-        ----------
-        filepath: str
-            The file to save to.
+    #     Parameters
+    #     ----------
+    #     filepath: str
+    #         The file to save to.
 
-        clevel: int
-            The compression level, sent to clevel argument in blosc.compress()
+    #     clevel: int
+    #         The compression level, sent to clevel argument in blosc.compress()
 
-        cname: str
-            The compression algorithm used.
-            Sent to cname argument in blosc.compress.
-            If None is specified, the default is lz4hc.
+    #     cname: str
+    #         The compression algorithm used.
+    #         Sent to cname argument in blosc.compress.
+    #         If None is specified, the default is lz4hc.
 
-        n_threads: int
-            The number of threads to use for compression.
-            By default, all threads are used.
+    #     n_threads: int
+    #         The number of threads to use for compression.
+    #         By default, all threads are used.
 
-        copy_while_saving: boolean
-            Should the kernel be copied while saving? Copying is safer, but
-            may take more memory.
+    #     copy_while_saving: boolean
+    #         Should the kernel be copied while saving? Copying is safer, but
+    #         may take more memory.
 
-        """
+    #     """
 
-        clevel = 9 if clevel is None else clevel
-        cname = "lz4hc" if cname is None else cname
-        n_threads = blosc2.detect_number_of_cores() if n_threads is None else n_threads
+    #     clevel = 9 if clevel is None else clevel
+    #     cname = "lz4hc" if cname is None else cname
+    #     n_threads = blosc2.detect_number_of_cores() if n_threads is None else n_threads
 
-        if copy_while_saving:
-            kernel = copy(self)
-        else:
-            kernel = self
+    #     if copy_while_saving:
+    #         kernel = copy(self)
+    #     else:
+    #         kernel = self
 
-        # convert working data to parquet bytes object
-        if kernel.original_data_class == "pd_DataFrame":
-            working_data_bytes = BytesIO()
-            kernel.working_data.to_parquet(working_data_bytes)
-            kernel.working_data = working_data_bytes
+    #     # convert working data to parquet bytes object
+    #     if kernel.original_data_class == "pd_DataFrame":
+    #         working_data_bytes = BytesIO()
+    #         kernel.working_data.to_parquet(working_data_bytes)
+    #         kernel.working_data = working_data_bytes
 
-        blosc2.set_nthreads(n_threads)
+    #     blosc2.set_nthreads(n_threads)
 
-        with open(filepath, "wb") as f:
-            dill.dump(
-                blosc2.compress(
-                    dill.dumps(kernel),
-                    clevel=clevel,
-                    typesize=8,
-                    shuffle=blosc2.NOSHUFFLE,
-                    cname=cname,
-                ),
-                f,
-            )
+    #     with open(filepath, "wb") as f:
+    #         dill.dump(
+    #             blosc2.compress(
+    #                 dill.dumps(kernel),
+    #                 clevel=clevel,
+    #                 typesize=8,
+    #                 shuffle=blosc2.NOSHUFFLE,
+    #                 cname=cname,
+    #             ),
+    #             f,
+    #         )
 
     def get_feature_importance(self, dataset, iteration=None) -> np.ndarray:
         """

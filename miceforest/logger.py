@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Tuple, Optional, Union
 
 class Logger:
     def __init__(
-        self, 
+        self,
         name: str,
         timed_levels: List[str],
         verbose: bool = False,
@@ -49,7 +49,9 @@ class Logger:
 
     def set_start_time(self, time_key: Tuple):
         assert len(time_key) == len(self.timed_levels)
-        assert time_key not in list(self.started_timers), f'Timer {time_key} already started'
+        assert time_key not in list(
+            self.started_timers
+        ), f"Timer {time_key} already started"
         self.started_timers[time_key] = datetime.now()
 
     def record_time(self, time_key: Tuple):
@@ -57,7 +59,7 @@ class Logger:
         Compares the current time with the start time, and records the time difference
         in our time log in the appropriate register. Times can stack for a context.
         """
-        assert time_key in list(self.started_timers), f'Timer {time_key} never started'
+        assert time_key in list(self.started_timers), f"Timer {time_key} never started"
         seconds = (datetime.now() - self.started_timers[time_key]).total_seconds()
         del self.started_timers[time_key]
         if time_key in self.time_seconds:

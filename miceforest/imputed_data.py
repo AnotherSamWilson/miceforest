@@ -1,5 +1,5 @@
 import numpy as np
-from pandas import DataFrame, MultiIndex, RangeIndex, read_parquet
+from pandas import DataFrame, MultiIndex, RangeIndex, read_parquet, Series
 from .utils import (
     get_best_int_downcast,
     hash_numpy_int_array,
@@ -25,15 +25,17 @@ class ImputedData:
         self.shape = self.working_data.shape
         self.save_all_iterations_data = save_all_iterations_data
 
-        assert isinstance(self.working_data.index, RangeIndex), (
-            'Please reset the index on the dataframe'
-        )
+        assert isinstance(
+            self.working_data.index, RangeIndex
+        ), "Please reset the index on the dataframe"
 
         column_names = []
         pd_dtypes_orig = {}
         for col, series in self.working_data.items():
-            assert isinstance(col, str), 'column names must be strings'
-            assert series.dtype.name != 'object', 'convert object dtypes to something else'
+            assert isinstance(col, str), "column names must be strings"
+            assert (
+                series.dtype.name != "object"
+            ), "convert object dtypes to something else"
             column_names.append(col)
             pd_dtypes_orig[col] = series.dtype.name
 
@@ -46,7 +48,7 @@ class ImputedData:
         for col in column_names:
             nas = np.where(self.working_data[col].isnull())[0]
             if len(nas) == 0:
-                best_downcast = 'uint8'
+                best_downcast = "uint8"
             else:
                 best_downcast = get_best_int_downcast(int(nas.max()))
             na_where[col] = nas.astype(best_downcast)
@@ -55,7 +57,7 @@ class ImputedData:
             col for col, count in na_counts.items() if count > 0
         ]
 
-        # If variable_schema was passed, use that as the 
+        # If variable_schema was passed, use that as the
         # list of variables that should have models trained.
         # Otherwise, only train models on variables that have
         # missing values.
@@ -63,18 +65,14 @@ class ImputedData:
             modeled_variables = self.vars_with_any_missing.copy()
             variable_schema = {
                 target: [
-                    regressor
-                    for regressor in self.column_names
-                    if regressor != target
+                    regressor for regressor in self.column_names if regressor != target
                 ]
                 for target in modeled_variables
             }
         elif isinstance(variable_schema, list):
             variable_schema = {
                 target: [
-                    regressor
-                    for regressor in self.column_names
-                    if regressor != target
+                    regressor for regressor in self.column_names if regressor != target
                 ]
                 for target in variable_schema
             }
@@ -83,23 +81,27 @@ class ImputedData:
             variable_schema = variable_schema.copy()
             for target, regressors in variable_schema.items():
                 if target in regressors:
-                    raise ValueError(f'{target} being used to impute itself')
-                
+                    raise ValueError(f"{target} being used to impute itself")
+
         self.variable_schema = variable_schema
 
         self.modeled_variables = list(self.variable_schema)
         self.imputed_variables = [
-            col for col in self.modeled_variables
-            if col in self.vars_with_any_missing
+            col for col in self.modeled_variables if col in self.vars_with_any_missing
         ]
 
-        self.using_random_seed_array = not random_seed_array is None
-        if self.using_random_seed_array:
+        if random_seed_array is not None:
             assert isinstance(random_seed_array, np.ndarray)
             assert (
                 random_seed_array.shape[0] == self.shape[0]
             ), "random_seed_array must be the same length as data."
-            self.random_seed_array = hash_numpy_int_array(random_seed_array + 1)
+            # Our hashing scheme doesn't work for specifically the value 0.
+            # Set any values == 0 to the value 1.
+            random_seed_array = random_seed_array.copy()
+            zero_value_seeds = random_seed_array == 0
+            random_seed_array[zero_value_seeds] = 1
+            hash_numpy_int_array(random_seed_array)
+            self.random_seed_array = random_seed_array
         else:
             self.random_seed_array = None
 
@@ -113,11 +115,22 @@ class ImputedData:
             shape=(num_datasets, self.modeled_variable_count)
         ).astype(int)
 
-        iv_multiindex = MultiIndex.from_product([[0], np.arange(num_datasets)], names=('iteration', 'dataset'))
+        # Create a multiindexed dataframe to store our imputation values
+        iv_multiindex = MultiIndex.from_product(
+            [[0], np.arange(num_datasets)], names=("iteration", "dataset")
+        )
         self.imputation_values = {
-            var: DataFrame(index=na_where[var], columns=iv_multiindex).astype(pd_dtypes_orig[var])
+            var: DataFrame(index=na_where[var], columns=iv_multiindex).astype(
+                pd_dtypes_orig[var]
+            )
             for var in self.imputed_variables
         }
+
+        # Create an iteration counter
+        self.iteration_tab = {}
+        for variable in self.modeled_variables:
+            for dataset in range(num_datasets):
+                self.iteration_tab[variable, dataset] = 0
 
     # Subsetting allows us to get to the imputation values:
     def __getitem__(self, tup):
@@ -130,13 +143,17 @@ class ImputedData:
 
         # Don't throw this warning on initialization
         if (iteration <= imputation_iteration) and (iteration > 0):
-            warn(f'Overwriting Variable: {variable} Dataset: {dataset} Iteration: iteration')
+            warn(
+                f"Overwriting Variable: {variable} Dataset: {dataset} Iteration: iteration"
+            )
 
         self.imputation_values[variable].loc[:, (iteration, dataset)] = newitem
 
     def __delitem__(self, tup):
         variable, iteration, dataset = tup
-        self.imputation_values[variable].drop([(iteration, dataset)], axis=1, inplace=True)
+        self.imputation_values[variable].drop(
+            [(iteration, dataset)], axis=1, inplace=True
+        )
 
     def __getstate__(self):
         """
@@ -146,18 +163,18 @@ class ImputedData:
         state = {
             key: value
             for key, value in self.__dict__.items()
-            if key not in ['imputation_values']
+            if key not in ["imputation_values"]
         }.copy()
 
-        state['imputation_values'] = {}
+        state["imputation_values"] = {}
 
         for col, df in self.imputation_values.items():
             byte_stream = BytesIO()
             df.to_parquet(byte_stream)
-            state['imputation_values'][col] = byte_stream
+            state["imputation_values"][col] = byte_stream
 
         return state
-    
+
     def __setstate__(self, state):
         """
         For unpickling
@@ -187,16 +204,14 @@ All Iterations Saved: {self.save_all_iterations_data}
         na_where = self.na_where[variable]
         dtype = na_where.dtype
         non_missing_ind = np.setdiff1d(
-            np.arange(self.shape[0], dtype=dtype), 
-            na_where,
-            assume_unique=True
+            np.arange(self.shape[0], dtype=dtype), na_where, assume_unique=True
         )
         return non_missing_ind
-    
+
     def _get_nonmissing_values(self, variable):
         ind = self._get_nonmissing_index(variable)
         return self.working_data.loc[ind, variable]
-    
+
     def get_bachelor_features(self, variable):
         na_where = self.na_where[variable]
         predictors = self.variable_schema[variable]
@@ -209,6 +224,22 @@ All Iterations Saved: {self.save_all_iterations_data}
             na_where = self.na_where[variable]
             self.working_data.loc[na_where, variable] = np.nan
 
+    def _get_hashed_seeds(self, variable: str):
+        if self.random_seed_array is not None:
+            na_where = self.na_where[variable]
+            hashed_seeds = self.random_seed_array[na_where].copy()
+            hash_numpy_int_array(self.random_seed_array, ind=na_where)
+            return hashed_seeds
+        else:
+            return None
+
+    # def _cycle_random_seed_array(self, variable: str):
+    #     if self.random_seed_array is not None:
+    #         na_where = self.na_where[variable]
+    #         hash_numpy_int_array(self.random_seed_array, ind=na_where)
+    #     else:
+    #         pass
+
     def _prep_multi_plot(
         self,
         variables,
@@ -220,10 +251,8 @@ All Iterations Saved: {self.save_all_iterations_data}
         return plots, plotrows, plotcols
 
     def iteration_count(
-            self, 
-            dataset: Optional[int] = None, 
-            variable: Optional[str] = None
-        ):
+        self, dataset: Optional[int] = None, variable: Optional[str] = None
+    ):
         """
         Grabs the iteration count for specified variables, datasets.
         If the iteration count is not consistent across the provided
@@ -249,36 +278,19 @@ All Iterations Saved: {self.save_all_iterations_data}
         An integer representing the iteration count.
         """
 
-        ds_slice = slice(None) if dataset is None else dataset
-        # Check all variables if None specified
-        check_vars = self.imputed_variables if variable is None else [variable]
-        assert len(check_vars) > 0, 'No variables to get iteration count for.'
-        variable_dataset_iterations = {}
-        for var in check_vars:
-            var_ds_iter = (
-                self.imputation_values[var]
-                .columns
-                .to_frame()
-                .loc[(slice(None), ds_slice), :]
-                .reset_index(drop=True)
-                .groupby('dataset')
-                .iteration
-                .max()
-            )
-            assert var_ds_iter.nunique() == 1, (
-                f'{var} has different iteration counts between datasets:\n'
-                f'{var_ds_iter}'
-            )
-            variable_dataset_iterations[var] = var_ds_iter.iloc[0]
+        iteration_tab = Series(self.iteration_tab)
+        iteration_tab.index.names = ["variable", "dataset"]
 
-        distinct_variable_iteration_counts = set(variable_dataset_iterations.values())
-        assert len(distinct_variable_iteration_counts) == 1, (
-            'Variables have different iteration counts:\n'
-            f'{variable_dataset_iterations}'
-        )
+        if variable is None:
+            variable = slice(None)
+        if dataset is None:
+            dataset = slice(None)
 
-        return distinct_variable_iteration_counts.pop()
-        
+        iterations = np.unique(iteration_tab.loc[variable, dataset])
+        if iterations.shape[0] > 1:
+            raise ValueError("Multiple iteration counts found")
+        else:
+            return iterations[0]
 
     def complete_data(
         self,
@@ -318,9 +330,9 @@ All Iterations Saved: {self.save_all_iterations_data}
         # Figure out which variables we need to impute.
         # Never impute variables that are not in imputed_variables.
         imp_vars = self.imputed_variables if variables is None else variables
-        assert set(imp_vars).issubset(set(self.imputed_variables)), (
-            'Not all variables specified were imputed.'
-        )
+        assert set(imp_vars).issubset(
+            set(self.imputed_variables)
+        ), "Not all variables specified were imputed."
 
         for variable in imp_vars:
             if iteration is None:

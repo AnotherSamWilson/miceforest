@@ -32,21 +32,22 @@ def test_pandas_reproducibility():
     datasets = 2
     kernel = mf.ImputationKernel(
         data=iris_amp,
-        datasets=datasets,
-        initialization="random",
-        save_models=2,
+        num_datasets=datasets,
+        initialize_empty=False,
         random_state=2
     )
 
     kernel2 = mf.ImputationKernel(
         data=iris_amp,
-        datasets=datasets,
-        initialization="random",
-        save_models=2,
+        num_datasets=datasets,
+        initialize_empty=False,
         random_state=2
     )
 
     assert kernel.complete_data(0).equals(kernel2.complete_data(0)), (
+        "random_state initialization failed to be deterministic"
+    )
+    assert kernel.complete_data(1).equals(kernel2.complete_data(1)), (
         "random_state initialization failed to be deterministic"
     )
 
@@ -55,6 +56,9 @@ def test_pandas_reproducibility():
     kernel2.mice(2)
 
     assert kernel.complete_data(0).equals(kernel2.complete_data(0)), (
+        "random_state after mice() failed to be deterministic"
+    )
+    assert kernel.complete_data(1).equals(kernel2.complete_data(1)), (
         "random_state after mice() failed to be deterministic"
     )
 
@@ -67,7 +71,7 @@ def test_pandas_reproducibility():
     # Generate and impute new data as a reordering of original
     new_order = np.arange(rows)
     random_state.shuffle(new_order)
-    new_data = iris_amp.loc[new_order]
+    new_data = iris_amp.loc[new_order].reset_index(drop=True)
     new_seeds = random_seed_array[new_order]
     new_imputed = kernel.impute_new_data(
         new_data,
@@ -77,7 +81,12 @@ def test_pandas_reproducibility():
 
     # Expect deterministic imputations at the record level, since seeds were passed.
     for i in range(datasets):
-        reordered_kernel_completed = kernel_imputed_as_new.complete_data(dataset=0).loc[new_order]
+        reordered_kernel_completed = (
+            kernel_imputed_as_new
+            .complete_data(dataset=0)
+            .loc[new_order]
+            .reset_index(drop=True)
+        )
         new_data_completed = new_imputed.complete_data(dataset=0)
 
         assert (reordered_kernel_completed == new_data_completed).all().all(), (
@@ -86,7 +95,7 @@ def test_pandas_reproducibility():
 
     # Generate and impute new data as a subset of original
     new_ind = [0,1,4,7,8,10]
-    new_data = iris_amp.loc[new_ind]
+    new_data = iris_amp.loc[new_ind].reset_index(drop=True)
     new_seeds = random_seed_array[new_ind]
     new_imputed = kernel.impute_new_data(
         new_data,
@@ -96,7 +105,7 @@ def test_pandas_reproducibility():
 
     # Expect deterministic imputations at the record level, since seeds were passed.
     for i in range(datasets):
-        reordered_kernel_completed = kernel_imputed_as_new.complete_data(dataset=0).loc[new_ind]
+        reordered_kernel_completed = kernel_imputed_as_new.complete_data(dataset=0).loc[new_ind].reset_index(drop=True)
         new_data_completed = new_imputed.complete_data(dataset=0)
 
         assert (reordered_kernel_completed == new_data_completed).all().all(), (
@@ -106,7 +115,7 @@ def test_pandas_reproducibility():
     # Generate and impute new data as a reordering of original
     new_order = np.arange(rows)
     random_state.shuffle(new_order)
-    new_data = iris_amp.loc[new_order]
+    new_data = iris_amp.loc[new_order].reset_index(drop=True)
     new_imputed = kernel.impute_new_data(
         new_data,
         random_state=4,
@@ -115,7 +124,12 @@ def test_pandas_reproducibility():
 
     # Expect deterministic imputations at the record level, since seeds were passed.
     for i in range(datasets):
-        reordered_kernel_completed = kernel_imputed_as_new.complete_data(dataset=0).loc[new_order]
+        reordered_kernel_completed = (
+            kernel_imputed_as_new
+            .complete_data(dataset=0)
+            .loc[new_order]
+            .reset_index(drop=True)
+        )
         new_data_completed = new_imputed.complete_data(dataset=0)
 
         assert not (reordered_kernel_completed == new_data_completed).all().all(), (

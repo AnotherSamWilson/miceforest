@@ -1,4 +1,5 @@
 """Compatibility library."""
+
 """Stolen from lightgbm"""
 
 """pandas"""

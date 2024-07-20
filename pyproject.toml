@@ -19,6 +19,7 @@ scipy = "^1.11.1"
 seaborn = "^0.13.0"
 matplotlib = "^3.3.0"
 scikit-learn = "^1.4.0"
+black = "^24.4.2"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.17.2"

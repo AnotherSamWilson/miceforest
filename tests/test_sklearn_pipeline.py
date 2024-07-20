@@ -1,17 +1,34 @@
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from sklearn.datasets import make_classification
-from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_iris
 from sklearn.pipeline import Pipeline
 import miceforest as mf
-X, y = make_classification(random_state=0)
-X = mf.utils.ampute_data(X)
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+import pandas as pd
+
+
+def make_dataset(seed):
+
+    random_state = np.random.RandomState(seed)
+    iris = pd.concat(load_iris(return_X_y=True, as_frame=True), axis=1)
+    del iris['target']
+    iris.rename({
+        'sepal length (cm)': 'sl',
+        'sepal width (cm)': 'sw',
+        'petal length (cm)': 'pl',
+        'petal width (cm)': 'pw',
+    }, axis=1, inplace=True)
+    iris_amp = mf.utils.ampute_data(iris, perc=0.20)
+
+    return iris_amp
 
 
 def test_pipeline():
-    kernel = mf.ImputationKernel(X_train, datasets=1)
+
+    iris_amp_train = make_dataset(1)
+    iris_amp_test = make_dataset(2)
+
+    kernel = mf.ImputationKernel(iris_amp_train, num_datasets=1)
 
     pipe = Pipeline([
         ('impute', kernel),
@@ -21,11 +38,11 @@ def test_pipeline():
     # The pipeline can be used as any other estimator
     # and avoids leaking the test set into the train set
     X_train_t = pipe.fit_transform(
-        X_train,
-        y_train,
+        X=iris_amp_train,
+        y=None,
         impute__iterations=2
     )
-    X_test_t = pipe.transform(X_test)
+    X_test_t = pipe.transform(iris_amp_test)
 
     assert not np.any(np.isnan(X_train_t))
     assert not np.any(np.isnan(X_test_t))

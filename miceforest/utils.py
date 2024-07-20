@@ -1,4 +1,3 @@
-
 import numpy as np
 from numpy.random import RandomState
 import blosc2
@@ -14,26 +13,25 @@ def _to_2d(x):
     if x.ndim == 1:
         x.shape = (-1, 1)
 
+
 def _to_1d(x):
     """
     Ensures an array is 1 dimensional, in place.
     """
     if x.ndim == 2:
         assert x.shape[1] == 1
-        x.shape = (-1)
+        x.shape = -1
+
 
 def get_best_int_downcast(x: int):
     assert isinstance(x, int)
-    int_dtypes = ['uint8', 'uint16', 'uint32', 'uint64']
-    np_iinfo_max = {
-        dtype: np.iinfo(dtype).max
-        for dtype in int_dtypes
-    }
+    int_dtypes = ["uint8", "uint16", "uint32", "uint64"]
+    np_iinfo_max = {dtype: np.iinfo(dtype).max for dtype in int_dtypes}
     for dtype, max in np_iinfo_max.items():
         if x <= max:
             break
-        if dtype == 'uint64':
-            raise ValueError('Number too large to downcast')
+        if dtype == "uint64":
+            raise ValueError("Number too large to downcast")
     return dtype
 
 
@@ -112,11 +110,11 @@ def load_kernel(filepath: str, n_threads: Optional[int] = None):
 
 
 def stratified_subset(
-        y: Series,
-        size: int,
-        groups: int,
-        random_state: Optional[Union[int, np.random.RandomState]],
-    ):
+    y: Series,
+    size: int,
+    groups: int,
+    random_state: Optional[Union[int, np.random.RandomState]],
+):
     """
     Subsample y using stratification. y is divided into quantiles,
     and then elements are randomly chosen from each quantile to
@@ -142,6 +140,8 @@ def stratified_subset(
 
     """
 
+    random_state = ensure_rng(random_state=random_state)
+
     cat = False
     if y.dtype.name == "category":
         cat = True
@@ -161,7 +161,9 @@ def stratified_subset(
     digits_s = (digits_p * size).round(0).astype("int32")
     diff = size - digits_s.sum()
     if diff != 0:
-        digits_fix = random_state.choice(digits_i, size=abs(diff), p=digits_p, replace=False)
+        digits_fix = random_state.choice(
+            digits_i, size=abs(diff), p=digits_p, replace=False
+        )
         if diff < 0:
             for d in digits_fix:
                 digits_s[d] -= 1
@@ -220,9 +222,7 @@ def stratified_categorical_folds(y: Series, nfold: int):
 
 
 # https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
-# We don't really need to worry that much about diffusion
-# since we take % n at the end, and n (mmc) is usually
-# very small. This hash performs well enough in testing.
+# This hash performs well enough in testing.
 def hash_int32(x: np.ndarray):
     """
     A hash function which generates random uniform (enough)
@@ -238,23 +238,31 @@ def hash_int32(x: np.ndarray):
 
 def hash_uint64(x: np.ndarray):
     assert isinstance(x, np.ndarray)
-    assert x.dtype == "uint64", "x must be int32"
-    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9
-    x = (x ^ (x >> 27)) * 0x94d049bb133111eb
+    assert x.dtype == "uint64", "x must be uint64"
+    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9
+    x = (x ^ (x >> 27)) * 0x94D049BB133111EB
     x = x ^ (x >> 31)
     return x
 
+
 def hash_numpy_int_array(x: np.ndarray, ind: Optional[np.ndarray] = None):
+    """
+    Deterministically set the values of the elements in x
+    at the locations ind to some uniformly distributed number
+    within the range of the datatype of x.
+
+    This function acts on x in place
+    """
     if ind is None:
         ind = slice(None)
     assert isinstance(x, np.ndarray)
     if x.dtype in ["uint32", "int32"]:
         x[ind] = hash_int32(x[ind])
-    elif x.dtype == 'uint64':
+    elif x.dtype == "uint64":
         x[ind] = hash_uint64(x[ind])
     else:
-        raise ValueError('random_seed_array must be uint32, int32, or uint64 datatype')
-    return x
+        raise ValueError("random_seed_array must be uint32, int32, or uint64 datatype")
+
 
 def _draw_random_int32(random_state, size):
     nums = random_state.randint(
@@ -306,10 +314,7 @@ def ensure_rng(random_state) -> RandomState:
 
 def _expand_value_to_dict(default, value, keys):
     if isinstance(value, dict):
-        ret = {
-            key: value.get(key, default)
-            for key in keys
-        }
+        ret = {key: value.get(key, default) for key in keys}
     else:
         assert default.__class__ == value.__class__
         ret = {key: value for key in keys}
@@ -319,6 +324,7 @@ def _expand_value_to_dict(default, value, keys):
 
 def _list_union(x: List, y: List):
     return [z for z in x if z in y]
+
 
 def logodds(probability):
     try:
