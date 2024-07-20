@@ -24,3 +24,6 @@ miceforest.Rproj
 benchmarks/*
 requirements.txt
 .venv
+poetry.lock
+pyproject.toml
+*.DS_Store*
