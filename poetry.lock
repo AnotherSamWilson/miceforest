@@ -675,17 +675,6 @@ graph = ["objgraph (>=1.7.2)"]
 profile = ["gprof2dot (>=2022.7.29)"]
 
 [[package]]
-name = "entrypoints"
-version = "0.4"
-description = "Discover and load entry points from installed packages."
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "entrypoints-0.4-py3-none-any.whl", hash = "sha256:f174b5ff827504fd3cd97cc3f8649f3693f51538c7e4bdf3ef002c8429d42f9f"},
-    {file = "entrypoints-0.4.tar.gz", hash = "sha256:b706eddaa9218a19ebcd67b56818f05bb27589b1ca9e8d797b74affad4ccacd4"},
-]
-
-[[package]]
 name = "exceptiongroup"
 version = "1.2.2"
 description = "Backport of PEP 654 (exception groups)"
@@ -1035,27 +1024,25 @@ referencing = ">=0.31.0"
 
 [[package]]
 name = "jupyter-client"
-version = "7.4.9"
+version = "8.6.2"
 description = "Jupyter protocol implementation and client libraries"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "jupyter_client-7.4.9-py3-none-any.whl", hash = "sha256:214668aaea208195f4c13d28eb272ba79f945fc0cf3f11c7092c20b2ca1980e7"},
-    {file = "jupyter_client-7.4.9.tar.gz", hash = "sha256:52be28e04171f07aed8f20e1616a5a552ab9fee9cbbe6c1896ae170c3880d392"},
+    {file = "jupyter_client-8.6.2-py3-none-any.whl", hash = "sha256:50cbc5c66fd1b8f65ecb66bc490ab73217993632809b6e505687de18e9dea39f"},
+    {file = "jupyter_client-8.6.2.tar.gz", hash = "sha256:2bda14d55ee5ba58552a8c53ae43d215ad9868853489213f37da060ced54d8df"},
 ]
 
 [package.dependencies]
-entrypoints = "*"
-jupyter-core = ">=4.9.2"
-nest-asyncio = ">=1.5.4"
+jupyter-core = ">=4.12,<5.0.dev0 || >=5.1.dev0"
 python-dateutil = ">=2.8.2"
 pyzmq = ">=23.0"
 tornado = ">=6.2"
-traitlets = "*"
+traitlets = ">=5.3"
 
 [package.extras]
-doc = ["ipykernel", "myst-parser", "sphinx (>=1.3.6)", "sphinx-rtd-theme", "sphinxcontrib-github-alt"]
-test = ["codecov", "coverage", "ipykernel (>=6.12)", "ipython", "mypy", "pre-commit", "pytest", "pytest-asyncio (>=0.18)", "pytest-cov", "pytest-timeout"]
+docs = ["ipykernel", "myst-parser", "pydata-sphinx-theme", "sphinx (>=4)", "sphinx-autodoc-typehints", "sphinxcontrib-github-alt", "sphinxcontrib-spelling"]
+test = ["coverage", "ipykernel (>=6.14)", "mypy", "paramiko", "pre-commit", "pytest (<8.2.0)", "pytest-cov", "pytest-jupyter[client] (>=0.4.1)", "pytest-timeout"]
 
 [[package]]
 name = "jupyter-core"
@@ -1767,13 +1754,13 @@ files = [
 
 [[package]]
 name = "notebook"
-version = "6.5.7"
+version = "6.5.4"
 description = "A web-based notebook environment for interactive computing"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "notebook-6.5.7-py3-none-any.whl", hash = "sha256:a6afa9a4ff4d149a0771ff8b8c881a7a73b3835f9add0606696d6e9d98ac1cd0"},
-    {file = "notebook-6.5.7.tar.gz", hash = "sha256:04eb9011dfac634fbd4442adaf0a8c27cd26beef831fe1d19faf930c327768e4"},
+    {file = "notebook-6.5.4-py3-none-any.whl", hash = "sha256:dd17e78aefe64c768737b32bf171c1c766666a21cc79a44d37a1700771cab56f"},
+    {file = "notebook-6.5.4.tar.gz", hash = "sha256:517209568bd47261e2def27a140e97d49070602eea0d226a696f42a7f16c9a4e"},
 ]
 
 [package.dependencies]
@@ -1781,7 +1768,7 @@ argon2-cffi = "*"
 ipykernel = "*"
 ipython-genutils = "*"
 jinja2 = "*"
-jupyter-client = ">=5.3.4,<8"
+jupyter-client = ">=5.3.4"
 jupyter-core = ">=4.6.1"
 nbclassic = ">=0.4.7"
 nbconvert = ">=5"
@@ -1998,6 +1985,20 @@ test = ["hypothesis (>=6.46.1)", "pytest (>=7.3.2)", "pytest-xdist (>=2.2.0)"]
 xml = ["lxml (>=4.9.2)"]
 
 [[package]]
+name = "pandoc"
+version = "2.3"
+description = "Pandoc Documents for Python"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pandoc-2.3.tar.gz", hash = "sha256:e772c2c6d871146894579828dbaf1efd538eb64fc7e71d4a6b3a11a18baef90d"},
+]
+
+[package.dependencies]
+plumbum = "*"
+ply = "*"
+
+[[package]]
 name = "pandocfilters"
 version = "1.5.1"
 description = "Utilities for writing pandoc filters in python"
@@ -2177,6 +2178,36 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "plumbum"
+version = "1.8.3"
+description = "Plumbum: shell combinators library"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "plumbum-1.8.3-py3-none-any.whl", hash = "sha256:8595d36dae2472587d6f59789c8d7b26250f45f6f6ed75ccb378de59ee7b9cf9"},
+    {file = "plumbum-1.8.3.tar.gz", hash = "sha256:6092c85ab970b7a7a9d5d85c75200bc93be82b33c9bdf640ffa87d2d7c8709f0"},
+]
+
+[package.dependencies]
+pywin32 = {version = "*", markers = "platform_system == \"Windows\" and platform_python_implementation != \"PyPy\""}
+
+[package.extras]
+dev = ["paramiko", "psutil", "pytest (>=6.0)", "pytest-cov", "pytest-mock", "pytest-timeout"]
+docs = ["sphinx (>=4.0.0)", "sphinx-rtd-theme (>=1.0.0)"]
+ssh = ["paramiko"]
+
+[[package]]
+name = "ply"
+version = "3.11"
+description = "Python Lex & Yacc"
+optional = false
+python-versions = "*"
+files = [
+    {file = "ply-3.11-py2.py3-none-any.whl", hash = "sha256:096f9b8350b65ebd2fd1346b12452efe5b9607f7482813ffca50c22722a807ce"},
+    {file = "ply-3.11.tar.gz", hash = "sha256:00c7c1aaa88358b9c765b6d3000c6eec0ba42abca5351b095321aef446081da3"},
+]
+
+[[package]]
 name = "prometheus-client"
 version = "0.20.0"
 description = "Python client for the Prometheus monitoring system."
@@ -2246,13 +2277,13 @@ files = [
 
 [[package]]
 name = "pure-eval"
-version = "0.2.2"
+version = "0.2.3"
 description = "Safely evaluate AST nodes without side effects"
 optional = false
 python-versions = "*"
 files = [
-    {file = "pure_eval-0.2.2-py3-none-any.whl", hash = "sha256:01eaab343580944bc56080ebe0a674b39ec44a945e6d09ba7db3cb8cec289350"},
-    {file = "pure_eval-0.2.2.tar.gz", hash = "sha256:2b45320af6dfaa1750f543d714b6d1c520a1688dec6fd24d339063ce0aaa9ac3"},
+    {file = "pure_eval-0.2.3-py3-none-any.whl", hash = "sha256:1db8e35b67b3d218d818ae653e27f06c3aa420901fa7b081ca98cbedc874e0d0"},
+    {file = "pure_eval-0.2.3.tar.gz", hash = "sha256:5f4e983f40564c576c7c8635ae88db5956bb2229d7e9237d03b3c0b0190eaf42"},
 ]
 
 [package.extras]
@@ -3278,4 +3309,4 @@ test = ["mypy", "pre-commit", "pytest", "pytest-asyncio", "websockets (>=10.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "0c564d6f60c1e511e23d40d6377d35a20bda06dd332268c764e44a9708c6f2ce"
+content-hash = "e0b1a87c98a901bbd1e0f4c8f0ce994ac180e76f1f57bb8b2144c30c65d3f521"
