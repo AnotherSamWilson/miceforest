@@ -29,3 +29,4 @@ pyproject.toml
 *.DS_Store*
 .devcontainer
 Dockerfile
+dev_guide.md
