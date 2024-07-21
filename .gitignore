@@ -27,3 +27,5 @@ requirements.txt
 poetry.lock
 pyproject.toml
 *.DS_Store*
+.devcontainer
+Dockerfile
