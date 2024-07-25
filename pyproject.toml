@@ -20,6 +20,7 @@ seaborn = "^0.13.0"
 matplotlib = "^3.3.0"
 scikit-learn = "^1.4.0"
 black = "^24.4.2"
+plotnine = "^0.13.6"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.17.2"
