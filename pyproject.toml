@@ -58,7 +58,6 @@ matplotlib = "^3.3.0"
 scikit-learn = "^1.4.0"
 black = "^24.4.2"
 plotnine = "^0.13.6"
-build = "^1.2.1"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.17.2"
@@ -67,3 +66,8 @@ jupyterlab = "^3.5.0"
 nbconvert = "^7.16.4"
 pandoc = "^2.3"
 isort = "^5.13.2"
+mypy = "^1.11.0"
+build = "^1.2.1"
+
+[tool.mypy]
+ignore_missing_imports = true
