@@ -2,7 +2,6 @@ from sklearn.datasets import load_iris
 import pandas as pd
 import numpy as np
 import miceforest as mf
-from miceforest.utils import logistic_function
 from sklearn.metrics import roc_auc_score
 
 
@@ -57,7 +56,6 @@ def get_imp_mse(kernel, variables, iris):
 
 def get_mean_pred_mse(kernel: mf.ImputationKernel, variables, iris):
     mses = {}
-    iterations = kernel.iteration_count()
     for col in variables:
         ind = kernel.na_where[col]
         orig = iris.loc[ind, col]
@@ -169,7 +167,7 @@ def test_custom_params():
             verbose=False,
             boosting="random_forest",
             num_iterations=500,
-            min_data_in_leaf=15,
+            min_data_in_leaf=2,
         )
         kernel_1.complete_data(0, inplace=True)
 
