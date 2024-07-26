@@ -1,4 +1,3 @@
-
 from sklearn.datasets import load_iris
 import pandas as pd
 import numpy as np
@@ -11,16 +10,22 @@ def make_dataset(seed):
 
     random_state = np.random.RandomState(seed)
     iris = pd.concat(load_iris(return_X_y=True, as_frame=True), axis=1)
-    iris["bi"] = random_state.binomial(1,(iris["target"] == 0).map({True: 0.85, False: 0.15}), size=150)
-    iris["bi"] = iris["bi"].astype('category')
-    iris['sp'] = iris['target'].map({0: 'A', 1: 'B', 2: 'C'}).astype('category')
-    del iris['target']
-    iris.rename({
-        'sepal length (cm)': 'sl',
-        'sepal width (cm)': 'sw',
-        'petal length (cm)': 'pl',
-        'petal width (cm)': 'pw',
-    }, axis=1, inplace=True)
+    iris["bi"] = random_state.binomial(
+        1, (iris["target"] == 0).map({True: 0.85, False: 0.15}), size=150
+    )
+    iris["bi"] = iris["bi"].astype("category")
+    iris["sp"] = iris["target"].map({0: "A", 1: "B", 2: "C"}).astype("category")
+    del iris["target"]
+    iris.rename(
+        {
+            "sepal length (cm)": "sl",
+            "sepal width (cm)": "sw",
+            "petal length (cm)": "pl",
+            "petal width (cm)": "pw",
+        },
+        axis=1,
+        inplace=True,
+    )
     iris_amp = mf.utils.ampute_data(iris, perc=0.20)
 
     return iris, iris_amp
@@ -72,14 +77,16 @@ def get_categorical_performance(kernel: mf.ImputationKernel, variables, iris):
     for col in variables:
         ind = kernel.na_where[col]
         model = kernel.get_model(col, 0, -1)
-        cand = kernel._make_label(col, seed=model.params['seed'])
+        cand = kernel._make_label(col, seed=model.params["seed"])
         orig = iris.loc[ind, col]
         imps = kernel[col, iterations, 0]
         bf = kernel.get_bachelor_features(col)
         preds = model.predict(bf)
-        rocs[col] = roc_auc_score(orig, preds, multi_class='ovr', average='macro')
+        rocs[col] = roc_auc_score(orig, preds, multi_class="ovr", average="macro")
         accs[col] = (imps == orig).mean()
-        rand_accs[col] = np.sum(cand.value_counts(normalize=True) * imps.value_counts(normalize=True))
+        rand_accs[col] = np.sum(
+            cand.value_counts(normalize=True) * imps.value_counts(normalize=True)
+        )
     rocs = pd.Series(rocs)
     accs = pd.Series(accs)
     rand_accs = pd.Series(rand_accs)
@@ -102,14 +109,16 @@ def test_defaults():
         kernel_1.mice(4, verbose=False)
         kernel_1.complete_data(0, inplace=True)
 
-        rocs, accs, rand_accs = get_categorical_performance(kernel_1, ['bi', 'sp'], iris)
+        rocs, accs, rand_accs = get_categorical_performance(
+            kernel_1, ["bi", "sp"], iris
+        )
         assert np.all(accs > rand_accs)
         assert np.all(rocs > 0.6)
 
         # sw Just doesn't have the information density to pass this test reliably.
         # It's definitely the hardest variable to model.
-        mses = get_imp_mse(kernel_1, ['sl', 'pl','pw'], iris)
-        mpses = get_mean_pred_mse(kernel_1, ['sl', 'pl','pw'], iris)
+        mses = get_imp_mse(kernel_1, ["sl", "pl", "pw"], iris)
+        mpses = get_mean_pred_mse(kernel_1, ["sl", "pl", "pw"], iris)
         assert np.all(mpses > mses)
 
 
@@ -130,17 +139,15 @@ def test_no_mean_match():
         kernel_1.complete_data(0, inplace=True)
 
         rocs, accs, rand_accs = get_categorical_performance(
-            kernel=kernel_1,
-            variables=['bi', 'sp'], 
-            iris=iris
+            kernel=kernel_1, variables=["bi", "sp"], iris=iris
         )
         assert np.all(accs > rand_accs)
         assert np.all(rocs > 0.5)
 
         # sw Just doesn't have the information density to pass this test reliably.
         # It's definitely the hardest variable to model.
-        mses = get_imp_mse(kernel_1, ['sl', 'pl','pw'], iris)
-        mpses = get_mean_pred_mse(kernel_1, ['sl', 'pl','pw'], iris)
+        mses = get_imp_mse(kernel_1, ["sl", "pl", "pw"], iris)
+        mpses = get_mean_pred_mse(kernel_1, ["sl", "pl", "pw"], iris)
         assert np.all(mpses > mses)
 
 
@@ -158,24 +165,22 @@ def test_custom_params():
             random_state=i,
         )
         kernel_1.mice(
-            iterations=4, 
+            iterations=4,
             verbose=False,
-            boosting='random_forest',
+            boosting="random_forest",
             num_iterations=500,
             min_data_in_leaf=15,
         )
         kernel_1.complete_data(0, inplace=True)
 
         rocs, accs, rand_accs = get_categorical_performance(
-            kernel=kernel_1,
-            variables=['bi', 'sp'], 
-            iris=iris
+            kernel=kernel_1, variables=["bi", "sp"], iris=iris
         )
         assert np.all(accs > rand_accs)
         assert np.all(rocs > 0.5)
 
         # sw Just doesn't have the information density to pass this test reliably.
         # It's definitely the hardest variable to model.
-        mses = get_imp_mse(kernel_1, ['sl', 'pl','pw'], iris)
-        mpses = get_mean_pred_mse(kernel_1, ['sl', 'pl','pw'], iris)
+        mses = get_imp_mse(kernel_1, ["sl", "pl", "pw"], iris)
+        mpses = get_mean_pred_mse(kernel_1, ["sl", "pl", "pw"], iris)
         assert np.all(mpses > mses)
