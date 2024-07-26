@@ -12,14 +12,10 @@ coverage.*
 .codecovtoken
 examples/icon_small.png
 support/
-BuildAndInstall.bat
 setupdev.py
 */_build/
 *.bat
-release_commands.txt
 dev/
-.Rproj.user
-miceforest.Rproj
 .Rhistory
 benchmarks/*
 requirements.txt
