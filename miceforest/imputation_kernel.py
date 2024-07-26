@@ -560,9 +560,9 @@ class ImputationKernel(ImputedData):
                 log_evaluation(period=0),
             ],
         )
-        best_iteration = lgbcv["cvbooster"].best_iteration # type: ignore
+        best_iteration = lgbcv["cvbooster"].best_iteration  # type: ignore
         loss_metric_key = list(lgbcv)[0]
-        loss: float = np.min(lgbcv[loss_metric_key]) # type: ignore
+        loss: float = np.min(lgbcv[loss_metric_key])  # type: ignore
 
         return loss, best_iteration
 
@@ -798,9 +798,11 @@ class ImputationKernel(ImputedData):
             candidate_preds = lgbmodel.predict(
                 candidate_features,
                 pred_contrib=True,
-            ).astype(_PRE_LINK_DATATYPE) # type: ignore
+            ).astype(
+                _PRE_LINK_DATATYPE
+            )  # type: ignore
         else:
-            candidate_preds = lgbmodel._Booster__inner_predict(0) # type: ignore
+            candidate_preds = lgbmodel._Booster__inner_predict(0)  # type: ignore
             if logistic and not (shap or fast):
                 candidate_preds = logodds(candidate_preds).astype(_PRE_LINK_DATATYPE)
 
