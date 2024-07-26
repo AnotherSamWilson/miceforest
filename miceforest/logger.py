@@ -32,7 +32,7 @@ class Logger:
         self.verbose = verbose
         self.initialization_time = datetime.now()
         self.timed_levels = timed_levels
-        self.started_timers = {}
+        self.started_timers: dict = {}
 
         if self.verbose:
             print(f"Initialized logger with name {name} and {len(timed_levels)} levels")
