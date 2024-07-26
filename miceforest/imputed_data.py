@@ -1,5 +1,5 @@
 import numpy as np
-from pandas import DataFrame, MultiIndex, RangeIndex, read_parquet, Series
+from pandas import DataFrame, MultiIndex, RangeIndex, read_parquet, Series, concat
 from .utils import (
     get_best_int_downcast,
     hash_numpy_int_array,
@@ -14,8 +14,9 @@ class ImputedData:
     def __init__(
         self,
         impute_data: DataFrame,
-        num_datasets: int = 5,
-        variable_schema: Union[List[str], Dict[str, str]] = None,
+        # num_datasets: int = 5,
+        datasets: List[int],
+        variable_schema: Optional[Union[List[str], Dict[str, List[str]]]] = None,
         save_all_iterations_data: bool = True,
         copy_data: bool = True,
         random_seed_array: Optional[np.ndarray] = None,
@@ -24,6 +25,7 @@ class ImputedData:
         self.working_data = impute_data.copy() if copy_data else impute_data
         self.shape = self.working_data.shape
         self.save_all_iterations_data = save_all_iterations_data
+        self.datasets = datasets
 
         assert isinstance(
             self.working_data.index, RangeIndex
@@ -39,7 +41,6 @@ class ImputedData:
             column_names.append(col)
             pd_dtypes_orig[col] = series.dtype.name
 
-        column_names: List[str] = [str(x) for x in self.working_data.columns]
         self.column_names = column_names
         pd_dtypes_orig = self.working_data.dtypes
 
@@ -107,17 +108,17 @@ class ImputedData:
 
         self.na_counts = na_counts
         self.na_where = na_where
-        self.num_datasets = num_datasets
+        self.num_datasets = len(datasets)
         self.initialized = False
         self.imputed_variable_count = len(self.imputed_variables)
         self.modeled_variable_count = len(self.modeled_variables)
-        self.iterations = np.zeros(
-            shape=(num_datasets, self.modeled_variable_count)
-        ).astype(int)
+        # self.iterations = np.zeros(
+        #     shape=(self.num_datasets, self.modeled_variable_count)
+        # ).astype(int)
 
         # Create a multiindexed dataframe to store our imputation values
         iv_multiindex = MultiIndex.from_product(
-            [[0], np.arange(num_datasets)], names=("iteration", "dataset")
+            [[0], datasets], names=("iteration", "dataset")
         )
         self.imputation_values = {
             var: DataFrame(index=na_where[var], columns=iv_multiindex).astype(
@@ -129,7 +130,7 @@ class ImputedData:
         # Create an iteration counter
         self.iteration_tab = {}
         for variable in self.modeled_variables:
-            for dataset in range(num_datasets):
+            for dataset in datasets:
                 self.iteration_tab[variable, dataset] = 0
 
     # Subsetting allows us to get to the imputation values:
@@ -185,10 +186,10 @@ class ImputedData:
             self.imputation_values[col] = read_parquet(bytes)
 
     def __repr__(self):
-        summary_string = f'\n{" " * 14}Class: ImputedData\n{self.__ids_info()}'
+        summary_string = f'\n{" " * 14}Class: ImputedData\n{self._ids_info()}'
         return summary_string
 
-    def __ids_info(self):
+    def _ids_info(self):
         summary_string = f"""\
             Datasets: {self.num_datasets}
           Iterations: {self.iteration_count()}
@@ -200,7 +201,7 @@ All Iterations Saved: {self.save_all_iterations_data}
         """
         return summary_string
 
-    def _get_nonmissing_index(self, variable):
+    def _get_nonmissing_index(self, variable: str):
         na_where = self.na_where[variable]
         dtype = na_where.dtype
         non_missing_ind = np.setdiff1d(
@@ -208,15 +209,9 @@ All Iterations Saved: {self.save_all_iterations_data}
         )
         return non_missing_ind
 
-    def _get_nonmissing_values(self, variable):
+    def _get_nonmissing_values(self, variable: str):
         ind = self._get_nonmissing_index(variable)
         return self.working_data.loc[ind, variable]
-
-    def get_bachelor_features(self, variable):
-        na_where = self.na_where[variable]
-        predictors = self.variable_schema[variable]
-        bachelor_features = self.working_data.loc[na_where, predictors]
-        return bachelor_features
 
     def _ampute_original_data(self):
         """Need to put self.working_data back in its original form"""
@@ -233,25 +228,16 @@ All Iterations Saved: {self.save_all_iterations_data}
         else:
             return None
 
-    # def _cycle_random_seed_array(self, variable: str):
-    #     if self.random_seed_array is not None:
-    #         na_where = self.na_where[variable]
-    #         hash_numpy_int_array(self.random_seed_array, ind=na_where)
-    #     else:
-    #         pass
-
-    def _prep_multi_plot(
-        self,
-        variables,
-    ):
-        plots = len(variables)
-        plotrows, plotcols = int(np.ceil(np.sqrt(plots))), int(
-            np.ceil(plots / np.ceil(np.sqrt(plots)))
-        )
-        return plots, plotrows, plotcols
+    def get_bachelor_features(self, variable):
+        na_where = self.na_where[variable]
+        predictors = self.variable_schema[variable]
+        bachelor_features = self.working_data.loc[na_where, predictors]
+        return bachelor_features
 
     def iteration_count(
-        self, dataset: Optional[int] = None, variable: Optional[str] = None
+        self,
+        dataset: Union[slice, int] = slice(None),
+        variable: Union[slice, str] = slice(None),
     ):
         """
         Grabs the iteration count for specified variables, datasets.
@@ -281,11 +267,6 @@ All Iterations Saved: {self.save_all_iterations_data}
         iteration_tab = Series(self.iteration_tab)
         iteration_tab.index.names = ["variable", "dataset"]
 
-        if variable is None:
-            variable = slice(None)
-        if dataset is None:
-            dataset = slice(None)
-
         iterations = np.unique(iteration_tab.loc[variable, dataset])
         if iterations.shape[0] > 1:
             raise ValueError("Multiple iteration counts found")
@@ -295,7 +276,7 @@ All Iterations Saved: {self.save_all_iterations_data}
     def complete_data(
         self,
         dataset: int = 0,
-        iteration: Optional[int] = None,
+        iteration: int = -1,
         inplace: bool = False,
         variables: Optional[List[str]] = None,
     ):
@@ -308,8 +289,8 @@ All Iterations Saved: {self.save_all_iterations_data}
             The dataset to complete.
         iteration: int
             Impute data with values obtained at this iteration.
-            If None, returns the most up-to-date iterations,
-            even if different between variables. If not none,
+            If -1, returns the most up-to-date iterations,
+            even if different between variables. If not -1,
             iteration must have been saved in imputed values.
         inplace: bool
             Should the data be completed in place? If True,
@@ -335,7 +316,7 @@ All Iterations Saved: {self.save_all_iterations_data}
         ), "Not all variables specified were imputed."
 
         for variable in imp_vars:
-            if iteration is None:
+            if iteration == -1:
                 iteration = self.iteration_count(dataset=dataset, variable=variable)
             na_where = self.na_where[variable]
             impute_data.loc[na_where, variable] = self[variable, iteration, dataset]
@@ -410,69 +391,83 @@ All Iterations Saved: {self.save_all_iterations_data}
     #         ax[axr, axc].set_ylabel("mean")
     #     plt.subplots_adjust(**adj_args)
 
-    # def plot_imputed_distributions(
-    #     self, datasets=None, variables=None, iteration=None, **adj_args
-    # ):
-    #     """
-    #     Plot the imputed value distributions.
-    #     Red lines are the distribution of original data
-    #     Black lines are the distribution of the imputed values.
+    def plot_imputed_distributions(
+        self, variables: Optional[List[str]] = None, iteration: int = -1
+    ):
+        """
+        Plot the imputed value distributions.
+        Red lines are the distribution of original data
+        Black lines are the distribution of the imputed values.
 
-    #     Parameters
-    #     ----------
-    #     datasets: None, int, list[int]
-    #     variables: None, str, int, list[str], or list[int]
-    #         The variables to plot. If None, all numeric variables
-    #         are plotted.
-    #     iteration: None, int
-    #         The iteration to plot the distribution for.
-    #         If None, the latest iteration is plotted.
-    #         save_all_iterations must be True if specifying
-    #         an iteration.
-    #     adj_args
-    #         Additional arguments passed to plt.subplots_adjust()
+        Parameters
+        ----------
+        datasets: None, int, list[int]
+        variables: None, list[str]
+            The variables to plot. If None, all numeric variables
+            are plotted.
+        iteration: int
+            The iteration to plot the distribution for.
+            If None, the latest iteration is plotted.
+            save_all_iterations must be True if specifying
+            an iteration.
+        adj_args
+            Additional arguments passed to plt.subplots_adjust()
 
-    #     """
-    #     # Move this to .compat at some point.
-    #     try:
-    #         import seaborn as sns
-    #         import matplotlib.pyplot as plt
-    #         from matplotlib import gridspec
-    #     except ImportError:
-    #         raise ImportError(
-    #             "matplotlib and seaborn must be installed to plot distributions."
-    #         )
+        """
+        # Move this to .compat at some point.
+        try:
+            from plotnine import (
+                ggplot,
+                geom_density,
+                aes,
+                facet_wrap,
+                scale_color_manual,
+                ggtitle,
+                xlab,
+                theme,
+            )
+        except ImportError:
+            raise ImportError("plotnine must be installed to plot distributions.")
 
-    #     if datasets is None:
-    #         datasets = list(range(self.dataset_count()))
-    #     else:
-    #         datasets = _ensure_iterable(datasets)
-    #     if iteration is None:
-    #         iteration = self.iteration_count(datasets=datasets, variables=variables)
-    #     num_vars = self._get_num_vars(variables)
-    #     plots, plotrows, plotcols = self._prep_multi_plot(num_vars)
-    #     gs = gridspec.GridSpec(plotrows, plotcols)
-    #     fig, ax = plt.subplots(plotrows, plotcols, squeeze=False)
+        if iteration == -1:
+            iteration = self.iteration_count()
 
-    #     for v in range(plots):
-    #         var = num_vars[v]
-    #         axr, axc = next(iter(gs[v].rowspan)), next(iter(gs[v].colspan))
-    #         iteration_level_imputations = {
-    #             ds: self[ds, var, iteration] for ds in datasets
-    #         }
-    #         plt.sca(ax[axr, axc])
-    #         non_missing_ind = self._get_nonmissing_index(var)
-    #         nonmissing_values = _subset_data(
-    #             self.working_data, row_ind=non_missing_ind, col_ind=var, return_1d=True
-    #         )
-    #         ax[axr, axc] = sns.kdeplot(nonmissing_values, color="red", linewidth=2)
-    #         for imparray in iteration_level_imputations.values():
-    #             ax[axr, axc] = sns.kdeplot(
-    #                 imparray, color="black", linewidth=1, warn_singular=False
-    #             )
-    #         ax[axr, axc].set(xlabel=self._get_var_name_from_scalar(var))
+        colors = {str(i): "black" for i in range(self.num_datasets)}
+        colors["-1"] = "red"
 
-    #     plt.subplots_adjust(**adj_args)
+        num_vars = self.working_data.select_dtypes("number").columns.to_list()
+
+        if variables is None:
+            variables = [var for var in self.imputed_variables if var in num_vars]
+        else:
+            variables = [var for var in variables if var in num_vars]
+
+        dat = DataFrame()
+        for variable in variables:
+
+            imps = self.imputation_values[variable].loc[:, iteration].melt()
+            imps["variable"] = variable
+            ind = self._get_nonmissing_index(variable)
+            orig = self.working_data.loc[ind, variable].rename("value").to_frame()
+            orig["dataset"] = -1
+            orig["variable"] = variable
+            dat = concat([dat, imps, orig], axis=0)
+
+        dat["dataset"] = dat["dataset"].astype("string")
+
+        fig = (
+            ggplot()
+            + geom_density(
+                data=dat, mapping=aes(x="value", group="dataset", color="dataset")
+            )
+            + facet_wrap("variable", scales="free")
+            + scale_color_manual(values=colors)
+            + ggtitle("Distribution Plots")
+            + xlab("")
+            + theme(legend_position="none")
+        )
+
+        return fig
 
     # def get_correlations(
     #     self, datasets: List[int], variables: Union[List[int], List[str]]
