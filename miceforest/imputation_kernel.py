@@ -1738,12 +1738,12 @@ class ImputationKernel(ImputedData):
             Passed to lgb.feature_importance()
 
         normalize: bool
-            Whether to normalize the values within 
+            Whether to normalize the values within
             each modeled variable to sum to 1.
 
         Returns
         -------
-        pandas DataFrame of importance values. Rows are imputed 
+        pandas DataFrame of importance values. Rows are imputed
         variables, and columns are predictor variables.
 
         """
