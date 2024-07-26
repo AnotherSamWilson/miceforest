@@ -10,13 +10,10 @@ https://github.com/AnotherSamWilson/miceforest
 
 from .imputation_kernel import ImputationKernel
 from .imputed_data import ImputedData
-from .utils import ampute_data, load_kernel
-
-# __version__ = "5.7.0"
+from .utils import ampute_data
 
 __all__ = [
     "ImputedData",
     "ImputationKernel",
     "ampute_data",
-    "load_kernel",
 ]

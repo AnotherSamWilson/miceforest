@@ -1,10 +1,8 @@
 from typing import Dict, List, Optional, Union
 
-import blosc2
-import dill
 import numpy as np
 from numpy.random import RandomState
-from pandas import DataFrame, Series, read_parquet
+from pandas import DataFrame, Series
 
 
 def get_best_int_downcast(x: int):
@@ -60,37 +58,6 @@ def ampute_data(
         amputed_data.loc[ind, col] = np.nan
 
     return amputed_data
-
-
-def load_kernel(filepath: str, n_threads: Optional[int] = None):
-    """
-    Loads a kernel that was saved using save_kernel().
-
-    Parameters
-    ----------
-    filepath: str
-        The filepath of the saved kernel
-
-    n_threads: int
-        The threads to use for decompression. By default, all threads are used.
-
-    Returns
-    -------
-    ImputationKernel
-    """
-    n_threads = blosc2.detect_number_of_cores() if n_threads is None else n_threads
-    blosc2.set_nthreads(n_threads)
-    with open(filepath, "rb") as f:
-        kernel = dill.loads(blosc2.decompress(dill.load(f)))
-
-    if kernel.original_data_class == "pd_DataFrame":
-        kernel.working_data = read_parquet(kernel.working_data)
-        for col in kernel.working_data.columns:
-            kernel.working_data[col] = kernel.working_data[col].astype(
-                kernel.working_dtypes[col]
-            )
-
-    return kernel
 
 
 def stratified_subset(

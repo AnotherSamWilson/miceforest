@@ -360,7 +360,6 @@ All Iterations Saved: {self.save_all_iterations_data}
 
     #     """
 
-    #     # Move this to .compat at some point.
     #     try:
     #         import matplotlib.pyplot as plt
     #         from matplotlib import gridspec
@@ -413,7 +412,7 @@ All Iterations Saved: {self.save_all_iterations_data}
             Additional arguments passed to plt.subplots_adjust()
 
         """
-        # Move this to .compat at some point.
+
         try:
             from plotnine import (
                 aes,
@@ -539,7 +538,6 @@ All Iterations Saved: {self.save_all_iterations_data}
 
     #     """
 
-    #     # Move this to .compat at some point.
     #     try:
     #         import matplotlib.pyplot as plt
     #         from matplotlib import gridspec

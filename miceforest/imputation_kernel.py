@@ -1821,7 +1821,6 @@ class ImputationKernel(ImputedData):
 
         """
 
-        # Move this to .compat at some point.
         try:
             from plotnine import (
                 aes,
