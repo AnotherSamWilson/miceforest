@@ -1,6 +1,6 @@
 from miceforest.default_lightgbm_parameters import (
-    default_parameters,
-    make_default_tuning_space,
+    _DEFAULT_LGB_PARAMS,
+    _sample_parameters,
 )
 from miceforest.logger import Logger
 from miceforest.imputed_data import ImputedData
@@ -12,8 +12,6 @@ from miceforest.utils import (
     ensure_rng,
     stratified_categorical_folds,
     stratified_continuous_folds,
-    _to_2d,
-    _to_1d,
 )
 import numpy as np
 from warnings import warn
@@ -22,7 +20,7 @@ from lightgbm.basic import _ConfigAliases
 from io import BytesIO
 from scipy.spatial import KDTree
 from copy import copy
-from typing import Union, List, Dict, Any, Optional, Tuple
+from typing import Union, List, Dict, Any, Optional, Tuple, Generator
 from pandas import Series, DataFrame, MultiIndex, read_parquet, Categorical
 from pandas.api.types import is_integer_dtype
 
@@ -32,10 +30,8 @@ _DEFAULT_MEANMATCH_CANDIDATES = 5
 _DEFAULT_MEANMATCH_STRATEGY = "normal"
 _MICE_TIMED_LEVELS = ["Dataset", "Iteration", "Variable", "Event"]
 _IMPUTE_NEW_DATA_TIMED_LEVELS = ["Dataset", "Iteration", "Variable", "Event"]
+_TUNING_TIMED_LEVELS = ["Variable", "Iteration"]
 _PRE_LINK_DATATYPE = "float16"
-
-# These can inherently be 2D, Series cannot.
-_MEAN_MATCH_PRED_TYPE = Union[np.ndarray, DataFrame]
 
 
 class ImputationKernel(ImputedData):
@@ -171,7 +167,7 @@ class ImputationKernel(ImputedData):
         self,
         data: DataFrame,
         num_datasets: int = 1,
-        variable_schema: Union[List[str], Dict[str, str]] = None,
+        variable_schema: Optional[Union[List[str], Dict[str, List[str]]]] = None,
         imputation_order: str = "ascending",
         mean_match_candidates: Union[
             int, Dict[str, int]
@@ -186,9 +182,12 @@ class ImputationKernel(ImputedData):
         random_state: Optional[Union[int, np.random.RandomState]] = None,
     ):
 
+        datasets = list(range(num_datasets))
+
         super().__init__(
             impute_data=data,
-            num_datasets=num_datasets,
+            # num_datasets=num_datasets,
+            datasets=datasets,
             variable_schema=variable_schema,
             save_all_iterations_data=save_all_iterations_data,
             copy_data=copy_data,
@@ -231,7 +230,7 @@ class ImputationKernel(ImputedData):
         self.models: Dict[Tuple[str, int, int], Booster] = {}
 
         # Candidate preds are stored the same as models.
-        self.candidate_preds: Dict[Tuple[str, int, int], Series] = {}
+        self.candidate_preds: Dict[str, DataFrame] = {}
 
         # Optimal parameters can only be found on 1 dataset at the current iteration.
         self.optimal_parameters: Dict[str, Dict[str, Any]] = {}
@@ -284,6 +283,10 @@ class ImputationKernel(ImputedData):
         self.modeled_binary_columns = _list_union(
             binary_columns, self.model_training_order
         )
+        predictor_columns = sum(self.variable_schema.values(), [])
+        self.predictor_columns = [
+            col for col in data.columns if col in predictor_columns
+        ]
 
         # Make sure all pandas categorical levels are used.
         rare_level_cols = []
@@ -325,16 +328,18 @@ class ImputationKernel(ImputedData):
             ):
                 self.mean_matching_requires_candidates.append(variable)
 
-        self.loggers = []
+        self.loggers: List[Logger] = []
 
         # Manage randomness
         self._completely_random_kernel = random_state is None
         self._random_state = ensure_rng(random_state)
 
         # Set initial imputations (iteration 0).
-        self._initialize_dataset(
-            self, random_state=self._random_state
-        )
+        self._initialize_dataset(self, random_state=self._random_state)
+
+        # Save for use later
+        self.optimal_parameter_losses: Dict[str, float] = dict()
+        self.optimal_parameters = dict()
 
     def __getstate__(self):
         """
@@ -380,7 +385,7 @@ class ImputationKernel(ImputedData):
                 self.candidate_preds[col] = read_parquet(bytes)
 
     def __repr__(self):
-        summary_string = f'\n{" " * 14}Class: ImputationKernel\n{self.__ids_info()}'
+        summary_string = f'\n{" " * 14}Class: ImputationKernel\n{self._ids_info()}'
         return summary_string
 
     def _initialize_dataset(self, imputed_data, random_state):
@@ -406,7 +411,7 @@ class ImputationKernel(ImputedData):
                 missing_ind = imputed_data.na_where[variable]
                 missing_num = imputed_data.na_counts[variable]
 
-                for dataset in range(imputed_data.num_datasets):
+                for dataset in imputed_data.datasets:
                     # Initialize using the random_state if no record seeds were passed.
                     if imputed_data.random_seed_array is None:
                         imputation_values = candidate_values.sample(
@@ -426,7 +431,25 @@ class ImputationKernel(ImputedData):
 
         imputed_data.initialized = True
 
-    def _get_lgb_params(self, variable, variable_parameters, random_state, **kwlgb):
+    @staticmethod
+    def _uncover_aliases(params):
+        """
+        Switches all aliases in the parameter dict to their
+        True name, easiest way to avoid duplicate parameters.
+        """
+        alias_dict = _ConfigAliases._get_all_param_aliases()
+        for param in list(params):
+            for true_name, aliases in alias_dict.items():
+                if param in aliases:
+                    params[true_name] = params.pop(param)
+
+    def _make_lgb_params(
+        self,
+        variable: str,
+        default_parameters: dict,
+        variable_parameters: dict,
+        **kwlgb,
+    ):
         """
         Builds the parameters for a lightgbm model. Infers objective based on
         datatype of the response variable, assigns a random seed, finds
@@ -434,10 +457,13 @@ class ImputationKernel(ImputedData):
 
         Parameters
         ----------
-        var: int
+        variable: int
             The variable to be modeled
 
-        vsp: dict
+        default_parameters: dict
+            The base set of parameters that should be used.
+
+        variable_parameters: dict
             Variable specific parameters. These are supplied by the user.
 
         random_state: np.random.RandomState
@@ -445,10 +471,10 @@ class ImputationKernel(ImputedData):
 
         kwlgb: dict
             Any additional parameters that should take presidence
-            over the defaults or user supplied.
+            over the defaults.
         """
 
-        seed = _draw_random_int32(random_state, size=1)[0]
+        seed = _draw_random_int32(self._random_state, size=1)[0]
 
         if variable in self.modeled_categorical_columns:
             n_c = self.category_counts[variable]
@@ -462,53 +488,59 @@ class ImputationKernel(ImputedData):
         lgb_params.update(obj)
         lgb_params["seed"] = seed
 
+        self._uncover_aliases(lgb_params)
+        self._uncover_aliases(kwlgb)
+        self._uncover_aliases(variable_parameters)
+
         # Priority is [variable specific] > [global in kwargs] > [defaults]
         lgb_params.update(kwlgb)
         lgb_params.update(variable_parameters)
 
         return lgb_params
 
-    def _get_random_sample(self, parameters, random_state):
-        """
-        Searches through a parameter set and selects a random
-        number between the values in any provided tuple of length 2.
-        """
+    # WHEN TUNING, THESE PARAMETERS OVERWRITE THE DEFAULTS ABOVE
+    # These need to be main parameter names, not aliases
+    def _make_tuning_space(
+        self,
+        variable: str,
+        variable_parameters: dict,
+        use_gbdt: bool,
+        min_samples: int,
+        max_samples: int,
+        **kwargs,
+    ):
 
-        parameters = parameters.copy()
-        for p, v in parameters.items():
-            if hasattr(v, "__iter__"):
-                if isinstance(v, list):
-                    parameters[p] = random_state.choice(v)
-                elif isinstance(v, tuple):
-                    parameters[p] = random_state.uniform(v[0], v[1], size=1)[0]
-            else:
-                pass
-        parameters = self._make_params_digestible(parameters)
-        return parameters
-
-    def _make_params_digestible(self, params):
-        """
-        Cursory checks to force parameters to be digestible
-        """
-
-        int_params = [
-            "num_leaves",
-            "min_data_in_leaf",
-            "num_threads",
-            "max_depth",
-            "num_iterations",
-            "bagging_freq",
-            "max_drop",
-            "min_data_per_group",
-            "max_cat_to_onehot",
-        ]
-        params = {
-            key: int(val) if key in int_params else val for key, val in params.items()
+        # Start with the default parameters, update with the search space
+        params = _DEFAULT_LGB_PARAMS.copy()
+        search_space = {
+            "min_data_in_leaf": (min_samples, max_samples),
+            "max_depth": (2, 6),
+            "num_leaves": (2, 25),
+            "bagging_fraction": (0.1, 1.0),
+            "feature_fraction_bynode": (0.1, 1.0),
         }
+        params.update(search_space)
+
+        # Set our defaults if using gbdt
+        if use_gbdt:
+            params["boosting"] = "gbdt"
+            params["learning_rate"] = 0.02
+            params["num_iterations"] = 250
+
+        params = self._make_lgb_params(
+            variable=variable,
+            default_parameters=params,
+            variable_parameters=variable_parameters,
+            **kwargs,
+        )
+
         return params
 
+    @staticmethod
     def _get_oof_performance(
-        self, parameters, folds, train_pointer, categorical_feature
+        parameters: dict,
+        folds: Generator,
+        train_set: Dataset,
     ):
         """
         Performance is gathered from built-in lightgbm.cv out of fold metric.
@@ -518,10 +550,9 @@ class ImputationKernel(ImputedData):
         num_iterations = parameters.pop("num_iterations")
         lgbcv = cv(
             params=parameters,
-            train_set=train_pointer,
+            train_set=train_set,
             folds=folds,
             num_boost_round=num_iterations,
-            categorical_feature=categorical_feature,
             return_cvbooster=True,
             callbacks=[
                 early_stopping(stopping_rounds=10, verbose=False),
@@ -575,76 +606,20 @@ class ImputationKernel(ImputedData):
         label = features.pop(variable)
         return features, label
 
-    def compile_candidate_preds(self):
-        """
-        Candidate predictions can be pre-generated before imputing new data.
-        This can save a substantial amount of time, especially if save_models == 1.
-        """
-
-        compile_objectives = (
-            self.mean_match_scheme.get_objectives_requiring_candidate_preds()
-        )
-
-        for key, model in self.models.items():
-            already_compiled = key in self.candidate_preds.keys()
-            objective = model.params["objective"]
-            if objective in compile_objectives and not already_compiled:
-                var = key[1]
-                candidate_features, _, _ = self._make_features_label(
-                    variable=var,
-                    subset_count=self.data_subset[var],
-                    random_seed=model.params["seed"],
-                )
-                self.candidate_preds[key] = self.mean_match_scheme.model_predict(
-                    model, candidate_features
-                )
-
-            else:
-                continue
-
-    def delete_candidate_preds(self):
-        """
-        Deletes the pre-computed candidate predictions.
-        """
-
-        self.candidate_preds = {}
-
-    def fit(self, X, y, **fit_params):
-        """
-        Method for fitting a kernel when used in a sklearn pipeline.
-        Should not be called by the user directly.
-        """
-        assert self.num_datasets == 1, (
-            "miceforest kernel should be initialized with datasets=1 if "
-            "being used in a sklearn pipeline."
-        )
-        assert X.equals(self.working_data), (
-            "It looks like this kernel is being used in a sklearn pipeline. "
-            "The data passed in fit() should be the same as the data that "
-            "was originally passed to the kernel. If this kernel is not being "
-            "used in an sklearn pipeline, please just use the mice() method."
-        )
-        self.mice(**fit_params)
-        return self
-
     @staticmethod
     def _mean_match_nearest_neighbors(
         mean_match_candidates: int,
-        bachelor_preds: _MEAN_MATCH_PRED_TYPE,
-        candidate_preds: _MEAN_MATCH_PRED_TYPE,
+        bachelor_preds: DataFrame,
+        candidate_preds: DataFrame,
         candidate_values: Series,
         random_state: np.random.RandomState,
         hashed_seeds: Optional[np.ndarray] = None,
-    ):
+    ) -> Series:
         """
         Determines the values of candidates which will be used to impute the bachelors
         """
 
         assert mean_match_candidates > 0, "Do not use nearest_neighbors with 0 mmc."
-
-        _to_2d(bachelor_preds)
-        _to_2d(candidate_preds)
-
         num_bachelors = bachelor_preds.shape[0]
 
         # balanced_tree = False fixes a recursion issue for some reason.
@@ -675,13 +650,15 @@ class ImputationKernel(ImputedData):
     @staticmethod
     def _mean_match_binary_fast(
         mean_match_candidates: int,
-        bachelor_preds: _MEAN_MATCH_PRED_TYPE,
+        bachelor_preds: DataFrame,
         random_state: np.random.RandomState,
         hashed_seeds: Optional[np.ndarray],
-    ):
+    ) -> np.ndarray:
         """
         Chooses 0/1 randomly weighted by probability obtained from prediction.
         If mean_match_candidates is 0, choose class with highest probability.
+
+        Returns a np.ndarray, because these get set to categorical later on.
         """
         if mean_match_candidates == 0:
             imp_values = np.floor(bachelor_preds + 0.5)
@@ -694,32 +671,35 @@ class ImputationKernel(ImputedData):
                 imp_values = []
                 for i in range(num_bachelors):
                     np.random.seed(seed=hashed_seeds[i])
-                    imp_values.append(np.random.binomial(n=1, p=bachelor_preds[i]))
+                    imp_values.append(np.random.binomial(n=1, p=bachelor_preds.iloc[i]))
 
                 imp_values = np.array(imp_values)
+
+        imp_values.shape = (-1,)
 
         return imp_values
 
     @staticmethod
     def _mean_match_multiclass_fast(
         mean_match_candidates: int,
-        bachelor_preds: _MEAN_MATCH_PRED_TYPE,
+        bachelor_preds: DataFrame,
         random_state: np.random.RandomState,
         hashed_seeds: Optional[np.ndarray],
     ):
         """
         If mean_match_candidates is 0, choose class with highest probability.
         Otherwise, randomly choose class weighted by class probabilities.
+
+        Returns a np.ndarray, because these get set to categorical later on.
         """
         if mean_match_candidates == 0:
             imp_values = np.argmax(bachelor_preds, axis=1)
 
         else:
             num_bachelors = bachelor_preds.shape[0]
+            bachelor_preds = bachelor_preds.cumsum(axis=1).to_numpy()
 
             if hashed_seeds is None:
-                # Turn bachelor_preds into discrete cdf, and choose
-                bachelor_preds = bachelor_preds.cumsum(axis=1)
                 compare = random_state.uniform(0, 1, size=(num_bachelors, 1))
                 imp_values = (bachelor_preds < compare).sum(1)
 
@@ -727,7 +707,10 @@ class ImputationKernel(ImputedData):
                 dtype = hashed_seeds.dtype
                 dtype_max = np.iinfo(dtype).max
                 compare = np.abs(hashed_seeds / dtype_max)
+                compare.shape = (-1, 1)
                 imp_values = (bachelor_preds < compare).sum(1)
+
+        imp_values.shape = (-1,)
 
         return imp_values
 
@@ -759,7 +742,6 @@ class ImputationKernel(ImputedData):
         else:
             raise ValueError("Shouldnt be able to get here")
 
-        _to_1d(imputation_values)
         dtype = self.working_data[variable].dtype
         imputation_values = Categorical.from_codes(codes=imputation_values, dtype=dtype)
 
@@ -799,7 +781,7 @@ class ImputationKernel(ImputedData):
         candidate_features: DataFrame,
         dataset: int,
         iteration: int,
-    ):
+    ) -> DataFrame:
         """
         This function also records the candidate predictions
         """
@@ -856,7 +838,7 @@ class ImputationKernel(ImputedData):
         bachelor_features: DataFrame,
         dataset: int,
         iteration: int,
-    ) -> np.ndarray:
+    ) -> DataFrame:
 
         shap = self.mean_match_strategy[variable] == "shap"
         fast = self.mean_match_strategy[variable] == "fast"
@@ -884,6 +866,86 @@ class ImputationKernel(ImputedData):
         )
 
         return bachelor_preds
+
+    def _record_candidate_preds(
+        self,
+        variable: str,
+        candidate_preds: DataFrame,
+    ):
+
+        assign_col_index = candidate_preds.columns
+
+        if variable not in self.candidate_preds.keys():
+            inferred_iteration = assign_col_index.get_level_values("iteration").unique()
+            assert (
+                len(inferred_iteration) == 1
+            ), f"Malformed iteration multiindex for {variable}: {assign_col_index}"
+            inferred_iteration = inferred_iteration[0]
+            assert (
+                inferred_iteration == 1
+            ), "Adding initial candidate preds after iteration 1."
+            self.candidate_preds[variable] = candidate_preds
+        else:
+            self.candidate_preds[variable][assign_col_index] = candidate_preds
+
+    def _prepare_prediction_multiindex(
+        self,
+        variable: str,
+        preds: np.ndarray,
+        shap: bool,
+        dataset: int,
+        iteration: int,
+    ) -> DataFrame:
+
+        multiclass = variable in self.modeled_categorical_columns
+        cols = self.variable_schema[variable] + ["Intercept"]
+
+        if shap:
+
+            if multiclass:
+
+                categories = self.working_data[variable].dtype.categories
+                cat_count = self.category_counts[variable]
+                preds = DataFrame(preds, columns=cols * cat_count)
+                del preds["Intercept"]
+                cols.remove("Intercept")
+                assign_col_index = MultiIndex.from_product(
+                    [[iteration], [dataset], categories, cols],
+                    names=("iteration", "dataset", "categories", "predictor"),
+                )
+                preds.columns = assign_col_index
+
+            else:
+                preds = DataFrame(preds, columns=cols)
+                del preds["Intercept"]
+                cols.remove("Intercept")
+                assign_col_index = MultiIndex.from_product(
+                    [[iteration], [dataset], cols],
+                    names=("iteration", "dataset", "predictor"),
+                )
+                preds.columns = assign_col_index
+
+        else:
+
+            if multiclass:
+
+                categories = self.working_data[variable].dtype.categories
+                preds = DataFrame(preds, columns=categories)
+                assign_col_index = MultiIndex.from_product(
+                    [[iteration], [dataset], categories],
+                    names=("iteration", "dataset", "categories"),
+                )
+                preds.columns = assign_col_index
+
+            else:
+
+                preds = DataFrame(preds, columns=[variable])
+                assign_col_index = MultiIndex.from_product(
+                    [[iteration], [dataset]], names=("iteration", "dataset")
+                )
+                preds.columns = assign_col_index
+
+        return preds
 
     def mean_match_mice(
         self,
@@ -981,8 +1043,6 @@ class ImputationKernel(ImputedData):
 
         if using_candidate_data:
 
-            print(f"Mean matching {variable} using nearest neighbor")
-
             candidate_preds = self._get_candidate_preds_from_store(
                 variable=variable,
                 dataset=dataset,
@@ -1015,86 +1075,6 @@ class ImputationKernel(ImputedData):
             )
 
         return imputation_values
-
-    def _record_candidate_preds(
-        self,
-        variable: str,
-        candidate_preds: DataFrame,
-    ):
-
-        assign_col_index = candidate_preds.columns
-
-        if variable not in self.candidate_preds.keys():
-            inferred_iteration = assign_col_index.get_level_values("iteration").unique()
-            assert (
-                len(inferred_iteration) == 1
-            ), f"Malformed iteration multiindex for {variable}: {print(assign_col_index)}"
-            inferred_iteration = inferred_iteration[0]
-            assert (
-                inferred_iteration == 1
-            ), "Adding initial candidate preds after iteration 1."
-            self.candidate_preds[variable] = candidate_preds
-        else:
-            self.candidate_preds[variable][assign_col_index] = candidate_preds
-
-    def _prepare_prediction_multiindex(
-        self,
-        variable: str,
-        preds: np.ndarray,
-        shap: bool,
-        dataset: int,
-        iteration: int,
-    ) -> DataFrame:
-
-        multiclass = variable in self.modeled_categorical_columns
-        cols = self.variable_schema[variable] + ["Intercept"]
-
-        if shap:
-
-            if multiclass:
-
-                categories = self.working_data[variable].dtype.categories
-                cat_count = self.category_counts[variable]
-                preds = DataFrame(preds, columns=cols * cat_count)
-                del preds["Intercept"]
-                cols.remove("Intercept")
-                assign_col_index = MultiIndex.from_product(
-                    [[iteration], [dataset], categories, cols],
-                    names=("iteration", "dataset", "categories", "predictor"),
-                )
-                preds.columns = assign_col_index
-
-            else:
-                preds = DataFrame(preds, columns=cols)
-                del preds["Intercept"]
-                cols.remove("Intercept")
-                assign_col_index = MultiIndex.from_product(
-                    [[iteration], [dataset], cols],
-                    names=("iteration", "dataset", "predictor"),
-                )
-                preds.columns = assign_col_index
-
-        else:
-
-            if multiclass:
-
-                categories = self.working_data[variable].dtype.categories
-                preds = DataFrame(preds, columns=categories)
-                assign_col_index = MultiIndex.from_product(
-                    [[iteration], [dataset], categories],
-                    names=("iteration", "dataset", "categories"),
-                )
-                preds.columns = assign_col_index
-
-            else:
-
-                preds = DataFrame(preds, columns=[variable])
-                assign_col_index = MultiIndex.from_product(
-                    [[iteration], [dataset]], names=("iteration", "dataset")
-                )
-                preds.columns = assign_col_index
-
-        return preds
 
     def mice(
         self,
@@ -1165,7 +1145,7 @@ class ImputationKernel(ImputedData):
             # absolute_iteration = self.iteration_count(datasets=dataset)
             logger.log(str(iteration) + " ", end="")
 
-            for dataset in range(self.num_datasets):
+            for dataset in self.datasets:
                 logger.log("Dataset " + str(dataset))
 
                 # Set self.working_data to the most current iteration.
@@ -1175,10 +1155,10 @@ class ImputationKernel(ImputedData):
                     logger.log(" | " + variable, end="")
 
                     # Define the lightgbm parameters
-                    lgbpars = self._get_lgb_params(
-                        variable,
-                        variable_parameters.get(variable, {}),
-                        self._random_state,
+                    lgbpars = self._make_lgb_params(
+                        variable=variable,
+                        default_parameters=_DEFAULT_LGB_PARAMS.copy(),
+                        variable_parameters=variable_parameters.get(variable, dict()),
                         **kwlgb,
                     )
 
@@ -1273,16 +1253,34 @@ class ImputationKernel(ImputedData):
         self,
         variable: str,
         dataset: int,
-        iteration: Optional[int] = None,
+        iteration: int = -1,
     ):
         # Allow passing -1 to get the latest iteration's model
-        if (iteration is None) or (iteration == -1):
+        if iteration == -1:
             iteration = self.iteration_count(dataset=dataset, variable=variable)
         try:
             model = self.models[variable, iteration, dataset]
         except KeyError:
             raise ValueError("Model was not saved.")
         return model
+
+    def fit(self, X, y, **fit_params):
+        """
+        Method for fitting a kernel when used in a sklearn pipeline.
+        Should not be called by the user directly.
+        """
+        assert self.num_datasets == 1, (
+            "miceforest kernel should be initialized with datasets=1 if "
+            "being used in a sklearn pipeline."
+        )
+        assert X.equals(self.working_data), (
+            "It looks like this kernel is being used in a sklearn pipeline. "
+            "The data passed in fit() should be the same as the data that "
+            "was originally passed to the kernel. If this kernel is not being "
+            "used in an sklearn pipeline, please just use the mice() method."
+        )
+        self.mice(**fit_params)
+        return self
 
     def transform(self, X, y=None):
         """
@@ -1295,15 +1293,17 @@ class ImputationKernel(ImputedData):
 
     def tune_parameters(
         self,
-        dataset: int,
+        dataset: int = 0,
         variables: Optional[List[str]] = None,
-        variable_parameters: Optional[Dict[str, Any]] = None,
+        variable_parameters: Dict[str, Any] = dict(),
         parameter_sampling_method: str = "random",
+        max_reattempts: int = 5,
+        use_gbdt: bool = True,
         nfold: int = 10,
         optimization_steps: int = 5,
         random_state: Optional[Union[int, np.random.RandomState]] = None,
         verbose: bool = False,
-        **kwbounds,
+        **kwargs,
     ):
         """
         Perform hyperparameter tuning on models at the current iteration.
@@ -1313,8 +1313,6 @@ class ImputationKernel(ImputedData):
         .. code-block:: text
 
             A few notes:
-            - Underlying models will now be gradient boosted trees by default (or any
-                other boosting type compatible with lightgbm.cv).
             - The parameters are tuned on the data that would currently be returned by
                 complete_data(dataset). It is usually a good idea to run at least 1 iteration
                 of mice with the default parameters to get a more accurate idea of the
@@ -1328,7 +1326,7 @@ class ImputationKernel(ImputedData):
             - lightgbm parameters are chosen in the following order of priority:
                 1) Anything specified in variable_parameters
                 2) Parameters specified globally in **kwbounds
-                3) Default tuning space (miceforest.default_lightgbm_parameters.make_default_tuning_space)
+                3) Default tuning space (miceforest.default_lightgbm_parameters)
                 4) Default parameters (miceforest.default_lightgbm_parameters.default_parameters)
             - See examples for a detailed run-through. See
                 https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters
@@ -1339,220 +1337,194 @@ class ImputationKernel(ImputedData):
         ----------
 
         dataset: int (required)
-
-            .. code-block:: text
-
-                The dataset to run parameter tuning on. Tuning parameters on 1 dataset usually results
-                in acceptable parameters for all datasets. However, tuning results are still stored
-                seperately for each dataset.
+            The dataset to run parameter tuning on. Tuning parameters on 1 dataset usually results
+            in acceptable parameters for all datasets. However, tuning results are still stored
+            seperately for each dataset.
 
         variables: None or list
-
-            .. code-block:: text
-
-                - If None, default hyper-parameter spaces are selected based on kernel data, and
-                all variables with missing values are tuned.
-                - If list, must either be indexes or variable names corresponding to the variables
-                that are to be tuned.
+            - If None, default hyper-parameter spaces are selected based on kernel data, and
+            all variables with missing values are tuned.
+            - If list, must either be indexes or variable names corresponding to the variables
+            that are to be tuned.
 
         variable_parameters: None or dict
+            Defines the tuning space. Dict keys must be variable names or indices, and a subset
+            of the variables parameter. Values must be a dict with lightgbm parameter names as
+            keys, and values that abide by the following rules:
+                scalar: If a single value is passed, that parameter will be used to build the
+                    model, and will not be tuned.
+                tuple: If a tuple is passed, it must have length = 2 and will be interpreted as
+                    the bounds to search within for that parameter.
+                list: If a list is passed, values will be randomly selected from the list.
+                    NOTE: This is only possible with method = 'random'.
 
-            .. code-block:: text
-
-                Defines the tuning space. Dict keys must be variable names or indices, and a subset
-                of the variables parameter. Values must be a dict with lightgbm parameter names as
-                keys, and values that abide by the following rules:
-                    scalar: If a single value is passed, that parameter will be used to build the
-                        model, and will not be tuned.
-                    tuple: If a tuple is passed, it must have length = 2 and will be interpreted as
-                        the bounds to search within for that parameter.
-                    list: If a list is passed, values will be randomly selected from the list.
-                        NOTE: This is only possible with method = 'random'.
-
-                example: If you wish to tune the imputation model for the 4th variable with specific
-                bounds and parameters, you could pass:
-                    variable_parameters = {
-                        4: {
-                            'learning_rate: 0.01',
-                            'min_sum_hessian_in_leaf: (0.1, 10),
-                            'extra_trees': [True, False]
-                        }
+            example: If you wish to tune the imputation model for the 4th variable with specific
+            bounds and parameters, you could pass:
+                variable_parameters = {
+                    'column': {
+                        'learning_rate: 0.01',
+                        'min_sum_hessian_in_leaf: (0.1, 10),
+                        'extra_trees': [True, False]
                     }
-                All models for variable 4 will have a learning_rate = 0.01. The process will randomly
-                search within the bounds (0.1, 10) for min_sum_hessian_in_leaf, and extra_trees will
-                be randomly selected from the list. Also note, the variable name for the 4th column
-                could also be passed instead of the integer 4. All other variables will be tuned with
-                the default search space, unless **kwbounds are passed.
+                }
+            All models for variable 'column' will have a learning_rate = 0.01. The process will randomly
+            search within the bounds (0.1, 10) for min_sum_hessian_in_leaf, and extra_trees will
+            be randomly selected from the list. Also note, the variable name for the 4th column
+            could also be passed instead of the integer 4. All other variables will be tuned with
+            the default search space, unless **kwbounds are passed.
 
         parameter_sampling_method: str
+            If 'random', parameters are randomly selected.
+            Other methods will be added in future releases.
 
-            .. code-block:: text
+        max_reattempts: int
+            The maximum number of failures (or non-learners) before the process stops, and moves to the
+            next variable. Failures can be caused by bad parameters passed to lightgbm. Non-learners
+            occur when trees cannot possibly be built (i.e. min_samples_in_leaf > dataset.shape[0]).
 
-                If 'random', parameters are randomly selected.
-                Other methods will be added in future releases.
+        use_gbdt: bool
+            Whether the models should use gradient boosting instead of random forests.
+            If True, the optimal number of iterations will be found in lgb.cv, along
+            with the other parameters.
 
         nfold: int
-
-            .. code-block:: text
-
-                The number of folds to perform cross validation with. More folds takes longer, but
-                Gives a more accurate distribution of the error metric.
+            The number of folds to perform cross validation with. More folds takes longer, but
+            Gives a more accurate distribution of the error metric.
 
         optimization_steps:
-
-            .. code-block:: text
-
-                How many steps to run the process for.
+            How many steps to run the process for.
 
         random_state: int or np.random.RandomState or None (default=None)
-
-            .. code-block:: text
-
-                The random state of the process. Ensures reproduceability. If None, the random state
-                of the kernel is used. Beware, this permanently alters the random state of the kernel
-                and ensures non-reproduceable results, unless the entire process up to this point
-                is re-run.
+            The random state of the process. Ensures reproduceability. If None, the random state
+            of the kernel is used. Beware, this permanently alters the random state of the kernel
+            and ensures non-reproduceable results, unless the entire process up to this point
+            is re-run.
 
         kwbounds:
-
-            .. code-block:: text
-
-                Any additional arguments that you want to apply globally to every variable.
-                For example, if you want to limit the number of iterations, you could pass
-                num_iterations = x to this functions, and it would apply globally. Custom
-                bounds can also be passed.
+            Any additional arguments that you want to apply globally to every variable.
+            For example, if you want to limit the number of iterations, you could pass
+            num_iterations = x to this functions, and it would apply globally. Custom
+            bounds can also be passed.
 
 
         Returns
         -------
-        2 dicts: optimal_parameters, optimal_parameter_losses
-
-        - optimal_parameters: dict
+        dict: optimal_parameters
             A dict of the optimal parameters found for each variable.
             This can be passed directly to the variable_parameters parameter in mice()
-
-            .. code-block:: text
-
                 {variable: {parameter_name: parameter_value}}
-
-        - optimal_parameter_losses: dict
-            The average out of fold cv loss obtained directly from
-            lightgbm.cv() associated with the optimal parameter set.
-
-            .. code-block:: text
-
-                {variable: loss}
 
         """
 
-        if random_state is None:
-            random_state = self._random_state
-        else:
-            random_state = ensure_rng(random_state)
+        random_state = ensure_rng(random_state)
 
         if variables is None:
             variables = self.imputation_order
-        else:
-            variables = self._get_var_ind_from_list(variables)
 
         self.complete_data(dataset, inplace=True)
 
         logger = Logger(
             name=f"tune: {optimization_steps}",
+            timed_levels=_TUNING_TIMED_LEVELS,
             verbose=verbose,
         )
 
-        vsp = self._format_variable_parameters(variable_parameters)
-        variable_parameter_space = {}
+        for variable in variables:
 
-        for var in variables:
-            default_tuning_space = make_default_tuning_space(
-                self.category_counts[var] if var in self.categorical_variables else 1,
-                int((self.shape[0] - len(self.na_where[var])) / 10),
+            logger.log(f"Optimizing {variable}")
+
+            seed = _draw_random_int32(random_state=random_state, size=1)
+
+            (
+                candidate_features,
+                candidate_values,
+            ) = self._make_features_label(variable=variable, seed=seed)
+
+            min_samples = (
+                self.category_counts[variable]
+                if variable in self.modeled_categorical_columns
+                else 1
+            )
+            max_samples = int(candidate_features.shape[0] / 5)
+
+            assert isinstance(
+                variable_parameters, dict
+            ), "variable_parameters should be a dict"
+            vp = variable_parameters.get(variable, dict()).copy()
+
+            tuning_space = self._make_tuning_space(
+                variable=variable,
+                variable_parameters=vp,
+                use_gbdt=use_gbdt,
+                min_samples=min_samples,
+                max_samples=max_samples,
+                **kwargs,
             )
 
-            variable_parameter_space[var] = self._get_lgb_params(
-                var=var,
-                vsp={**kwbounds, **vsp[var]},
-                random_state=random_state,
-                **default_tuning_space,
-            )
-
-        if parameter_sampling_method == "random":
-            for var, parameter_space in variable_parameter_space.items():
-                logger.log(self._get_var_name_from_scalar(var) + " | ", end="")
-
-                (
-                    candidate_features,
-                    candidate_values,
-                    feature_cat_index,
-                ) = self._make_features_label(
-                    variable=var,
-                    subset_count=self.data_subset[var],
-                    random_seed=_draw_random_int32(
-                        random_state=self._random_state, size=1
-                    )[0],
+            # lightgbm requires integers for label. Categories won't work.
+            if candidate_values.dtype.name == "category":
+                assert variable in self.modeled_categorical_columns, (
+                    "Something went wrong in definining categorical "
+                    f"status of variable {variable}. Please open an issue."
                 )
+                candidate_values = candidate_values.cat.codes
+                is_cat = True
+            else:
+                is_cat = False
 
-                # lightgbm requires integers for label. Categories won't work.
-                if candidate_values.dtype.name == "category":
-                    candidate_values = candidate_values.cat.codes
+            for step in range(optimization_steps):
 
-                is_categorical = var in self.categorical_variables
+                # Make multiple attempts to learn something.
+                non_learners = 0
+                while non_learners < max_reattempts:
 
-                for step in range(optimization_steps):
-                    logger.log(str(step), end="")
+                    # Sample parameters
+                    sampled_parameters = _sample_parameters(
+                        parameters=tuning_space,
+                        random_state=random_state,
+                        parameter_sampling_method=parameter_sampling_method,
+                    )
+                    logger.log(
+                        f"   Step {step} - Parameters: {sampled_parameters}", end=""
+                    )
 
-                    # Make multiple attempts to learn something.
-                    non_learners = 0
-                    learning_attempts = 10
-                    while non_learners < learning_attempts:
-                        # Pointer and folds need to be re-initialized after every run.
-                        train_pointer = Dataset(
-                            data=candidate_features,
-                            label=candidate_values,
-                            categorical_feature=feature_cat_index,
-                            free_raw_data=False,
+                    # Pointer and folds need to be re-initialized after every run.
+                    train_set = Dataset(
+                        data=candidate_features,
+                        label=candidate_values,
+                    )
+                    if is_cat:
+                        folds = stratified_categorical_folds(candidate_values, nfold)
+                    else:
+                        folds = stratified_continuous_folds(candidate_values, nfold)
+
+                    try:
+                        loss, best_iteration = self._get_oof_performance(
+                            parameters=sampled_parameters.copy(),
+                            folds=folds,
+                            train_set=train_set,
                         )
-                        if is_categorical:
-                            folds = stratified_categorical_folds(
-                                candidate_values, nfold
-                            )
-                        else:
-                            folds = stratified_continuous_folds(candidate_values, nfold)
-                        sampling_point = self._get_random_sample(
-                            parameters=parameter_space, random_state=random_state
-                        )
-                        try:
-                            loss, best_iteration = self._get_oof_performance(
-                                parameters=sampling_point.copy(),
-                                folds=folds,
-                                train_pointer=train_pointer,
-                                categorical_feature=feature_cat_index,
-                            )
-                        except:
-                            loss, best_iteration = np.Inf, 0
+                    except Exception as err:
+                        non_learners += 1
+                        logger.log(f" - Lightgbm Error {err=}, {type(err)=}")
+                        continue
 
-                        if best_iteration > 1:
-                            break
-                        else:
-                            non_learners += 1
+                    if best_iteration > 1:
+                        logger.log(f" - Success - Loss: {loss}")
+                        break
+                    else:
+                        logger.log(" - Non-Learner")
+                        non_learners += 1
 
-                    if loss < self.optimal_parameter_losses[dataset][var]:
-                        del sampling_point["seed"]
-                        sampling_point["num_iterations"] = best_iteration
-                        self.optimal_parameters[dataset][var] = sampling_point
-                        self.optimal_parameter_losses[dataset][var] = loss
+                best_loss = self.optimal_parameter_losses.get(variable, np.inf)
+                if loss < best_loss:
+                    del sampled_parameters["seed"]
+                    sampled_parameters["num_iterations"] = best_iteration
+                    self.optimal_parameters[variable] = sampled_parameters
+                    self.optimal_parameter_losses[variable] = loss
 
-                    logger.log(" - ", end="")
-
-                logger.log("\n", end="")
-
-            self._ampute_original_data()
-            return (
-                self.optimal_parameters[dataset],
-                self.optimal_parameter_losses[dataset],
-            )
+        self._ampute_original_data()
+        return self.optimal_parameters
 
     def impute_new_data(
         self,
@@ -1656,7 +1628,8 @@ class ImputationKernel(ImputedData):
             "To save this data, set save_all_iterations_data to True when making kernel."
         )
 
-        datasets = list(range(self.num_datasets)) if datasets is None else datasets
+        # datasets = list(range(self.num_datasets)) if datasets is None else datasets
+        datasets = self.datasets if datasets is None else datasets
         kernel_iterations = self.iteration_count()
         iterations = kernel_iterations if iterations is None else iterations
         logger = Logger(
@@ -1678,7 +1651,8 @@ class ImputationKernel(ImputedData):
 
         imputed_data = ImputedData(
             impute_data=new_data,
-            num_datasets=len(datasets),
+            # num_datasets=len(datasets),
+            datasets=datasets,
             variable_schema=self.variable_schema.copy(),
             save_all_iterations_data=save_all_iterations_data,
             copy_data=copy_data,
@@ -1710,8 +1684,7 @@ class ImputationKernel(ImputedData):
             for dataset in datasets:
                 logger.log("Dataset " + str(dataset))
                 self.complete_data(dataset=dataset, inplace=True)
-                ds_new = datasets.index(dataset)
-                imputed_data.complete_data(dataset=ds_new, inplace=True)
+                imputed_data.complete_data(dataset=dataset, inplace=True)
 
                 for variable in new_imputation_order:
                     logger.log(" | " + variable, end="")
@@ -1759,65 +1732,13 @@ class ImputationKernel(ImputedData):
 
         return imputed_data
 
-    # def save_kernel(
-    #     self, filepath, clevel=None, cname=None, n_threads=None, copy_while_saving=True
-    # ):
-    #     """
-    #     Compresses and saves the kernel to a file.
-
-    #     Parameters
-    #     ----------
-    #     filepath: str
-    #         The file to save to.
-
-    #     clevel: int
-    #         The compression level, sent to clevel argument in blosc.compress()
-
-    #     cname: str
-    #         The compression algorithm used.
-    #         Sent to cname argument in blosc.compress.
-    #         If None is specified, the default is lz4hc.
-
-    #     n_threads: int
-    #         The number of threads to use for compression.
-    #         By default, all threads are used.
-
-    #     copy_while_saving: boolean
-    #         Should the kernel be copied while saving? Copying is safer, but
-    #         may take more memory.
-
-    #     """
-
-    #     clevel = 9 if clevel is None else clevel
-    #     cname = "lz4hc" if cname is None else cname
-    #     n_threads = blosc2.detect_number_of_cores() if n_threads is None else n_threads
-
-    #     if copy_while_saving:
-    #         kernel = copy(self)
-    #     else:
-    #         kernel = self
-
-    #     # convert working data to parquet bytes object
-    #     if kernel.original_data_class == "pd_DataFrame":
-    #         working_data_bytes = BytesIO()
-    #         kernel.working_data.to_parquet(working_data_bytes)
-    #         kernel.working_data = working_data_bytes
-
-    #     blosc2.set_nthreads(n_threads)
-
-    #     with open(filepath, "wb") as f:
-    #         dill.dump(
-    #             blosc2.compress(
-    #                 dill.dumps(kernel),
-    #                 clevel=clevel,
-    #                 typesize=8,
-    #                 shuffle=blosc2.NOSHUFFLE,
-    #                 cname=cname,
-    #             ),
-    #             f,
-    #         )
-
-    def get_feature_importance(self, dataset, iteration=None) -> np.ndarray:
+    def get_feature_importance(
+        self,
+        dataset: int = 0,
+        iteration: int = -1,
+        importance_type: str = "split",
+        normalize: bool = True,
+    ) -> np.ndarray:
         """
         Return a matrix of feature importance. The cells
         represent the normalized feature importance of the
@@ -1831,7 +1752,8 @@ class ImputationKernel(ImputedData):
 
         iteration: int
             The iteration to return the feature importance for.
-            Right now, the model must be saved to return importance
+            The model must be saved to return importance.
+            Use -1 to specify the latest iteration.
 
         Returns
         -------
@@ -1840,35 +1762,37 @@ class ImputationKernel(ImputedData):
 
         """
 
-        if iteration is None:
+        if iteration == -1:
             iteration = self.iteration_count(dataset=dataset)
 
-        importance_matrix = np.full(
-            shape=(len(self.imputation_order), len(self.predictor_vars)),
-            fill_value=np.NaN,
-        )
+        modeled_vars = [
+            col for col in self.working_data.columns if col in self.model_training_order
+        ]
 
-        for ivar in self.imputation_order:
-            importance_dict = dict(
-                zip(
-                    self.variable_schema[ivar],
-                    self.get_model(dataset, ivar, iteration).feature_importance(),
-                )
-            )
-            for pvar in importance_dict:
-                importance_matrix[
-                    np.sort(self.imputation_order).tolist().index(ivar),
-                    np.sort(self.predictor_vars).tolist().index(pvar),
-                ] = importance_dict[pvar]
+        importance_matrix = DataFrame(
+            index=modeled_vars, columns=self.predictor_columns
+        )
+        for modeled_variable in modeled_vars:
+            predictor_vars = self.variable_schema[modeled_variable]
+            importances = self.get_model(
+                variable=modeled_variable, dataset=dataset, iteration=iteration
+            ).feature_importance(importance_type=importance_type)
+            importances = Series(importances, index=predictor_vars)
+            importance_matrix.loc[modeled_variable, predictor_vars] = importances
+
+        importance_matrix = importance_matrix.astype("float64")
+
+        if normalize:
+            importance_matrix /= importance_matrix.sum(1).to_numpy().reshape(-1, 1)
 
         return importance_matrix
 
     def plot_feature_importance(
         self,
         dataset,
+        importance_type: str = "split",
         normalize: bool = True,
-        iteration: Optional[int] = None,
-        **kw_plot,
+        iteration: int = -1,
     ):
         """
         Plot the feature importance. See get_feature_importance()
@@ -1881,6 +1805,8 @@ class ImputationKernel(ImputedData):
 
         iteration: int
             The iteration to plot the feature importance of.
+            The model must be saved to plot feature importance.
+            Use -1 to return the latest iteration.
 
         normalize: book
             Should the values be normalize from 0-1?
@@ -1893,36 +1819,46 @@ class ImputationKernel(ImputedData):
 
         # Move this to .compat at some point.
         try:
-            from seaborn import heatmap
+            from plotnine import (
+                ggplot,
+                aes,
+                geom_tile,
+                theme,
+                element_text,
+                xlab,
+                ylab,
+                ggtitle,
+                element_blank,
+                geom_label,
+                scale_fill_distiller,
+            )
         except ImportError:
-            raise ImportError("seaborn must be installed to plot importance")
+            raise ImportError("plotnine must be installed to plot importance")
 
         importance_matrix = self.get_feature_importance(
-            dataset=dataset, iteration=iteration
+            dataset=dataset,
+            iteration=iteration,
+            normalize=normalize,
+            importance_type=importance_type,
         )
-        if normalize:
-            importance_matrix = (
-                importance_matrix / np.nansum(importance_matrix, 1).reshape(-1, 1)
-            ).round(2)
+        importance_matrix = importance_matrix.reset_index().melt(id_vars="index")
+        importance_matrix["Importance"] = importance_matrix["value"].round(2)
+        importance_matrix = importance_matrix.dropna()
 
-        imputed_var_names = [
-            self._get_var_name_from_scalar(int(i))
-            for i in np.sort(self.imputation_order)
-        ]
-        predictor_var_names = [
-            self._get_var_name_from_scalar(int(i)) for i in np.sort(self.predictor_vars)
-        ]
+        fig = (
+            ggplot(importance_matrix, aes(x="variable", y="index", fill="Importance"))
+            + geom_tile(show_legend=False)
+            + ylab("Modeled Variable")
+            + xlab("Predictor")
+            + ggtitle("Feature Importance")
+            + geom_label(aes(label="Importance"), fill="white", size=8)
+            + scale_fill_distiller(palette=1, direction=1)
+            + theme(
+                axis_text_x=element_text(rotation=30, hjust=1),
+                plot_title=element_text(ha="left", size=20),
+                panel_background=element_blank(),
+                figure_size=(6, 6),
+            )
+        )
 
-        params = {
-            **{
-                "cmap": "coolwarm",
-                "annot": True,
-                "fmt": ".2f",
-                "xticklabels": predictor_var_names,
-                "yticklabels": imputed_var_names,
-                "annot_kws": {"size": 16},
-            },
-            **kw_plot,
-        }
-
-        print(heatmap(importance_matrix, **params))
+        return fig
