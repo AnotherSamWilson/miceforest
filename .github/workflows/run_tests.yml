@@ -24,9 +24,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest, mypy, codecov, pytest-cov, pandas
-          pip install plotnine, matplotlib, scipy, scikit-learn
-          pip install lightgbm, pyarrow, black, isort
+          pip install pytest mypy codecov pytest-cov pandas
+          pip install plotnine matplotlib scipy scikit-learn
+          pip install lightgbm pyarrow black isort
 
       - name: MyPy Checks
         run: mypy miceforest
