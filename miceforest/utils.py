@@ -6,23 +6,6 @@ from pandas import Series, DataFrame, read_parquet
 from typing import Union, List, Dict, Optional
 
 
-def _to_2d(x):
-    """
-    Ensures an array is 2 dimensional, in place.
-    """
-    if x.ndim == 1:
-        x.shape = (-1, 1)
-
-
-def _to_1d(x):
-    """
-    Ensures an array is 1 dimensional, in place.
-    """
-    if x.ndim == 2:
-        assert x.shape[1] == 1
-        x.shape = -1
-
-
 def get_best_int_downcast(x: int):
     assert isinstance(x, int)
     int_dtypes = ["uint8", "uint16", "uint32", "uint64"]
@@ -205,10 +188,9 @@ def stratified_categorical_folds(y: Series, nfold: int):
     Create primitive stratified folds for categorical data.
     Should be digestible by lightgbm.cv function.
     """
-    y = y.cat.codes.to_numpy()
-    y = y.reshape(
-        y.shape[0],
-    ).copy()
+    assert isinstance(y, Series), "y must be a pandas Series"
+    assert y.dtype.name[0:3].lower() == "int", "y should be the category codes"
+    y = y.to_numpy()
     elements = len(y)
     uniq, inv, counts = np.unique(y, return_counts=True, return_inverse=True)
     assert elements >= nfold, "more splits then elements."
@@ -312,7 +294,7 @@ def ensure_rng(random_state) -> RandomState:
 #         raise ValueError("Can't cast to numpy array")
 
 
-def _expand_value_to_dict(default, value, keys):
+def _expand_value_to_dict(default, value, keys) -> dict:
     if isinstance(value, dict):
         ret = {key: value.get(key, default) for key in keys}
     else:
