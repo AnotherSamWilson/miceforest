@@ -798,9 +798,8 @@ class ImputationKernel(ImputedData):
             candidate_preds = lgbmodel.predict(
                 candidate_features,
                 pred_contrib=True,
-            ).astype(
-                _PRE_LINK_DATATYPE
-            )  # type: ignore
+            )
+            candidate_preds = candidate_preds.astype(_PRE_LINK_DATATYPE)  # type: ignore
         else:
             candidate_preds = lgbmodel._Booster__inner_predict(0)  # type: ignore
             if logistic and not (shap or fast):
