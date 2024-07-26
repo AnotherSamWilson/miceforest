@@ -27,10 +27,8 @@ jobs:
           pip install mypy
           pip install codecov
           pip install pytest-cov
-          pip install blosc2
-          pip install dill
           pip install pandas
-          pip install seaborn
+          pip install plotnine
           pip install matplotlib
           pip install scipy
           pip install scikit-learn
@@ -39,5 +37,6 @@ jobs:
       - name: Test with pytest
         run: |
           mypy miceforest
+          black miceforest --check
           pytest --cov-config .coveragerc --cov-report html --cov=miceforest
           codecov
