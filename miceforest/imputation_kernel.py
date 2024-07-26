@@ -187,7 +187,6 @@ class ImputationKernel(ImputedData):
 
         super().__init__(
             impute_data=data,
-            # num_datasets=num_datasets,
             datasets=datasets,
             variable_schema=variable_schema,
             save_all_iterations_data=save_all_iterations_data,
