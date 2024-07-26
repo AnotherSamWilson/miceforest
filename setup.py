@@ -15,14 +15,13 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     install_requires=[
-        'lightgbm >= 3.3.1',
+        'lightgbm >= 4.1.0',
         'numpy',
-        "blosc2",
-        "dill"
+        "pandas"
         ],
     extras_require={
         "Plotting": [
-            'seaborn >= 0.11.0',
+            'plotnine >=0.13.6'
             'matplotlib >= 3.3.0'
         ],
         "Default_MM": [
