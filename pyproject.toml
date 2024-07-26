@@ -50,7 +50,6 @@ python = "^3.10"
 lightgbm = "^4.1.0"
 pandas = {extras = ["parquet"], version = "2.2.0"}
 numpy = "^1.26.0"
-blosc2 = "^2.6.0"
 dill = "^0.3.7"
 scipy = "^1.11.1"
 seaborn = "^0.13.0"
@@ -71,3 +70,6 @@ build = "^1.2.1"
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.isort]
+profile = "black"
