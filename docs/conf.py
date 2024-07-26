@@ -14,22 +14,23 @@ import os
 import sys
 import sphinx
 from sphinx.errors import VersionRequirementError
-sys.path.insert(0, os.path.abspath('..'))
+
+sys.path.insert(0, os.path.abspath(".."))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'miceforest'
-copyright = '2021, Samuel Von Wilson'
-author = 'Samuel Von Wilson'
+project = "miceforest"
+copyright = "2021, Samuel Von Wilson"
+author = "Samuel Von Wilson"
 
 # The full version, including alpha/beta/rc tags
-release = '2021-08-21'
+release = "2021-08-21"
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = '4.2.0'  # Due to sphinx.ext.napoleon, autodoc_typehints
+needs_sphinx = "4.2.0"  # Due to sphinx.ext.napoleon, autodoc_typehints
 if needs_sphinx > sphinx.__version__:
-    message = f'This project needs at least Sphinx v{needs_sphinx}'
+    message = f"This project needs at least Sphinx v{needs_sphinx}"
     raise VersionRequirementError(message)
 
 # -- General configuration ---------------------------------------------------
@@ -38,14 +39,14 @@ if needs_sphinx > sphinx.__version__:
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.todo',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon'
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.todo",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.napoleon",
 ]
 
-autodoc_default_flags = ['members', 'inherited-members', 'show-inheritance']
+autodoc_default_flags = ["members", "inherited-members", "show-inheritance"]
 autodoc_default_options = {
     "members": True,
     "inherited-members": True,
@@ -54,54 +55,59 @@ autodoc_default_options = {
 
 # mock out modules
 autodoc_mock_imports = [
-    'matplotlib',
-    'seaborn',
-    'numpy',
-    'pandas',
-    'scipy',
-    'scikit-learn',
-    'lightgbm'
+    "matplotlib",
+    "seaborn",
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "lightgbm",
 ]
 
-master_doc = 'index'
+master_doc = "index"
 
 # hide type hints in API docs
 autodoc_typehints = "none"
 
 # Only the class' docstring is inserted.
-autoclass_content = 'class'
+autoclass_content = "class"
 
 # Generate autosummary pages.
-autosummary_generate = ['ImputationKernel.rst', 'ImputedData.rst', "utils.rst", "MeanMatchScheme.rst"]
+autosummary_generate = [
+    "ImputationKernel.rst",
+    "ImputedData.rst",
+    "utils.rst",
+    "MeanMatchScheme.rst",
+]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'includehidden': False,
-    'logo_only': True,
+    "includehidden": False,
+    "logo_only": True,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 
 def setup(app):
-    app.add_css_file('themes.css')
+    app.add_css_file("themes.css")
