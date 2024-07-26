@@ -2,7 +2,7 @@ name: tests + mypy
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "major_update_6", "master" ]
   pull_request:
     branches: [ "master" ]
 
@@ -16,28 +16,36 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
-          pip install mypy
-          pip install codecov
-          pip install pytest-cov
-          pip install blosc2
-          pip install dill
-          pip install pandas
-          pip install seaborn
-          pip install matplotlib
-          pip install scipy
-          pip install scikit-learn
-          pip install lightgbm
-          pip install pyarrow
-      - name: Test with pytest
+          pip install pytest mypy codecov pytest-cov pandas
+          pip install plotnine matplotlib scipy scikit-learn
+          pip install lightgbm pyarrow black isort dill
+
+      - name: MyPy Checks
+        run: mypy miceforest --ignore-missing-imports
+
+      - name: Black Formatting - Package
+        run: black miceforest --check
+
+      - name: Black Formatting - Tests
+        run: black tests --check
+
+      - name: Isort Checks
+        run: isort miceforest --diff
+
+      - name: Pytest
+        run: pytest --cov=miceforest --cov-report html
+
+      - name: Upload coverage reports to Codecov
         run: |
-          mypy miceforest
-          pytest --cov-config .coveragerc --cov-report html --cov=miceforest
-          codecov
+          curl -Os https://cli.codecov.io/latest/linux/codecov
+          chmod +x codecov
+          ./codecov --verbose upload-process --fail-on-error -t ${{ secrets.CODECOV_TOKEN }} -n 'service'-${{ github.run_id }} -F service -f coverage-service.xml
+

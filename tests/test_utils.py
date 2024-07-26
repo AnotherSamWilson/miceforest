@@ -1,25 +1,17 @@
-
-from miceforest.utils import (
-    stratified_subset
-)
+from miceforest.utils import stratified_subset
 import numpy as np
+import pandas as pd
+
 
 def test_subset():
 
     strat_std_closer = []
     strat_mean_closer = []
     for i in range(1000):
-        y = np.random.normal(size=1000)
+        y = pd.Series(np.random.normal(size=1000))
         size = 100
-        y_strat_sub = y[
-            stratified_subset(
-                y,
-                size,
-                groups=10,
-                cat=False,
-                seed=i
-            )
-        ]
+        ss_ind = stratified_subset(y, size, groups=10, random_state=i)
+        y_strat_sub = y[ss_ind]
         y_rand_sub = np.random.choice(y, size, replace=False)
 
         # See which random sample has a closer stdev
@@ -42,11 +34,11 @@ def test_subset():
 def test_subset_continuous_reproduce():
     # Tests for reproducibility in numeric stratified subsetting
     for i in range(100):
-        y = np.random.normal(size=1000)
+        y = pd.Series(np.random.normal(size=1000))
         size = 100
 
-        ss1 = stratified_subset(y, size, groups=10, cat=False, seed=i)
-        ss2 = stratified_subset(y, size, groups=10, cat=False, seed=i)
+        ss1 = stratified_subset(y, size, groups=10, random_state=i)
+        ss2 = stratified_subset(y, size, groups=10, random_state=i)
 
         assert np.all(ss1 == ss2)
 
@@ -54,10 +46,10 @@ def test_subset_continuous_reproduce():
 def test_subset_categorical_reproduce():
     # Tests for reproducibility in categorical stratified subsetting
     for i in range(100):
-        y = np.random.randint(low=1, high=10, size=1000)
+        y = pd.Series(np.random.randint(low=1, high=10, size=1000)).astype("category")
         size = 100
 
-        ss1 = stratified_subset(y, size, groups=10, cat=True, seed=i)
-        ss2 = stratified_subset(y, size, groups=10, cat=True, seed=i)
+        ss1 = stratified_subset(y, size, groups=10, random_state=i)
+        ss2 = stratified_subset(y, size, groups=10, random_state=i)
 
         assert np.all(ss1 == ss2)

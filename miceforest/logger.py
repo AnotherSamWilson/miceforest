@@ -1,10 +1,16 @@
-from .compat import pd_Series, pd_DataFrame, PANDAS_INSTALLED
-from datetime import datetime as dt
-from typing import Dict, Any
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from pandas import Series
 
 
 class Logger:
-    def __init__(self, name: str, verbose: bool = False) -> None:
+    def __init__(
+        self,
+        name: str,
+        timed_levels: List[str],
+        verbose: bool = False,
+    ):
         """
         miceforest logger.
 
@@ -25,10 +31,12 @@ class Logger:
         """
         self.name = name
         self.verbose = verbose
-        self.initialization_time = dt.now()
+        self.initialization_time = datetime.now()
+        self.timed_levels = timed_levels
+        self.started_timers: dict = {}
 
         if self.verbose:
-            print(f"Initialized logger with name {name}")
+            print(f"Initialized logger with name {name} and {len(timed_levels)} levels")
 
         self.time_seconds: Dict[Any, float] = {}
 
@@ -40,39 +48,31 @@ class Logger:
         if self.verbose:
             print(*args, **kwargs)
 
-    def set_start_time(self):
-        self._start_time = dt.now()
+    def set_start_time(self, time_key: Tuple):
+        assert len(time_key) == len(self.timed_levels)
+        assert time_key not in list(
+            self.started_timers
+        ), f"Timer {time_key} already started"
+        self.started_timers[time_key] = datetime.now()
 
-    def record_time(
-        self,
-        dataset: int,
-        variable_name: str,
-        iteration: int,
-        timed_event: str,
-    ):
+    def record_time(self, time_key: Tuple):
         """
         Compares the current time with the start time, and records the time difference
         in our time log in the appropriate register. Times can stack for a context.
         """
-        seconds = (dt.now() - self._start_time).total_seconds()
-        time_key = (dataset, variable_name, iteration, timed_event)
+        assert time_key in list(self.started_timers), f"Timer {time_key} never started"
+        seconds = (datetime.now() - self.started_timers[time_key]).total_seconds()
+        del self.started_timers[time_key]
         if time_key in self.time_seconds:
             self.time_seconds[time_key] += seconds
         else:
             self.time_seconds[time_key] = seconds
 
-    def get_time_df_summary(self):
+    def get_time_spend_summary(self):
         """
         Returns a frame of the total time taken per variable, event.
         Returns a pandas dataframe if pandas is installed. Otherwise, np.array.
         """
-
-        if PANDAS_INSTALLED:
-            dat = pd_Series(self.time_seconds.values(), index=self.time_seconds.keys())
-            agg = dat.groupby(level=[1, 3]).sum()
-            df = pd_DataFrame(agg).reset_index()
-            df.columns = ["Variable", "Event", "Seconds"]
-            piv = df.pivot_table(values="Seconds", index="Variable", columns="Event")
-            return piv
-        else:
-            raise ValueError("Returning times as a frame requires pandas")
+        summary = Series(self.time_seconds)
+        summary.index.names = self.timed_levels
+        return summary
