@@ -1467,7 +1467,10 @@ class ImputationKernel(ImputedData):
 
             # lightgbm requires integers for label. Categories won't work.
             if candidate_values.dtype.name == "category":
-                assert variable in self.modeled_categorical_columns, (
+                cat_cols = (
+                    self.modeled_categorical_columns + self.modeled_binary_columns
+                )
+                assert variable in cat_cols, (
                     "Something went wrong in definining categorical "
                     f"status of variable {variable}. Please open an issue."
                 )
