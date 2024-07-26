@@ -222,37 +222,37 @@ def make_and_test_kernel(**kwargs):
     # Test tuning parameters
     kernel.tune_parameters(
         optimization_steps=2,
-        use_gbdt = True,
+        use_gbdt=True,
         random_state=1,
-        variable_parameters = {
+        variable_parameters={
             mv[0]: {
-                "min_data_in_leaf": (1, 10), 
+                "min_data_in_leaf": (1, 10),
                 "cat_l2": 0.5,
             }
         },
         extra_trees=[True, False],
     )
     op = kernel.optimal_parameters[mv[0]]
-    assert 'extra_trees' in list(op)
-    assert op['cat_l2'] == 0.5
-    assert 1 <= op['min_data_in_leaf'] <= 10
+    assert "extra_trees" in list(op)
+    assert op["cat_l2"] == 0.5
+    assert 1 <= op["min_data_in_leaf"] <= 10
 
     kernel.tune_parameters(
         optimization_steps=2,
-        use_gbdt = False,
+        use_gbdt=False,
         random_state=1,
-        variable_parameters = {
+        variable_parameters={
             mv[0]: {
-                "min_data_in_leaf": (1, 10), 
+                "min_data_in_leaf": (1, 10),
                 "cat_l2": 0.5,
             }
         },
         extra_trees=[True, False],
     )
     op = kernel.optimal_parameters[mv[0]]
-    assert 'extra_trees' in list(op)
-    assert op['cat_l2'] == 0.5
-    assert 1 <= op['min_data_in_leaf'] <= 10
+    assert "extra_trees" in list(op)
+    assert op["cat_l2"] == 0.5
+    assert 1 <= op["min_data_in_leaf"] <= 10
 
     return kernel
 
