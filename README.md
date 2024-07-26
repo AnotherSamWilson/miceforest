@@ -372,7 +372,7 @@ new_data_imputed = cust_kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    New Data imputed in 0.040128 seconds
+    New Data imputed in 0.040396 seconds
 
 
 ## Saving and Loading Kernels
@@ -916,7 +916,7 @@ acclist
     0    0.35
     1    0.81
     2    0.81
-    3    0.81
+    3    0.78
     Name: Species Imputation Accuracy, dtype: float64
 
 
@@ -1039,13 +1039,6 @@ dat = pd.DataFrame(
 # Ampute the data.
 ampdat = mf.ampute_data(dat,perc=0.25,random_state=randst)
 ```
-
-
-
-
-    <seaborn.axisgrid.PairGrid at 0xfffecc1f20b0>
-
-
 
 
 ```python
