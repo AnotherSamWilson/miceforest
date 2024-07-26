@@ -4,21 +4,27 @@ from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
-from lightgbm import (Booster, Dataset, cv, early_stopping, log_evaluation,
-                      train)
+from lightgbm import Booster, Dataset, cv, early_stopping, log_evaluation, train
 from lightgbm.basic import _ConfigAliases
 from pandas import Categorical, DataFrame, MultiIndex, Series, read_parquet
 from pandas.api.types import is_integer_dtype
 from scipy.spatial import KDTree
 
-from miceforest.default_lightgbm_parameters import (_DEFAULT_LGB_PARAMS,
-                                                    _sample_parameters)
+from miceforest.default_lightgbm_parameters import (
+    _DEFAULT_LGB_PARAMS,
+    _sample_parameters,
+)
 from miceforest.imputed_data import ImputedData
 from miceforest.logger import Logger
-from miceforest.utils import (_draw_random_int32, _expand_value_to_dict,
-                              _list_union, ensure_rng, logodds,
-                              stratified_categorical_folds,
-                              stratified_continuous_folds)
+from miceforest.utils import (
+    _draw_random_int32,
+    _expand_value_to_dict,
+    _list_union,
+    ensure_rng,
+    logodds,
+    stratified_categorical_folds,
+    stratified_continuous_folds,
+)
 
 _DEFAULT_DATA_SUBSET = 0
 _DEFAULT_MEANMATCH_CANDIDATES = 5
@@ -554,9 +560,9 @@ class ImputationKernel(ImputedData):
                 log_evaluation(period=0),
             ],
         )
-        best_iteration = lgbcv["cvbooster"].best_iteration
+        best_iteration = lgbcv["cvbooster"].best_iteration # type: ignore
         loss_metric_key = list(lgbcv)[0]
-        loss = np.min(lgbcv[loss_metric_key])
+        loss: float = np.min(lgbcv[loss_metric_key]) # type: ignore
 
         return loss, best_iteration
 
@@ -753,6 +759,7 @@ class ImputationKernel(ImputedData):
             pred_contrib=False,
             raw_score=False,
         )
+        assert isinstance(bachelor_preds, np.ndarray)
         dtype = self.working_data[variable].dtype
         if variable in self.modeled_numeric_columns:
             if is_integer_dtype(dtype):
@@ -791,9 +798,9 @@ class ImputationKernel(ImputedData):
             candidate_preds = lgbmodel.predict(
                 candidate_features,
                 pred_contrib=True,
-            ).astype(_PRE_LINK_DATATYPE)
+            ).astype(_PRE_LINK_DATATYPE) # type: ignore
         else:
-            candidate_preds = lgbmodel._Booster__inner_predict(0)
+            candidate_preds = lgbmodel._Booster__inner_predict(0) # type: ignore
             if logistic and not (shap or fast):
                 candidate_preds = logodds(candidate_preds).astype(_PRE_LINK_DATATYPE)
 
@@ -843,6 +850,7 @@ class ImputationKernel(ImputedData):
             bachelor_features,
             pred_contrib=shap,
         )
+        assert isinstance(bachelor_preds, np.ndarray)
 
         if shap:
             bachelor_preds = bachelor_preds.astype(_PRE_LINK_DATATYPE)
@@ -901,46 +909,46 @@ class ImputationKernel(ImputedData):
 
                 categories = self.working_data[variable].dtype.categories
                 cat_count = self.category_counts[variable]
-                preds = DataFrame(preds, columns=cols * cat_count)
-                del preds["Intercept"]
+                preds_df = DataFrame(preds, columns=cols * cat_count)
+                del preds_df["Intercept"]
                 cols.remove("Intercept")
                 assign_col_index = MultiIndex.from_product(
                     [[iteration], [dataset], categories, cols],
                     names=("iteration", "dataset", "categories", "predictor"),
                 )
-                preds.columns = assign_col_index
+                preds_df.columns = assign_col_index
 
             else:
-                preds = DataFrame(preds, columns=cols)
-                del preds["Intercept"]
+                preds_df = DataFrame(preds, columns=cols)
+                del preds_df["Intercept"]
                 cols.remove("Intercept")
                 assign_col_index = MultiIndex.from_product(
                     [[iteration], [dataset], cols],
                     names=("iteration", "dataset", "predictor"),
                 )
-                preds.columns = assign_col_index
+                preds_df.columns = assign_col_index
 
         else:
 
             if multiclass:
 
                 categories = self.working_data[variable].dtype.categories
-                preds = DataFrame(preds, columns=categories)
+                preds_df = DataFrame(preds, columns=categories)
                 assign_col_index = MultiIndex.from_product(
                     [[iteration], [dataset], categories],
                     names=("iteration", "dataset", "categories"),
                 )
-                preds.columns = assign_col_index
+                preds_df.columns = assign_col_index
 
             else:
 
-                preds = DataFrame(preds, columns=[variable])
+                preds_df = DataFrame(preds, columns=[variable])
                 assign_col_index = MultiIndex.from_product(
                     [[iteration], [dataset]], names=("iteration", "dataset")
                 )
-                preds.columns = assign_col_index
+                preds_df.columns = assign_col_index
 
-        return preds
+        return preds_df
 
     def mean_match_mice(
         self,
@@ -1733,7 +1741,7 @@ class ImputationKernel(ImputedData):
         iteration: int = -1,
         importance_type: str = "split",
         normalize: bool = True,
-    ) -> np.ndarray:
+    ) -> DataFrame:
         """
         Return a matrix of feature importance. The cells
         represent the normalized feature importance of the
@@ -1814,9 +1822,19 @@ class ImputationKernel(ImputedData):
 
         # Move this to .compat at some point.
         try:
-            from plotnine import (aes, element_blank, element_text, geom_label,
-                                  geom_tile, ggplot, ggtitle,
-                                  scale_fill_distiller, theme, xlab, ylab)
+            from plotnine import (
+                aes,
+                element_blank,
+                element_text,
+                geom_label,
+                geom_tile,
+                ggplot,
+                ggtitle,
+                scale_fill_distiller,
+                theme,
+                xlab,
+                ylab,
+            )
         except ImportError:
             raise ImportError("plotnine must be installed to plot importance")
 

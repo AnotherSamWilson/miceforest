@@ -4,8 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 from warnings import warn
 
 import numpy as np
-from pandas import (DataFrame, MultiIndex, RangeIndex, Series, concat,
-                    read_parquet)
+from pandas import DataFrame, MultiIndex, RangeIndex, Series, concat, read_parquet
 
 from .utils import get_best_int_downcast, hash_numpy_int_array
 
@@ -102,7 +101,7 @@ class ImputedData:
             zero_value_seeds = random_seed_array == 0
             random_seed_array[zero_value_seeds] = 1
             hash_numpy_int_array(random_seed_array)
-            self.random_seed_array = random_seed_array
+            self.random_seed_array: Optional[np.ndarray] = random_seed_array
         else:
             self.random_seed_array = None
 
@@ -416,8 +415,16 @@ All Iterations Saved: {self.save_all_iterations_data}
         """
         # Move this to .compat at some point.
         try:
-            from plotnine import (aes, facet_wrap, geom_density, ggplot,
-                                  ggtitle, scale_color_manual, theme, xlab)
+            from plotnine import (
+                aes,
+                facet_wrap,
+                geom_density,
+                ggplot,
+                ggtitle,
+                scale_color_manual,
+                theme,
+                xlab,
+            )
         except ImportError:
             raise ImportError("plotnine must be installed to plot distributions.")
 

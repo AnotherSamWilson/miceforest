@@ -179,37 +179,43 @@ def make_and_test_kernel(**kwargs):
     assert not np.any(imputed_dataset_special_2[modeled_variables].isnull())
 
     # Reproducibility
-    random_seed_array = np.random.randint(9999, size=new_amputed_data_special_1.shape[0], dtype='uint32')
+    random_seed_array = np.random.randint(
+        9999, size=new_amputed_data_special_1.shape[0], dtype="uint32"
+    )
     imputed_data_special_3 = kernel.impute_new_data(
-        new_data=new_amputed_data_special_1, 
+        new_data=new_amputed_data_special_1,
         random_seed_array=random_seed_array,
         random_state=1,
     )
     imputed_data_special_4 = kernel.impute_new_data(
-        new_data=new_amputed_data_special_1, 
+        new_data=new_amputed_data_special_1,
         random_seed_array=random_seed_array,
         random_state=1,
     )
-    assert imputed_data_special_3.complete_data(0).equals(imputed_data_special_4.complete_data(0))
+    assert imputed_data_special_3.complete_data(0).equals(
+        imputed_data_special_4.complete_data(0)
+    )
 
     # Ensure kernel imputes new data on a subset of datasets deterministically
     if kernel.num_datasets > 1:
         datasets = list(range(kernel.num_datasets))
         datasets.remove(0)
         imputed_data_special_5 = kernel.impute_new_data(
-            new_data=new_amputed_data_special_1, 
+            new_data=new_amputed_data_special_1,
             datasets=datasets,
             random_seed_array=random_seed_array,
             random_state=1,
-            verbose=True
+            verbose=True,
         )
         imputed_data_special_6 = kernel.impute_new_data(
-            new_data=new_amputed_data_special_1, 
+            new_data=new_amputed_data_special_1,
             datasets=datasets,
             random_seed_array=random_seed_array,
             random_state=1,
         )
-        assert imputed_data_special_5.complete_data(1).equals(imputed_data_special_6.complete_data(1))
+        assert imputed_data_special_5.complete_data(1).equals(
+            imputed_data_special_6.complete_data(1)
+        )
 
     return kernel
 

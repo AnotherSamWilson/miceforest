@@ -228,7 +228,7 @@ def hash_uint64(x: np.ndarray):
     return x
 
 
-def hash_numpy_int_array(x: np.ndarray, ind: Optional[np.ndarray] = None):
+def hash_numpy_int_array(x: np.ndarray, ind: Union[np.ndarray, slice] = slice(None)):
     """
     Deterministically set the values of the elements in x
     at the locations ind to some uniformly distributed number
@@ -236,8 +236,6 @@ def hash_numpy_int_array(x: np.ndarray, ind: Optional[np.ndarray] = None):
 
     This function acts on x in place
     """
-    if ind is None:
-        ind = slice(None)
     assert isinstance(x, np.ndarray)
     if x.dtype in ["uint32", "int32"]:
         x[ind] = hash_int32(x[ind])

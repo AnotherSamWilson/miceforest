@@ -5,17 +5,26 @@ These schemes vary in their speed and accuracy.
 
 from typing import Callable, Dict
 
-from .builtin_mean_match_functions import (_mean_match_binary_accurate,
-                                           _mean_match_binary_fast,
-                                           _mean_match_multiclass_accurate,
-                                           _mean_match_multiclass_fast,
-                                           _mean_match_reg)
-from .builtin_pred_funcs import (predict_binary_logodds,
-                                 predict_multiclass_logodds,
-                                 predict_multiclass_shap, predict_normal,
-                                 predict_normal_shap)
-from .MeanMatchScheme import (_CATEGORICAL_OBJECTIVES, _DEFAULT_MMC,
-                              _REGRESSIVE_OBJECTIVES, MeanMatchScheme)
+from .builtin_mean_match_functions import (
+    _mean_match_binary_accurate,
+    _mean_match_binary_fast,
+    _mean_match_multiclass_accurate,
+    _mean_match_multiclass_fast,
+    _mean_match_reg,
+)
+from .builtin_pred_funcs import (
+    predict_binary_logodds,
+    predict_multiclass_logodds,
+    predict_multiclass_shap,
+    predict_normal,
+    predict_normal_shap,
+)
+from .MeanMatchScheme import (
+    _CATEGORICAL_OBJECTIVES,
+    _DEFAULT_MMC,
+    _REGRESSIVE_OBJECTIVES,
+    MeanMatchScheme,
+)
 
 _DEFAULT_OBJECTIVE_DTYPES = {
     **{o: "float16" for o in _CATEGORICAL_OBJECTIVES},
