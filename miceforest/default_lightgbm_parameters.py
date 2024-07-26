@@ -1,6 +1,6 @@
 import numpy as np
-from .utils import _draw_random_int32
 
+from .utils import _draw_random_int32
 
 # A few parameters that generally benefit
 # from searching in the log space.

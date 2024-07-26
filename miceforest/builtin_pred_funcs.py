@@ -2,10 +2,10 @@
 Default prediction functions that come with miceforest.
 """
 
-from .utils import logodds
-from lightgbm import Booster
 import numpy as np
+from lightgbm import Booster
 
+from .utils import logodds
 
 # Lightgbm can output 0.0 probabilities for extremely
 # rare categories. This causes logodds to return inf.

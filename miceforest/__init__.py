@@ -8,9 +8,9 @@ Extensive tutorials can be found on the github README:
 https://github.com/AnotherSamWilson/miceforest
 """
 
-from .utils import ampute_data, load_kernel
-from .imputed_data import ImputedData
 from .imputation_kernel import ImputationKernel
+from .imputed_data import ImputedData
+from .utils import ampute_data, load_kernel
 
 # __version__ = "5.7.0"
 

@@ -1,6 +1,7 @@
-from pandas import Series
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Tuple, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from pandas import Series
 
 
 class Logger:

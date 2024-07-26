@@ -1,13 +1,13 @@
-import numpy as np
-from pandas import DataFrame, MultiIndex, RangeIndex, read_parquet, Series, concat
-from .utils import (
-    get_best_int_downcast,
-    hash_numpy_int_array,
-)
 from io import BytesIO
 from itertools import combinations
-from typing import Dict, List, Union, Any, Optional
+from typing import Any, Dict, List, Optional, Union
 from warnings import warn
+
+import numpy as np
+from pandas import (DataFrame, MultiIndex, RangeIndex, Series, concat,
+                    read_parquet)
+
+from .utils import get_best_int_downcast, hash_numpy_int_array
 
 
 class ImputedData:
@@ -416,16 +416,8 @@ All Iterations Saved: {self.save_all_iterations_data}
         """
         # Move this to .compat at some point.
         try:
-            from plotnine import (
-                ggplot,
-                geom_density,
-                aes,
-                facet_wrap,
-                scale_color_manual,
-                ggtitle,
-                xlab,
-                theme,
-            )
+            from plotnine import (aes, facet_wrap, geom_density, ggplot,
+                                  ggtitle, scale_color_manual, theme, xlab)
         except ImportError:
             raise ImportError("plotnine must be installed to plot distributions.")
 

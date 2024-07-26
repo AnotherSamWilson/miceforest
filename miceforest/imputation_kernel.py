@@ -1,29 +1,24 @@
-from miceforest.default_lightgbm_parameters import (
-    _DEFAULT_LGB_PARAMS,
-    _sample_parameters,
-)
-from miceforest.logger import Logger
-from miceforest.imputed_data import ImputedData
-from miceforest.utils import (
-    logodds,
-    _expand_value_to_dict,
-    _list_union,
-    _draw_random_int32,
-    ensure_rng,
-    stratified_categorical_folds,
-    stratified_continuous_folds,
-)
-import numpy as np
-from warnings import warn
-from lightgbm import train, Dataset, cv, log_evaluation, early_stopping, Booster
-from lightgbm.basic import _ConfigAliases
-from io import BytesIO
-from scipy.spatial import KDTree
 from copy import copy
-from typing import Union, List, Dict, Any, Optional, Tuple, Generator
-from pandas import Series, DataFrame, MultiIndex, read_parquet, Categorical
-from pandas.api.types import is_integer_dtype
+from io import BytesIO
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from warnings import warn
 
+import numpy as np
+from lightgbm import (Booster, Dataset, cv, early_stopping, log_evaluation,
+                      train)
+from lightgbm.basic import _ConfigAliases
+from pandas import Categorical, DataFrame, MultiIndex, Series, read_parquet
+from pandas.api.types import is_integer_dtype
+from scipy.spatial import KDTree
+
+from miceforest.default_lightgbm_parameters import (_DEFAULT_LGB_PARAMS,
+                                                    _sample_parameters)
+from miceforest.imputed_data import ImputedData
+from miceforest.logger import Logger
+from miceforest.utils import (_draw_random_int32, _expand_value_to_dict,
+                              _list_union, ensure_rng, logodds,
+                              stratified_categorical_folds,
+                              stratified_continuous_folds)
 
 _DEFAULT_DATA_SUBSET = 0
 _DEFAULT_MEANMATCH_CANDIDATES = 5
@@ -1819,19 +1814,9 @@ class ImputationKernel(ImputedData):
 
         # Move this to .compat at some point.
         try:
-            from plotnine import (
-                ggplot,
-                aes,
-                geom_tile,
-                theme,
-                element_text,
-                xlab,
-                ylab,
-                ggtitle,
-                element_blank,
-                geom_label,
-                scale_fill_distiller,
-            )
+            from plotnine import (aes, element_blank, element_text, geom_label,
+                                  geom_tile, ggplot, ggtitle,
+                                  scale_fill_distiller, theme, xlab, ylab)
         except ImportError:
             raise ImportError("plotnine must be installed to plot importance")
 

@@ -1,12 +1,12 @@
-from pandas import Series, DataFrame
 import inspect
 from copy import deepcopy
-from lightgbm import Booster
-from typing import Callable, Union, Dict, Set, Optional
+from typing import Callable, Dict, Optional, Set, Union
+
 import numpy as np
+from lightgbm import Booster
+from pandas import DataFrame, Series
 
 from .utils import logodds
-
 
 # Lightgbm can output 0.0 probabilities for extremely
 # rare categories. This causes logodds to return inf.

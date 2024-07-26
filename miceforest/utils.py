@@ -1,9 +1,10 @@
-import numpy as np
-from numpy.random import RandomState
+from typing import Dict, List, Optional, Union
+
 import blosc2
 import dill
-from pandas import Series, DataFrame, read_parquet
-from typing import Union, List, Dict, Optional
+import numpy as np
+from numpy.random import RandomState
+from pandas import DataFrame, Series, read_parquet
 
 
 def get_best_int_downcast(x: int):
