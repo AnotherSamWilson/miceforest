@@ -2,7 +2,7 @@ name: tests + mypy
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "major_update_6", "master" ]
   pull_request:
     branches: [ "master" ]
 
