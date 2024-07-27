@@ -14,7 +14,7 @@ classifiers = [
         "Operating System :: OS Independent"
 ]
 dependencies = [
-    "lightgbm>=4.1.0"
+    "lightgbm>=4.1.0",
     "pandas>=2.1.0",
     "numpy",
     "scipy>=1.6.0",
