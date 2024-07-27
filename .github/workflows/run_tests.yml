@@ -29,18 +29,18 @@ jobs:
           virtualenvs-in-project: true
           installer-parallel: true
 
-      # load cached venv if cache exists
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+      # # load cached venv if cache exists
+      # - name: Load cached venv
+      #   id: cached-poetry-dependencies
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: .venv
+      #     key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
-      # install dependencies if cache does not exist
-      - name: Install dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
+      # # install dependencies if cache does not exist
+      # - name: Install dependencies
+      #   if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      #   run: poetry install --no-interaction --no-root
 
       # install root project
       - name: Install project
@@ -59,7 +59,7 @@ jobs:
         run: isort miceforest --diff
 
       - name: Pytest
-        run: pytest --cov=miceforest --cov-report html
+        run: poetry run pytest --cov=miceforest --cov-report html
 
       - name: Upload coverage reports to Codecov
         run: |
