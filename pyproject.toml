@@ -1,7 +1,7 @@
 [project]
 name = "miceforest"
 license = {file = "LICENSE"}
-version = "6.0.0"
+version = "6.0.1"
 description = "Multiple Imputation by Chained Equations with LightGBM"
 authors = [{name="Sam Von Wilson"}]
 readme = "README.md"
@@ -40,7 +40,7 @@ packages = ['miceforest']
 
 [tool.poetry]
 name = "miceforest"
-version = "6.0.0"
+version = "0.9000"
 description = "Multiple Imputation by Chained Equations with LightGBM"
 authors = ["Sam Von Wilson"]
 package-mode = true
@@ -70,6 +70,7 @@ mypy = "^1.11.0"
 build = "^1.2.1"
 pytest-cov = "^5.0.0"
 twine = "^5.1.1"
+sphinx = "^7.4.7"
 
 [tool.mypy]
 ignore_missing_imports = true
