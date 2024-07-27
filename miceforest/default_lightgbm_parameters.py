@@ -26,7 +26,7 @@ _DEFAULT_LGB_PARAMS = {
     "max_depth": 8,
     "num_leaves": 128,
     "min_data_in_leaf": 1,
-    "min_sum_hessian_in_leaf": 0.1,
+    "min_sum_hessian_in_leaf": 0.01,
     "min_gain_to_split": 0.0,
     "bagging_fraction": 0.632,
     "feature_fraction_bynode": 0.632,
