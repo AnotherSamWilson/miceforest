@@ -47,16 +47,16 @@ jobs:
         run: poetry install --no-interaction --with dev
 
       - name: MyPy Checks
-        run: mypy miceforest --ignore-missing-imports
+        run: poetry run mypy miceforest --ignore-missing-imports
 
       - name: Black Formatting - Package
-        run: black miceforest --check
+        run: poetry run black miceforest --check
 
       - name: Black Formatting - Tests
-        run: black tests --check
+        run: poetry run black tests --check
 
       - name: Isort Checks
-        run: isort miceforest --diff
+        run: poetry run isort miceforest --diff
 
       - name: Pytest
         run: poetry run pytest --cov=miceforest --cov-report html
