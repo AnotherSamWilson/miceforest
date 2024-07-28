@@ -50,7 +50,7 @@ class ImputationKernel(ImputedData):
         even if a variable contains no missing values, or is not being imputed.
 
             - If None, all columns with missing values will have models trained, and all
-                columns will be used as features in these models.
+              columns will be used as features in these models.
             - If list, all columns in data are used to impute the variables in the list
             - If dict the values will be used to impute the keys.
 
