@@ -227,7 +227,7 @@ All Iterations Saved: {self.save_all_iterations_data}
         else:
             return None
 
-    def get_bachelor_features(self, variable):
+    def _get_bachelor_features(self, variable):
         na_where = self.na_where[variable]
         predictors = self.variable_schema[variable]
         bachelor_features = self.working_data.loc[na_where, predictors]

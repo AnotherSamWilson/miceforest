@@ -42,9 +42,8 @@ class ImputationKernel(ImputedData):
 
     Parameters
     ----------
-    data : pandas DataFrame.
+    data : pandas.DataFrame.
         The data to be imputed.
-
     variable_schema : None or List[str] or Dict[str, str], default=None
         Specifies the feature - target relationships used to train models.
         This parameter also controls which models are built. Models can be built
@@ -57,13 +56,12 @@ class ImputationKernel(ImputedData):
 
         No models will be trained for variables not specified by variable_schema
         (either by None, a list, or in dict keys).
-
-    imputation_order: str, default="ascending"
-        The order the imputations should occur in.
-            - ascending: variables are imputed from least to most missing
-            - descending: most to least missing
-            - roman: from left to right in the dataset
-            - arabic: from right to left in the dataset.
+    imputation_order : str, default="ascending"
+        The order the imputations should occur in:
+        - ascending: variables are imputed from least to most missing
+        - descending: most to least missing
+        - roman: from left to right in the dataset
+        - arabic: from right to left in the dataset.
 
     data_subset: None or int or dict.
         Subsets the data used in each iteration, which can save a significant amount of time.
@@ -104,9 +102,9 @@ class ImputationKernel(ImputedData):
 
         Special rules apply when this value is set to 0. This will skip mean matching entirely.
         The algorithm that applies depends on the objective type:
-            - Regression: The bachelor predictions are used as the imputation values.
-            - Binary: The class with the higher probability is chosen.
-            - Multiclass: The class with the highest probability is chosen.
+        - Regression: The bachelor predictions are used as the imputation values.
+        - Binary: The class with the higher probability is chosen.
+        - Multiclass: The class with the highest probability is chosen.
 
         Setting mmc to 0 will result in much faster process times, but at the cost of random
         variability that is desired when performing Multiple Imputation by Chained Equations.
@@ -131,7 +129,6 @@ class ImputationKernel(ImputedData):
         reproducible results at the record level, if a record is imputed multiple
         different times. If reproducible record-results are desired, a seed must be
         passed for each record in the random_seed_array parameter.
-
     """
 
     def __init__(
@@ -917,7 +914,7 @@ class ImputationKernel(ImputedData):
 
         return preds_df
 
-    def mean_match_mice(
+    def _mean_match_mice(
         self,
         variable: str,
         lgbmodel: Booster,
@@ -981,7 +978,7 @@ class ImputationKernel(ImputedData):
 
         return imputation_values
 
-    def mean_match_ind(
+    def _mean_match_ind(
         self,
         variable: str,
         lgbmodel: Booster,
@@ -1163,10 +1160,10 @@ class ImputationKernel(ImputedData):
                     if variable in self.imputation_order:
                         time_key = dataset, iteration, variable, "Mean Matching"
                         logger.set_start_time(time_key)
-                        bachelor_features = self.get_bachelor_features(
+                        bachelor_features = self._get_bachelor_features(
                             variable=variable
                         )
-                        imputation_values = self.mean_match_mice(
+                        imputation_values = self._mean_match_mice(
                             variable=variable,
                             lgbmodel=current_model,
                             bachelor_features=bachelor_features,
@@ -1285,30 +1282,26 @@ class ImputationKernel(ImputedData):
         """
         Perform hyperparameter tuning on models at the current iteration.
         This method is not meant to be robust, but to get a decent set of
-        parameters to help with imputation.
+        parameters to help with imputation. A few notes:
 
-        .. code-block:: text
-
-            A few notes:
-            - The parameters are tuned on the data that would currently be returned by
-                complete_data(dataset). It is usually a good idea to run at least 1 iteration
-                of mice with the default parameters to get a more accurate idea of the
-                real optimal parameters, since Missing At Random (MAR) data imputations
-                tend to converge over time.
-            - num_iterations is treated as the maximum number of boosting rounds to run
-                in lightgbm.cv. It is NEVER optimized. The num_iterations that is returned
-                is the best_iteration returned by lightgbm.cv. num_iterations can be passed to
-                limit the boosting rounds, but the returned value will always be obtained
-                from best_iteration.
-            - lightgbm parameters are chosen in the following order of priority:
-                1) Anything specified in variable_parameters
-                2) Parameters specified globally in **kwbounds
-                3) Default tuning space (miceforest.default_lightgbm_parameters)
-                4) Default parameters (miceforest.default_lightgbm_parameters.default_parameters)
-            - See examples for a detailed run-through. See
-                https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters
-                for even more detailed examples.
-
+        - The parameters are tuned on the data that would currently be returned by
+          complete_data(dataset). It is usually a good idea to run at least 1 iteration
+          of mice with the default parameters to get a more accurate idea of the
+          real optimal parameters, since Missing At Random (MAR) data imputations
+          tend to converge over time.
+        - num_iterations is treated as the maximum number of boosting rounds to run
+          in lightgbm.cv. It is NEVER optimized. The num_iterations that is returned
+          is the best_iteration returned by lightgbm.cv. num_iterations can be passed to
+          limit the boosting rounds, but the returned value will always be obtained
+          from best_iteration.
+        - lightgbm parameters are chosen in the following order of priority:
+            - Anything specified in variable_parameters
+            - Parameters specified globally in `**kwbounds`
+            - Default tuning space (miceforest.default_lightgbm_parameters)
+            - Default parameters (miceforest.default_lightgbm_parameters.default_parameters)
+        - See examples for a detailed run-through. See
+          https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters
+          for even more detailed examples.
 
         Parameters
         ----------
@@ -1316,26 +1309,28 @@ class ImputationKernel(ImputedData):
             The dataset to run parameter tuning on. Tuning parameters on 1 dataset usually results
             in acceptable parameters for all datasets. However, tuning results are still stored
             seperately for each dataset.
-
-        variables: None or list
+        variables: None or List[str]
             - If None, default hyper-parameter spaces are selected based on kernel data, and
-            all variables with missing values are tuned.
+              all variables with missing values are tuned.
             - If list, must either be indexes or variable names corresponding to the variables
-            that are to be tuned.
+              that are to be tuned.
 
         variable_parameters: None or dict
             Defines the tuning space. Dict keys must be variable names or indices, and a subset
             of the variables parameter. Values must be a dict with lightgbm parameter names as
             keys, and values that abide by the following rules:
-                scalar: If a single value is passed, that parameter will be used to build the
-                    model, and will not be tuned.
-                tuple: If a tuple is passed, it must have length = 2 and will be interpreted as
-                    the bounds to search within for that parameter.
-                list: If a list is passed, values will be randomly selected from the list.
-                    NOTE: This is only possible with method = 'random'.
+
+            - **scalar**: If a single value is passed, that parameter will be used to build the
+              model, and will not be tuned.
+            - **tuple**: If a tuple is passed, it must have length = 2 and will be interpreted as
+              the bounds to search within for that parameter.
+            - **list**: If a list is passed, values will be randomly selected from the list.
 
             example: If you wish to tune the imputation model for the 4th variable with specific
             bounds and parameters, you could pass:
+
+            .. code-block:: python
+
                 variable_parameters = {
                     'column': {
                         'learning_rate: 0.01',
@@ -1343,11 +1338,12 @@ class ImputationKernel(ImputedData):
                         'extra_trees': [True, False]
                     }
                 }
+
             All models for variable 'column' will have a learning_rate = 0.01. The process will randomly
             search within the bounds (0.1, 10) for min_sum_hessian_in_leaf, and extra_trees will
             be randomly selected from the list. Also note, the variable name for the 4th column
             could also be passed instead of the integer 4. All other variables will be tuned with
-            the default search space, unless **kwbounds are passed.
+            the default search space, unless `**kwbounds` are passed.
 
         parameter_sampling_method: str
             If 'random', parameters are randomly selected.
@@ -1391,7 +1387,7 @@ class ImputationKernel(ImputedData):
         dict: optimal_parameters
             A dict of the optimal parameters found for each variable.
             This can be passed directly to the variable_parameters parameter in mice()
-                {variable: {parameter_name: parameter_value}}
+            `{variable: {parameter_name: parameter_value}}`
 
         """
 
@@ -1538,7 +1534,7 @@ class ImputationKernel(ImputedData):
 
         Parameters
         ----------
-        new_data: pandas DataFrame
+        new_data: pandas.DataFrame
             The new data to impute
 
         datasets: int or List[int] (default = None)
@@ -1583,15 +1579,14 @@ class ImputationKernel(ImputedData):
 
             Notes:
                 a) This will slightly slow down the imputation process, because random
-                number generation in numpy can no longer be vectorized. If you don't have a
-                specific need for deterministic imputations at the record level, it is better to
-                keep this parameter as None.
+                   number generation in numpy can no longer be vectorized. If you don't have a
+                   specific need for deterministic imputations at the record level, it is better to
+                   keep this parameter as None.
 
                 b) Using this parameter may change the global numpy seed by calling np.random.seed().
 
                 c) Internally, these seeds are hashed each time they are used, in order
-                to obtain different results for each dataset / iteration.
-
+                   to obtain different results for each dataset / iteration.
 
         verbose: boolean
             Should information about the process be printed?
@@ -1675,14 +1670,14 @@ class ImputationKernel(ImputedData):
 
                     time_key = dataset, iteration, variable, "Getting Bachelor Features"
                     logger.set_start_time(time_key)
-                    bachelor_features = imputed_data.get_bachelor_features(variable)
+                    bachelor_features = imputed_data._get_bachelor_features(variable)
                     hashed_seeds = imputed_data._get_hashed_seeds(variable)
                     logger.record_time(time_key)
 
                     time_key = dataset, iteration, variable, "Mean Matching"
                     logger.set_start_time(time_key)
                     na_where = imputed_data.na_where[variable]
-                    imputation_values = self.mean_match_ind(
+                    imputation_values = self._mean_match_ind(
                         variable=variable,
                         lgbmodel=current_model,
                         bachelor_features=bachelor_features,
@@ -1743,7 +1738,7 @@ class ImputationKernel(ImputedData):
 
         Returns
         -------
-        pandas DataFrame of importance values. Rows are imputed
+        pandas.DataFrame of importance values. Rows are imputed
         variables, and columns are predictor variables.
 
         """
