@@ -932,7 +932,7 @@ each iteration, each specified variable in the dataset is imputed using
 the other variables in the dataset. These iterations should be run until
 it appears that convergence has been met.
 
-<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/MICEalgorithm.png" style="display: block; margin: auto;" />
+<img src="https://i.imgur.com/2L403kU.png" style="display: block; margin: auto;" />
 
 This process is continued until all specified variables have been
 imputed. Additional iterations can be run if it appears that the average
@@ -984,7 +984,7 @@ are selected, from which a value is chosen at random. This can be
 specified on a column-by-column basis. Going into more detail from our
 example above, we see how this works in practice:
 
-<img src="https://raw.githubusercontent.com/AnotherSamWilson/miceforest/master/examples/PMM.png" style="display: block; margin: auto;" />
+<img src="https://i.imgur.com/3DBCXnL.png" style="display: block; margin: auto;" />
 
 This method is very useful if you have a variable which needs imputing
 which has any of the following characteristics:

@@ -10,9 +10,36 @@ This documentation is meant to describe class methods and parameters only,
 for a thorough walkthrough of usage, please see the 
 `Github README <https://github.com/AnotherSamWilson/miceforest>`_.
 
+In general, the user will only be interacting with these two classes:
 
-Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
-with lightgbm. The R version of this package may be found
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Classes:
+
+   ImputationKernel <ImputationKernel>
+   ImputedData <ImputedData>
+
+
+How miceforest Works
+--------------------
+
+Multiple Imputation by Chained Equations ‘fills in’ (imputes) missing
+data in a dataset through an iterative series of predictive models. In
+each iteration, each specified variable in the dataset is imputed using
+the other variables in the dataset. These iterations should be run until
+it appears that convergence has been met.
+
+.. image:: https://i.imgur.com/2L403kU.png
+   :target: https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#the-mice-algorithm
+
+This process is continued until all specified variables have been
+imputed. Additional iterations can be run if it appears that the average
+imputed values have not converged, although no more than 5 iterations
+are usually necessary.
+
+This package provides fast, memory efficient Multiple Imputation by Chained 
+Equations (MICE) with lightgbm. The R version of this package may be found
 `here <https://github.com/FarrellDay/miceRanger>`_.
 
 `miceforest` was designed to be:
@@ -31,12 +58,3 @@ with lightgbm. The R version of this package may be found
       - Kernels are efficiently compressed during saving and loading
       - Data can be imputed in place to save memory
       - Can build models on non-missing data
-
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Contents:
-
-   ImputationKernel <ImputationKernel>
-   ImputedData <ImputedData>
