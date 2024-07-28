@@ -26,7 +26,7 @@ debugpy==1.8.2
 decorator==5.1.1
 defusedxml==0.7.1
 dill==0.3.8
-docutils==0.21.2
+docutils==0.20.1
 entrypoints==0.4
 exceptiongroup==1.2.2
 executing==2.0.1
@@ -72,6 +72,7 @@ MarkupSafe==2.1.5
 matplotlib==3.9.1
 matplotlib-inline==0.1.7
 mdurl==0.1.2
+-e git+https://github.com/AnotherSamWilson/miceforest.git@51896d0ff654ea809d4fe8fc6bf3868ad82077ac#egg=miceforest
 mistune==3.0.2
 mizani==0.11.4
 more-itertools==10.3.0
@@ -120,7 +121,7 @@ python-json-logger==2.0.7
 pytz==2024.1
 PyYAML==6.0.1
 pyzmq==26.0.3
-readme_renderer==44.0
+readme_renderer==43.0
 referencing==0.35.1
 requests==2.32.3
 requests-toolbelt==1.0.0
@@ -139,9 +140,11 @@ sniffio==1.3.1
 snowballstemmer==2.2.0
 soupsieve==2.5
 Sphinx==7.4.7
+sphinx-rtd-theme==2.0.0
 sphinxcontrib-applehelp==1.0.8
 sphinxcontrib-devhelp==1.0.6
 sphinxcontrib-htmlhelp==2.0.6
+sphinxcontrib-jquery==4.1
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-napoleon==0.7
 sphinxcontrib-qthelp==1.0.8
