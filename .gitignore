@@ -18,7 +18,6 @@ setupdev.py
 dev/
 .Rhistory
 benchmarks/*
-requirements.txt
 .venv
 poetry.lock
 pyproject.toml
