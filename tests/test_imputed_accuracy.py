@@ -78,7 +78,7 @@ def get_categorical_performance(kernel: mf.ImputationKernel, variables, iris):
         cand = kernel._make_label(col, seed=model.params["seed"])
         orig = iris.loc[ind, col]
         imps = kernel[col, iterations, 0]
-        bf = kernel.get_bachelor_features(col)
+        bf = kernel._get_bachelor_features(col)
         preds = model.predict(bf)
         rocs[col] = roc_auc_score(orig, preds, multi_class="ovr", average="macro")
         accs[col] = (imps == orig).mean()
