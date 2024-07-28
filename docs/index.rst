@@ -49,7 +49,7 @@ Equations (MICE) with lightgbm. The R version of this package may be found
       - Has efficient mean matching solutions.
       - Can utilize GPU training
   - **Flexible**
-      - Can impute pandas dataframes and numpy arrays
+      - Can impute pandas dataframes
       - Handles categorical data automatically
       - Fits into a sklearn pipeline
       - User can customize every aspect of the imputation process

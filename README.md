@@ -29,7 +29,7 @@ with lightgbm. The R version of this package may be found
       - Has efficient mean matching solutions.
       - Can utilize GPU training
   - **Flexible**
-      - Can impute pandas dataframes and numpy arrays
+      - Can impute pandas dataframes
       - Handles categorical data automatically
       - Fits into a sklearn pipeline
       - User can customize every aspect of the imputation process
@@ -48,58 +48,37 @@ you can find
 
 #### Table of Contents:
 
-  - [Package
-    Meta](https://github.com/AnotherSamWilson/miceforest#Package-Meta)
-  - [The
-    Basics](https://github.com/AnotherSamWilson/miceforest#The-Basics)
-      - [Basic
-        Examples](https://github.com/AnotherSamWilson/miceforest#Basic-Examples)
-      - [Customizing LightGBM
-        Parameters](https://github.com/AnotherSamWilson/miceforest#Customizing-LightGBM-Parameters)
-      - [Available Mean Match
-        Schemes](https://github.com/AnotherSamWilson/miceforest#Controlling-Tree-Growth)
-      - [Imputing New Data with Existing
-        Models](https://github.com/AnotherSamWilson/miceforest#Imputing-New-Data-with-Existing-Models)
-      - [Saving and Loading
-        Kernels](https://github.com/AnotherSamWilson/miceforest#Saving-and-Loading-Kernels)
-      - [Implementing sklearn
-        Pipelines](https://github.com/AnotherSamWilson/miceforest#Implementing-sklearn-Pipelines)
-  - [Advanced
-    Features](https://github.com/AnotherSamWilson/miceforest#Advanced-Features)
-      - [Customizing the Imputation
-        Process](https://github.com/AnotherSamWilson/miceforest#Customizing-the-Imputation-Process)
-      - [Building Models on Nonmissing
-        Data](https://github.com/AnotherSamWilson/miceforest#Building-Models-on-Nonmissing-Data)
-      - [Tuning
-        Parameters](https://github.com/AnotherSamWilson/miceforest#Tuning-Parameters)
-      - [On
-        Reproducibility](https://github.com/AnotherSamWilson/miceforest#On-Reproducibility)
-      - [How to Make the Process
-        Faster](https://github.com/AnotherSamWilson/miceforest#How-to-Make-the-Process-Faster)
-      - [Imputing Data In
-        Place](https://github.com/AnotherSamWilson/miceforest#Imputing-Data-In-Place)
-  - [Diagnostic
-    Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting)
-      - [Imputed
-        Distributions](https://github.com/AnotherSamWilson/miceforest#Distribution-of-Imputed-Values)
-      - [Correlation
-        Convergence](https://github.com/AnotherSamWilson/miceforest#Convergence-of-Correlation)
-      - [Variable
-        Importance](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
-      - [Mean
-        Convergence](https://github.com/AnotherSamWilson/miceforest#Variable-Importance)
-  - [Benchmarks](https://github.com/AnotherSamWilson/miceforest#Benchmarks)
-  - [Using the Imputed
-    Data](https://github.com/AnotherSamWilson/miceforest#Using-the-Imputed-Data)
-  - [The MICE
-    Algorithm](https://github.com/AnotherSamWilson/miceforest#The-MICE-Algorithm)
-      - [Introduction](https://github.com/AnotherSamWilson/miceforest#The-MICE-Algorithm)
-      - [Common Use
-        Cases](https://github.com/AnotherSamWilson/miceforest#Common-Use-Cases)
-      - [Predictive Mean
-        Matching](https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching)
-      - [Effects of Mean
-        Matching](https://github.com/AnotherSamWilson/miceforest#Effects-of-Mean-Matching)
+This document contains a thorough walkthrough of the package,
+benchmarks, and an introduction to multiple imputation. More information
+on MICE can be found in Stef van Buuren’s excellent online book, which
+you can find
+[here](https://stefvanbuuren.name/fimd/ch-introduction.html).
+
+#### Table of Contents:
+
+  - [Classes](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#classes)
+  - [Basic Usage](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#basic-usage)
+      - [Example](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#basic-usage)
+      - [Customizing LightGBM Parameters](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#customizing-lightgbm-parameters)
+      - [Available Mean Match Schemes](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#adjusting-the-mean-matching-scheme)
+      - [Imputing New Data with Existing Models](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#imputing-new-data-with-existing-models)
+      - [Saving and Loading Kernels](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#saving-and-loading-kernels)
+      - [Implementing sklearn Pipelines](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#saving-and-loading-kernels)
+  - [Advanced Features](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#advanced-features)
+      - [Building Models on Nonmissing Data](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#building-models-on-nonmissing-data)
+      - [Tuning Parameters](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#tuning-parameters)
+      - [On Reproducibility](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#on-reproducibility)
+      - [How to Make the Process Faster](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#how-to-make-the-process-faster)
+      - [Imputing Data In Place](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#imputing-data-in-place)
+  - [Diagnostic Plotting](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#diagnostic-plotting)
+      - [Feature Importance](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#feature-importance)
+      - [Imputed Distributions](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#plot-imputed-distributions)
+  - [Using the Imputed Data](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#using-the-imputed-data)
+  - [The MICE Algorithm](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#the-mice-algorithm)
+      - [Introduction](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#the-mice-algorithm)
+      - [Common Use Cases](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#common-use-cases)
+      - [Predictive Mean Matching](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#predictive-mean-matching)
+      - [Effects of Mean Matching](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#effects-of-mean-matching)
 
 ## Installation
 
@@ -350,7 +329,7 @@ cust_kernel.mice(
 )
 ```
 
-### Imputing New Data with Existing Models
+## Imputing New Data with Existing Models
 
 Multiple Imputation can take a long time. If you wish to impute a
 dataset using the MICE algorithm, but don’t have time to train new
@@ -433,6 +412,8 @@ X_test_t = pipe.transform(new_data)
 assert not np.any(np.isnan(X_train_t))
 assert not np.any(np.isnan(X_test_t))
 ```
+
+# Advanced Features
 
 ## Building Models on Nonmissing Data
 
@@ -843,9 +824,9 @@ print(iris_amp.isnull().sum(0))
     dtype: int64
 
 
-## Diagnostic Plotting
+# Diagnostic Plotting
 
-As of now, there is 2 diagnostic plot available. More coming soon!
+As of now, there are 2 diagnostic plot available. More coming soon!
 
 ### Feature Importance
 
