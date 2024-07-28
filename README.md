@@ -16,7 +16,7 @@ Status](https://readthedocs.org/projects/miceforest/badge/?version=latest)](http
 
 # miceforest: Fast, Memory Efficient Imputation with LightGBM
 
-<a href='https://github.com/AnotherSamWilson/miceforest'><img src='https://imgur.com/a/6wOQ936' align="right" height="300" /></a>
+<a href='https://github.com/AnotherSamWilson/miceforest'><img src='https://i.imgur.com/jJPThrd.png' align="right" height="300" /></a>
 
 Fast, memory efficient Multiple Imputation by Chained Equations (MICE)
 with lightgbm. The R version of this package may be found
