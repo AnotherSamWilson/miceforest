@@ -1,6 +1,6 @@
 from copy import copy
 from io import BytesIO
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union, Literal
 from warnings import warn
 
 import numpy as np
@@ -49,86 +49,98 @@ class ImputationKernel(ImputedData):
         This parameter also controls which models are built. Models can be built
         even if a variable contains no missing values, or is not being imputed.
 
-            - If None, all columns with missing values will have models trained, and all
+            - If :code:`None`, all columns with missing values will have models trained, and all
               columns will be used as features in these models.
-            - If list, all columns in data are used to impute the variables in the list
-            - If dict the values will be used to impute the keys.
+            - If :code:`List[str]`, all columns in data are used to impute the variables in the list
+            - If :code:`Dict[str, str]` the values will be used to impute the keys.
 
         No models will be trained for variables not specified by variable_schema
         (either by None, a list, or in dict keys).
     imputation_order : str, default="ascending"
         The order the imputations should occur in:
-        - ascending: variables are imputed from least to most missing
-        - descending: most to least missing
-        - roman: from left to right in the dataset
-        - arabic: from right to left in the dataset.
 
-    data_subset: None or int or dict.
-        Subsets the data used in each iteration, which can save a significant amount of time.
-        This can also help with memory consumption, as the candidate data must be copied to
-        make a feature dataset for lightgbm.
+        - :code:`ascending`: variables are imputed from least to most missing
+        - :code:`descending`: most to least missing
+        - :code:`roman`: from left to right in the dataset
+        - :code:`arabic`: from right to left in the dataset.
 
-        The number of rows used for each variable is (# rows in raw data) - (# missing variable values)
-        for each variable. data_subset takes a random sample of this.
+    data_subset: None or int or Dict[str, int], default=0
+        Subsets the data used to train the model for each variable, which can save a significant amount of time.
+        The number of rows used for model training and mean matching (candidates) is 
+        :code:`(# rows in raw data) - (# missing variable values)`
+        for each variable. :code:`data_subset` takes a random sample from these candidates.
 
-        If int must be data_subset >= 0. Interpreted as the number of candidates.
-        If 0, no subsetting is done.
-        If dict, keys must be variable names, and values must follow two above rules.
+        - If :code:`int`, must be >= 0. Interpreted as the number of candidates.
+        - If :code:`0`, no subsetting is done.
+        - If :code:`Dict[str, int]`, keys must be variable names, and values must follow two above rules.
 
-        It is recommended to carefully select this value for each variable if dealing
-        with very large data that barely fits into memory.
+        This can also help with memory consumption, as the candidate data must be copied to 
+        make a feature dataset for lightgbm. It is recommended to carefully select this value 
+        for each variable if dealing with very large data that barely fits into memory.
 
-    mean_match_strategy: str or Dict[str, str]
+    mean_match_strategy: str or Dict[str, str], default="normal"
         There are 3 mean matching strategies included in miceforest:
-            - "normal" - this is the default. For all predictions, K-nearest-neighbors
-                is performed on the candidate predictions and bachelor predictions.
-                The top MMC closest candidate values are chosen at random.
-            - "fast" - Only available for categorical and binary columns. A value
-                is selected at random weighted by the class probabilities.
-            - "shap" - Similar to "normal" but more robust. A K-nearest-neighbors
-                search is performed on the shap values of the candidate predictions
-                and the bachelor predictions. A value from the top MMC closest candidate
-                values is chosen at random.
+
+        - :code:`normal` - this is the default. For all predictions, K-nearest-neighbors
+          is performed on the candidate predictions and bachelor predictions.
+          The top MMC closest candidate values are chosen at random.
+        - :code:`fast` - Only available for categorical and binary columns. A value
+          is selected at random weighted by the class probabilities.
+        - :code:`shap` - Similar to "normal" but more robust. A K-nearest-neighbors
+          search is performed on the shap values of the candidate predictions
+          and the bachelor predictions. A value from the top MMC closest candidate
+          values is chosen at random.
 
         A dict of strategies by variable can be passed as well. Any unmentioned variables
         will be set to the default, "normal".
 
-        Special rules are enacted when mean_match_candidates == 0 for a variable. See the
-        mean_match_candidates parameter for more information.
+            .. code-block:: python
+
+                mean_match_strategy = {
+                    'column_1': 'fast',
+                    'column_2': 'shap',
+                }
+
+        Special rules are enacted when :code:`mean_match_candidates==0` for a 
+        variable. See the mean_match_candidates parameter for more information.
 
     mean_match_candidates: int or Dict[str, int]
-        When mean matching relies on selecting one of the top N closest candidate predictions,
-        this number is used for N.
-
+        The number of nearest neighbors to choose an imputation value from randomly when mean matching.
+    
         Special rules apply when this value is set to 0. This will skip mean matching entirely.
         The algorithm that applies depends on the objective type:
-        - Regression: The bachelor predictions are used as the imputation values.
-        - Binary: The class with the higher probability is chosen.
-        - Multiclass: The class with the highest probability is chosen.
 
-        Setting mmc to 0 will result in much faster process times, but at the cost of random
-        variability that is desired when performing Multiple Imputation by Chained Equations.
+        - :code:`Regression`: The bachelor predictions are used as the imputation values.
+        - :code:`Binary`: The class with the higher probability is chosen.
+        - :code:`Multiclass`: The class with the highest probability is chosen.
 
-    initialize_empty: bool, default = False
-        If True, missing data is not filled in randomly before model training starts.
+        Setting mmc to 0 will result in much faster process times, but has a few downsides:
 
-    save_all_iterations_data: boolean, optional(default=True)
+        - Imputation values for regression variables might no longer be valid values.
+          Mean matching ensures that the imputed values have been realized in the data before.
+        - Random variability from mean matching is often desired to get a more accurate
+          view of the variability in imputed "confidence"
+
+    initialize_empty: bool, default=False
+        If :code:`True`, missing data is not filled in randomly before model training starts.
+
+    save_all_iterations_data: bool, default=True
         Setting to False will cause the process to not store the models and
         candidate values obtained at each iteration. This can save significant
-        amounts of memory, but it means `impute_new_data()` will not be callable.
+        amounts of memory, but it means :code:`impute_new_data()` will not be callable.
 
-    copy_data: boolean (default = False)
+    copy_data: bool, default=True
         Should the dataset be referenced directly? If False, this will cause
         the dataset to be altered in place. If a copy is created, it is saved
         in self.working_data. There are different ways in which the dataset
         can be altered.
 
-    random_state: None,int, or numpy.random.RandomState
+    random_state: None, int, or numpy.random.RandomState
         The random_state ensures script reproducibility. It only ensures reproducible
         results if the same script is called multiple times. It does not guarantee
-        reproducible results at the record level, if a record is imputed multiple
+        reproducible results at the record level if a record is imputed multiple
         different times. If reproducible record-results are desired, a seed must be
-        passed for each record in the random_seed_array parameter.
+        passed for each record in the :code:`random_seed_array` parameter.
     """
 
     def __init__(
@@ -136,7 +148,7 @@ class ImputationKernel(ImputedData):
         data: DataFrame,
         num_datasets: int = 1,
         variable_schema: Optional[Union[List[str], Dict[str, List[str]]]] = None,
-        imputation_order: str = "ascending",
+        imputation_order: Literal["ascending", "descending", "roman", "latin"] = "ascending",
         mean_match_candidates: Union[
             int, Dict[str, int]
         ] = _DEFAULT_MEANMATCH_CANDIDATES,
@@ -1051,7 +1063,7 @@ class ImputationKernel(ImputedData):
         **kwlgb,
     ):
         """
-        Perform mice on a given dataset.
+        Perform MICE on a given dataset.
 
         Multiple Imputation by Chained Equations (MICE) is an
         iterative method which fills in (imputes) missing data
@@ -1079,8 +1091,17 @@ class ImputationKernel(ImputedData):
             be variable names or indices, and values should be a dict of
             parameter which should apply to that variable only.
 
+            .. code-block:: python
+
+                variable_parameters = {
+                    'column': {
+                        'min_sum_hessian_in_leaf: 25.0,
+                        'extra_trees': True,
+                    }
+                }
+
         kwlgb:
-            Additional arguments to pass to lightgbm. Applied to all models.
+            Additional parameters to pass to lightgbm. Applied to all models.
 
         """
 
@@ -1224,8 +1245,10 @@ class ImputationKernel(ImputedData):
         ----------
         variable: str
             The variable
+
         dataset: int
             The dataset
+
         iteration: str
             The iteration. Use -1 for the latest.
         """
@@ -1270,7 +1293,7 @@ class ImputationKernel(ImputedData):
         dataset: int = 0,
         variables: Optional[List[str]] = None,
         variable_parameters: Dict[str, Any] = dict(),
-        parameter_sampling_method: str = "random",
+        parameter_sampling_method: Literal["random"] = "random",
         max_reattempts: int = 5,
         use_gbdt: bool = True,
         nfold: int = 10,
@@ -1346,13 +1369,13 @@ class ImputationKernel(ImputedData):
             the default search space, unless `**kwbounds` are passed.
 
         parameter_sampling_method: str
-            If 'random', parameters are randomly selected.
+            If :code:`random`, parameters are randomly selected.
             Other methods will be added in future releases.
 
         max_reattempts: int
             The maximum number of failures (or non-learners) before the process stops, and moves to the
             next variable. Failures can be caused by bad parameters passed to lightgbm. Non-learners
-            occur when trees cannot possibly be built (i.e. min_samples_in_leaf > dataset.shape[0]).
+            occur when trees cannot possibly be built (i.e. if :code:`min_data_in_leaf > dataset.shape[0]`).
 
         use_gbdt: bool
             Whether the models should use gradient boosting instead of random forests.
@@ -1384,10 +1407,9 @@ class ImputationKernel(ImputedData):
 
         Returns
         -------
-        dict: optimal_parameters
+        optimal_parameters: dict
             A dict of the optimal parameters found for each variable.
-            This can be passed directly to the variable_parameters parameter in mice()
-            `{variable: {parameter_name: parameter_value}}`
+            This can be passed directly to the :code:`variable_parameters` parameter in :code:`mice()`
 
         """
 
@@ -1537,58 +1559,45 @@ class ImputationKernel(ImputedData):
         new_data: pandas.DataFrame
             The new data to impute
 
-        datasets: int or List[int] (default = None)
+        datasets: int or List[int], default = None
             The datasets from the kernel to use to impute the new data.
-            If None, all datasets from the kernel are used.
+            If :code:`None`, all datasets from the kernel are used.
 
-        iterations: int
+        iterations: int, default=None
             The number of iterations to run.
-            If None, the same number of iterations run so far in mice is used.
+            If :code:`None`, the same number of iterations run so far in mice is used.
 
-        save_all_iterations_data: bool
+        save_all_iterations_data: bool, default=True
             Should the imputation values of all iterations be archived?
-            If False, only the latest imputation values are saved.
+            If :code:`False`, only the latest imputation values are saved.
 
-        copy_data: boolean
+        copy_data: boolean, default=True
             Should the dataset be referenced directly? This will cause the dataset to be altered
-            in place. If a copy is created, it is saved in self.working_data. There are different
-            ways in which the dataset can be altered:
+            in place.
 
-            1) complete_data() will fill in missing values
-            2) mice() references and manipulates self.working_data directly.
-
-        random_state: int or np.random.RandomState or None (default=None)
-            The random state of the process. Ensures reproducibility. If None, the random state
+        random_state: None or int or np.random.RandomState (default=None)
+            The random state of the process. Ensures reproducibility. If :code:`None`, the random state
             of the kernel is used. Beware, this permanently alters the random state of the kernel
             and ensures non-reproduceable results, unless the entire process up to this point
             is re-run.
 
-        random_seed_array: None or np.ndarray (int32)
+        random_seed_array: None or np.ndarray[uint32, int32, uint64]
             Record-level seeds.
 
             Ensures deterministic imputations at the record level. random_seed_array causes
             deterministic imputations for each record no matter what dataset each record is
             imputed with, assuming the same number of iterations and datasets are used.
-            If random_seed_array os passed, random_state must also be passed.
+            If :code:`random_seed_array` is passed, random_state must also be passed.
 
             Record-level imputations are deterministic if the following conditions are met:
-                1) The associated seed is the same.
+                1) The associated value in :code:`random_seed_array` is the same.
                 2) The same kernel is used.
                 3) The same number of iterations are run.
                 4) The same number of datasets are run.
 
-            Notes:
-                a) This will slightly slow down the imputation process, because random
-                   number generation in numpy can no longer be vectorized. If you don't have a
-                   specific need for deterministic imputations at the record level, it is better to
-                   keep this parameter as None.
+            Note: Using this parameter may change the global numpy seed by calling :code:`np.random.seed()`
 
-                b) Using this parameter may change the global numpy seed by calling np.random.seed().
-
-                c) Internally, these seeds are hashed each time they are used, in order
-                   to obtain different results for each dataset / iteration.
-
-        verbose: boolean
+        verbose: boolean, default=False
             Should information about the process be printed?
 
         Returns
@@ -1730,7 +1739,7 @@ class ImputationKernel(ImputedData):
             Use -1 to specify the latest iteration.
 
         importance_type: str
-            Passed to lgb.feature_importance()
+            Passed to :code:`lgb.feature_importance()`
 
         normalize: bool
             Whether to normalize the values within
@@ -1738,8 +1747,7 @@ class ImputationKernel(ImputedData):
 
         Returns
         -------
-        pandas.DataFrame of importance values. Rows are imputed
-        variables, and columns are predictor variables.
+        pandas.DataFrame of importance values. Rows are imputed variables, and columns are predictor variables.
 
         """
 

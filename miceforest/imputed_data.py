@@ -249,13 +249,13 @@ All Iterations Saved: {self.save_all_iterations_data}
 
         Parameters
         ----------
-        datasets: int or None
+        datasets: None or int
             The datasets to check the iteration count for.
-            If None, all datasets are assumed (and assured)
+            If :code:`None`, all datasets are assumed (and assured)
             to have the same iteration count, otherwise error.
         variables: str or None
             The variable to check the iteration count for.
-            If None, all variables are assumed (and assured)
+            If :code:`None`, all variables are assumed (and assured)
             to have the same iteration count, otherwise error.
 
         Returns
@@ -288,7 +288,7 @@ All Iterations Saved: {self.save_all_iterations_data}
             The dataset to complete.
         iteration: int
             Impute data with values obtained at this iteration.
-            If -1, returns the most up-to-date iterations,
+            If :code:`-1`, returns the most up-to-date iterations,
             even if different between variables. If not -1,
             iteration must have been saved in imputed values.
         inplace: bool
