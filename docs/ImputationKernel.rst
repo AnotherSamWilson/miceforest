@@ -5,3 +5,4 @@ ImputationKernel Class
    :members:
    :undoc-members:
    :show-inheritance:
+   :inherited-members:
