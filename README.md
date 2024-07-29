@@ -128,7 +128,7 @@ iris_amp = mf.ampute_data(iris,perc=0.25,random_state=1991)
 ```
 
 If you only want to create a single imputed dataset, you can use
-[`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel)
+[`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ImputationKernel.html)
 with some default settings:
 
 
@@ -148,13 +148,13 @@ iris_complete = kds.complete_data()
 
 There are also an array of plotting functions available, these are
 discussed below in the section [Diagnostic
-Plotting](https://github.com/AnotherSamWilson/miceforest#Diagnostic-Plotting).  
+Plotting](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#diagnostic-plotting).  
 
 We usually don’t want to impute just a single dataset. In statistics,
 multiple imputation is a process by which the uncertainty/other effects
 caused by missing values can be examined by creating multiple different
 imputed datasets.
-[`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel)
+[`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ImputationKernel.html)
 can contain an arbitrary number of different datasets, all of which have
 gone through mutually exclusive imputation processes:
 
@@ -283,7 +283,7 @@ LightGBM is set up to do this on your machine.
 ## Adjusting The Mean Matching Scheme
 
 Note: It is probably a good idea to read [this
-section](https://github.com/AnotherSamWilson/miceforest#Predictive-Mean-Matching)
+section](https://github.com/AnotherSamWilson/miceforest?tab=readme-ov-file#predictive-mean-matching)
 first, to get some context on how mean matching works.
 
 There are 4 imputation strategies employed by `miceforest`:
