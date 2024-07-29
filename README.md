@@ -39,15 +39,6 @@ with lightgbm. The R version of this package may be found
       - Data can be imputed in place to save memory
       - Can build models on non-missing data
 
-
-This document contains a thorough walkthrough of the package,
-benchmarks, and an introduction to multiple imputation. More information
-on MICE can be found in Stef van Buuren’s excellent online book, which
-you can find
-[here](https://stefvanbuuren.name/fimd/ch-introduction.html).
-
-#### Table of Contents:
-
 This document contains a thorough walkthrough of the package,
 benchmarks, and an introduction to multiple imputation. More information
 on MICE can be found in Stef van Buuren’s excellent online book, which
@@ -103,22 +94,18 @@ $ pip install git+https://github.com/AnotherSamWilson/miceforest.git
 
 ## Classes
 
-miceforest has 3 main classes which the user will interact with:
+miceforest has 2 main classes which the user will interact with:
 
-  - [`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputationKernel.html#miceforest.ImputationKernel)
+  - [`ImputationKernel`](https://miceforest.readthedocs.io/en/latest/ImputationKernel.html)
     - This class contains the raw data off of which the `mice` algorithm
     is performed. During this process, models will be trained, and the
     imputed (predicted) values will be stored. These values can be used
     to fill in the missing values of the raw data. The raw data can be
     copied, or referenced directly. Models can be saved, and used to
     impute new datasets.
-  - [`ImputedData`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.ImputedData.html#miceforest.ImputedData)
+  - [`ImputedData`](https://miceforest.readthedocs.io/en/latest/ImputedData.html)
     - The result of `ImputationKernel.impute_new_data(new_data)`. This
     contains the raw data in `new_data` as well as the imputed values.  
-  - [`MeanMatchScheme`](https://miceforest.readthedocs.io/en/latest/ik/miceforest.MeanMatchScheme.html#miceforest.MeanMatchScheme)
-    - Determines how mean matching should be carried out. There are 3
-    built-in mean match schemes available in miceforest, discussed
-    below.
 
 
 ## Basic Usage
@@ -519,19 +506,6 @@ pd.DataFrame(optimal_params)
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -1100,8 +1074,3 @@ distribution of the data. Simply returning the value from the model
 prediction, while it may provide a better ‘fit’, will not provide
 imputations with a similair distribution to the original. This may be
 beneficial, depending on your goal.
-
-
-```python
-
-```
