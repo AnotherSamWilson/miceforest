@@ -1,6 +1,6 @@
 from copy import copy
 from io import BytesIO
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union, Literal
+from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
@@ -66,7 +66,7 @@ class ImputationKernel(ImputedData):
 
     data_subset: None or int or Dict[str, int], default=0
         Subsets the data used to train the model for each variable, which can save a significant amount of time.
-        The number of rows used for model training and mean matching (candidates) is 
+        The number of rows used for model training and mean matching (candidates) is
         :code:`(# rows in raw data) - (# missing variable values)`
         for each variable. :code:`data_subset` takes a random sample from these candidates.
 
@@ -74,8 +74,8 @@ class ImputationKernel(ImputedData):
         - If :code:`0`, no subsetting is done.
         - If :code:`Dict[str, int]`, keys must be variable names, and values must follow two above rules.
 
-        This can also help with memory consumption, as the candidate data must be copied to 
-        make a feature dataset for lightgbm. It is recommended to carefully select this value 
+        This can also help with memory consumption, as the candidate data must be copied to
+        make a feature dataset for lightgbm. It is recommended to carefully select this value
         for each variable if dealing with very large data that barely fits into memory.
 
     mean_match_strategy: str or Dict[str, str], default="normal"
@@ -101,12 +101,12 @@ class ImputationKernel(ImputedData):
                     'column_2': 'shap',
                 }
 
-        Special rules are enacted when :code:`mean_match_candidates==0` for a 
+        Special rules are enacted when :code:`mean_match_candidates==0` for a
         variable. See the mean_match_candidates parameter for more information.
 
     mean_match_candidates: int or Dict[str, int]
         The number of nearest neighbors to choose an imputation value from randomly when mean matching.
-    
+
         Special rules apply when this value is set to 0. This will skip mean matching entirely.
         The algorithm that applies depends on the objective type:
 
@@ -148,7 +148,9 @@ class ImputationKernel(ImputedData):
         data: DataFrame,
         num_datasets: int = 1,
         variable_schema: Optional[Union[List[str], Dict[str, List[str]]]] = None,
-        imputation_order: Literal["ascending", "descending", "roman", "latin"] = "ascending",
+        imputation_order: Literal[
+            "ascending", "descending", "roman", "latin"
+        ] = "ascending",
         mean_match_candidates: Union[
             int, Dict[str, int]
         ] = _DEFAULT_MEANMATCH_CANDIDATES,
