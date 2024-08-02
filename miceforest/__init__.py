@@ -8,9 +8,14 @@ Extensive tutorials can be found on the github README:
 https://github.com/AnotherSamWilson/miceforest
 """
 
+import importlib.metadata
+
 from .imputation_kernel import ImputationKernel
 from .imputed_data import ImputedData
 from .utils import ampute_data
+
+__version__ = importlib.metadata.version("miceforest")
+
 
 __all__ = [
     "ImputedData",
