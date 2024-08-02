@@ -266,6 +266,7 @@ def make_and_test_kernel(**kwargs):
     # Test plotting
     kernel.plot_imputed_distributions()
     kernel.plot_feature_importance(dataset=0)
+    kernel.plot_mean_convergence()
 
     return kernel
 
