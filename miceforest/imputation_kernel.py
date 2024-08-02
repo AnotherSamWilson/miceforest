@@ -10,13 +10,10 @@ from pandas import Categorical, DataFrame, MultiIndex, Series, read_parquet
 from pandas.api.types import is_integer_dtype
 from scipy.spatial import KDTree
 
-from miceforest.default_lightgbm_parameters import (
-    _DEFAULT_LGB_PARAMS,
-    _sample_parameters,
-)
-from miceforest.imputed_data import ImputedData
-from miceforest.logger import Logger
-from miceforest.utils import (
+from .default_lightgbm_parameters import _DEFAULT_LGB_PARAMS, _sample_parameters
+from .imputed_data import ImputedData
+from .logger import Logger
+from .utils import (
     _draw_random_int32,
     _expand_value_to_dict,
     _list_union,
