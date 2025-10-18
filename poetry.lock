@@ -870,6 +870,22 @@ files = [
 ]
 
 [[package]]
+name = "dill"
+version = "0.3.9"
+description = "serialize all of Python"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "dill-0.3.9-py3-none-any.whl", hash = "sha256:468dff3b89520b474c0397703366b7b95eebe6303f108adf9b19da1f702be87a"},
+    {file = "dill-0.3.9.tar.gz", hash = "sha256:81aa267dddf68cbfe8029c42ca9ec6a4ab3b22371d1c450abc54422577b4512c"},
+]
+
+[package.extras]
+graph = ["objgraph (>=1.7.2)"]
+profile = ["gprof2dot (>=2022.7.29)"]
+
+[[package]]
 name = "docutils"
 version = "0.20.1"
 description = "Docutils -- Python Documentation Utilities"
@@ -4397,9 +4413,9 @@ type = ["pytest-mypy"]
 [extras]
 pipeline = ["scikit-learn"]
 plotting = ["matplotlib", "matplotlib", "plotnine"]
-tests = ["black"]
+tests = ["black", "dill"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "aeefbfb1a05b34992b84381da085a758ac4735a3a3a7e79b1af993fef2c8554e"
+content-hash = "b88c5c7974787f1dba69ab3e85e0533718335bcc084875aae4ce49100ff0045f"
