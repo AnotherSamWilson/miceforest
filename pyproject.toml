@@ -24,7 +24,8 @@ dependencies = [
 [project.optional-dependencies]
 plotting = [
     "plotnine>=0.13.6",
-    "matplotlib>=3.3.0"
+    "matplotlib>=3.3.0",
+    "matplotlib!=3.9.1"
 ]
 pipeline = [
     "scikit-learn!=0.22.0"
