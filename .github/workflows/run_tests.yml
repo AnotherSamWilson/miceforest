@@ -44,7 +44,7 @@ jobs:
 
       # install root project
       - name: Install project
-        run: poetry install --no-interaction --with dev
+        run: poetry install --no-interaction --with dev --all-extras
 
       - name: MyPy Checks
         run: poetry run mypy miceforest --ignore-missing-imports
