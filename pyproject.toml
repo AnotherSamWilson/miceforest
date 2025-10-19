@@ -1,7 +1,7 @@
 [project]
 name = "miceforest"
 license = {file = "LICENSE"}
-version = "6.0.2"
+version = "6.0.3"
 description = "Multiple Imputation by Chained Equations with LightGBM"
 authors = [{name="Sam Von Wilson"}]
 readme = "README.md"
@@ -10,6 +10,7 @@ classifiers = [
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent"
 ]
