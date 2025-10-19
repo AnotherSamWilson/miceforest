@@ -183,9 +183,9 @@ class ImputationKernel(ImputedData):
                 if key in self.imputed_variables
             }
             self.imputation_order = list(
-                Series(_na_counts).sort_values(ascending=False).index
+                Series(_na_counts).sort_values(ascending=True).index
             )
-            if imputation_order == "decending":
+            if imputation_order == "descending":
                 self.imputation_order.reverse()
         elif imputation_order == "roman":
             self.imputation_order = self.imputed_variables.copy()
