@@ -1,7 +1,7 @@
 [project]
 name = "miceforest"
 license = {file = "LICENSE"}
-version = "6.0.3"
+version = "6.0.4"
 description = "Multiple Imputation by Chained Equations with LightGBM"
 authors = [{name="Sam Von Wilson"}]
 readme = "README.md"
