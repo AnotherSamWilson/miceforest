@@ -1,7 +1,7 @@
 [project]
 name = "miceforest"
 license = {file = "LICENSE"}
-version = "6.0.2"
+version = "6.0.3"
 description = "Multiple Imputation by Chained Equations with LightGBM"
 authors = [{name="Sam Von Wilson"}]
 readme = "README.md"
@@ -10,6 +10,7 @@ classifiers = [
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent"
 ]
@@ -24,10 +25,15 @@ dependencies = [
 [project.optional-dependencies]
 plotting = [
     "plotnine>=0.13.6",
-    "matplotlib>=3.3.0"
+    "matplotlib>=3.3.0",
+    "matplotlib!=3.9.1"
 ]
 pipeline = [
     "scikit-learn!=0.22.0"
+]
+tests = [
+    "black>=24.4.2",
+    "dill>=0.3.7"
 ]
 
 [project.urls]

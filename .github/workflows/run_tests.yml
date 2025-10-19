@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -44,7 +44,7 @@ jobs:
 
       # install root project
       - name: Install project
-        run: poetry install --no-interaction --with dev
+        run: poetry install --no-interaction --with dev --all-extras
 
       - name: MyPy Checks
         run: poetry run mypy miceforest --ignore-missing-imports
