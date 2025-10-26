@@ -29,7 +29,7 @@ with lightgbm. The R version of this package may be found
       - Has efficient mean matching solutions.
       - Can utilize GPU training
   - **Flexible**
-      - Can impute pandas dataframes
+      - Can impute pandas dataframes and numpy arrays
       - Handles categorical data automatically
       - Fits into a sklearn pipeline
       - User can customize every aspect of the imputation process
@@ -38,6 +38,7 @@ with lightgbm. The R version of this package may be found
       - Kernels are efficiently compressed during saving and loading
       - Data can be imputed in place to save memory
       - Can build models on non-missing data
+
 
 This document contains a thorough walkthrough of the package,
 benchmarks, and an introduction to multiple imputation. More information
@@ -338,7 +339,7 @@ new_data_imputed = cust_kernel.impute_new_data(new_data=new_data)
 print(f"New Data imputed in {(datetime.now() - start_t).total_seconds()} seconds")
 ```
 
-    New Data imputed in 0.040396 seconds
+    New Data imputed in 0.035129 seconds
 
 
 ## Saving and Loading Kernels
@@ -506,6 +507,19 @@ pd.DataFrame(optimal_params)
 
 
 <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -561,10 +575,10 @@ pd.DataFrame(optimal_params)
     </tr>
     <tr>
       <th>min_sum_hessian_in_leaf</th>
-      <td>0.1</td>
-      <td>0.1</td>
-      <td>0.1</td>
-      <td>0.1</td>
+      <td>0.01</td>
+      <td>0.01</td>
+      <td>0.01</td>
+      <td>0.01</td>
     </tr>
     <tr>
       <th>min_gain_to_split</th>
@@ -811,7 +825,7 @@ kernel.plot_feature_importance(dataset=0)
 
 
     
-![png](README_files/README_48_0.png)
+![png](README_files/README_49_0.png)
     
 
 
@@ -824,7 +838,7 @@ kernel.plot_imputed_distributions()
 
 
     
-![png](README_files/README_50_0.png)
+![png](README_files/README_51_0.png)
     
 
 
@@ -871,7 +885,7 @@ acclist
     0    0.35
     1    0.81
     2    0.81
-    3    0.78
+    3    0.84
     Name: Species Imputation Accuracy, dtype: float64
 
 
@@ -1021,7 +1035,7 @@ plot_matrix(dat, dat.columns)
 
 
     
-![png](README_files/README_60_0.png)
+![png](README_files/README_61_0.png)
     
 
 
@@ -1054,7 +1068,7 @@ kernel_mean_match.plot_imputed_distributions()
 
 
     
-![png](README_files/README_63_0.png)
+![png](README_files/README_64_0.png)
     
 
 
@@ -1065,7 +1079,7 @@ kernel_no_mean_match.plot_imputed_distributions()
 
 
     
-![png](README_files/README_64_0.png)
+![png](README_files/README_65_0.png)
     
 
 
