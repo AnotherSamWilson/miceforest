@@ -50,11 +50,11 @@ def ampute_data(
     amputed_data = data.copy()
     num_rows = amputed_data.shape[0]
     amp_rows = int(perc * num_rows)
-    random_state = ensure_rng(random_state)
+    rs = ensure_rng(random_state)
     variables = list(data.columns) if variables is None else variables
 
     for col in variables:
-        ind = random_state.choice(amputed_data.index, size=amp_rows, replace=False)
+        ind = rs.choice(amputed_data.index, size=amp_rows, replace=False)
         amputed_data.loc[ind, col] = np.nan
 
     return amputed_data
@@ -91,7 +91,7 @@ def stratified_subset(
 
     """
 
-    random_state = ensure_rng(random_state=random_state)
+    rs = ensure_rng(random_state=random_state)
 
     cat = False
     if y.dtype.name == "category":
@@ -112,7 +112,7 @@ def stratified_subset(
     digits_s = (digits_p * size).round(0).astype("int32")
     diff = size - digits_s.sum()
     if diff != 0:
-        digits_fix = random_state.choice(
+        digits_fix = rs.choice(
             digits_i, size=abs(diff), p=digits_p, replace=False
         )
         if diff < 0:
@@ -128,7 +128,7 @@ def stratified_subset(
         d_v = digits_v[d_i]
         n = digits_s[d_i]
         ind = np.where(digits == d_v)[0]
-        choice = random_state.choice(ind, size=n, replace=False)
+        choice = rs.choice(ind, size=n, replace=False)
         sub[added : (added + n)] = choice
         added += n
 
