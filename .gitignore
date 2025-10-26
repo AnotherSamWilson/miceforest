@@ -25,3 +25,4 @@ pyproject.toml
 .devcontainer
 Dockerfile
 dev_guide.md
+.pypirc
