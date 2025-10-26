@@ -6,7 +6,9 @@ from miceforest.logger import Logger
 
 
 def test_logger_records_time_and_summary_structure():
-    logger = Logger(name="unit-test", timed_levels=["dataset", "iteration"], verbose=False)
+    logger = Logger(
+        name="unit-test", timed_levels=["dataset", "iteration"], verbose=False
+    )
     key = (0, 0)
     logger.set_start_time(key)
     time.sleep(0.01)

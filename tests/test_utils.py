@@ -125,7 +125,6 @@ def test_stratified_categorical_folds_balanced_counts():
     assert np.array_equal(np.sort(all_val), np.arange(len(y)))
 
 
-
 def test_subset():
 
     strat_std_closer = []
