@@ -112,9 +112,7 @@ def stratified_subset(
     digits_s = (digits_p * size).round(0).astype("int32")
     diff = size - digits_s.sum()
     if diff != 0:
-        digits_fix = rs.choice(
-            digits_i, size=abs(diff), p=digits_p, replace=False
-        )
+        digits_fix = rs.choice(digits_i, size=abs(diff), p=digits_p, replace=False)
         if diff < 0:
             for d in digits_fix:
                 digits_s[d] -= 1

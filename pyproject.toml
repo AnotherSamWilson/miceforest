@@ -43,6 +43,7 @@ packages = ['miceforest']
 python = "^3.10"
 
 [tool.poetry.group.dev.dependencies]
+black = "^25.9.0"
 dill = "^0.4.0"
 ipython = "^8.17.2"
 pytest = "^8.0.0"
