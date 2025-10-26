@@ -1,6 +1,6 @@
 [project]
 name = "miceforest"
-license = {file = "LICENSE"}
+license = "MIT"
 version = "6.0.4"
 description = "Multiple Imputation by Chained Equations with LightGBM"
 authors = [{name="Sam Von Wilson"}]
@@ -11,7 +11,6 @@ classifiers = [
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent"
 ]
 dependencies = [
@@ -31,9 +30,22 @@ plotting = [
 pipeline = [
     "scikit-learn!=0.22.0"
 ]
-tests = [
+dev = [
     "black>=24.4.2",
-    "dill>=0.3.7"
+    "dill>=0.3.7",
+    "sphinx>=7.4.7",
+    "sphinxcontrib-napoleon>=0.7",
+    "sphinx-rtd-theme>=2.0.0",
+    "ipython>=8.17.2",
+    "pytest>=8.0.0",
+    "jupyterlab>=3.5.0",
+    "nbconvert>=7.16.4",
+    "pandoc>=2.3",
+    "isort>=5.13.2",
+    "mypy>=1.11.0",
+    "build>=1.2.1",
+    "pytest-cov>=5.0.0",
+    "twine>=5.1.1"
 ]
 
 [project.urls]
@@ -53,32 +65,6 @@ package-mode = true
 
 [tool.poetry.dependencies]
 python = "^3.10"
-
-lightgbm = "^4.1.0"
-pandas = {extras = ["parquet"], version = "2.2.0"}
-numpy = "^1.26.0"
-dill = "^0.3.7"
-scipy = "^1.11.1"
-seaborn = "^0.13.0"
-matplotlib = "^3.3.0"
-scikit-learn = "^1.4.0"
-black = "^24.4.2"
-plotnine = "^0.13.6"
-
-[tool.poetry.group.dev.dependencies]
-ipython = "^8.17.2"
-pytest = "^8.0.0"
-jupyterlab = "^3.5.0"
-nbconvert = "^7.16.4"
-pandoc = "^2.3"
-isort = "^5.13.2"
-mypy = "^1.11.0"
-build = "^1.2.1"
-pytest-cov = "^5.0.0"
-twine = "^5.1.1"
-sphinx = "^7.4.7"
-sphinxcontrib-napoleon = "^0.7"
-sphinx-rtd-theme = "^2.0.0"
 
 [tool.mypy]
 ignore_missing_imports = true
