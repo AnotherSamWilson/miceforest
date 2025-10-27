@@ -31,15 +31,10 @@ class ImputedData:
             self.working_data.index, RangeIndex
         ), "Please reset the index on the dataframe"
 
-        column_names = []
-        pd_dtypes_orig = {}
-        for col, series in self.working_data.items():
-            assert isinstance(col, str), "column names must be strings"
-            assert (
-                series.dtype.name != "object"
-            ), "convert object dtypes to something else"
-            column_names.append(col)
-            pd_dtypes_orig[col] = series.dtype.name
+        column_names = self.working_data.columns
+        assert np.all(
+            [isinstance(col, str) for col in column_names]
+        ), "Column names must be strings"
 
         self.column_names = column_names
         pd_dtypes_orig = self.working_data.dtypes
@@ -90,6 +85,18 @@ class ImputedData:
         self.imputed_variables = [
             col for col in self.modeled_variables if col in self.vars_with_any_missing
         ]
+
+        # This should be all variables in the schema, not all variables in the dataset.
+        self.all_var_in_schema = set(
+            self.modeled_variables
+            + [y for x in self.variable_schema.values() for y in x]
+        )
+
+        for col in self.all_var_in_schema:
+            assert pd_dtypes_orig[col].name != "object", (
+                "Cannot model an object column, please convert to int or categorical, or "
+                "specify a variable_schema that does not use the object column."
+            )
 
         if random_seed_array is not None:
             assert isinstance(random_seed_array, np.ndarray)

@@ -368,3 +368,36 @@ def test_complex():
         mean_match_strategy=mixed_mms,
         save_all_iterations_data=True,
     )
+
+
+def test_object_column():
+
+    # Customize everything.
+    vs = {
+        "sl": ["ws", "pl", "pw", "sp", "bi"],
+        "ws": ["sl"],
+        "pl": ["sp", "bi"],
+        # 'sp': ['sl', 'ws', 'pl', 'pw', 'bc'], # Purposely don't train a variable that does have missing values
+        "pw": ["sl", "ws", "pl", "sp", "bi"],
+        "bi": ["ws", "pl", "sp"],
+        "ui8": ["sp", "ws"],
+    }
+    mmc = {"sl": 4, "ws": 0, "bi": 5}
+    ds = {"sl": int(iris_amp.shape[0] / 2), "ws": 50}
+
+    iris_amp["obj_col"] = iris_amp["sl"].astype("object")
+
+    imputed_var_names = list(vs)
+    non_imputed_var_names = [c for c in iris_amp if c not in imputed_var_names]
+    kernel = mf.ImputationKernel(
+        data=iris_amp,
+        num_datasets=2,
+        variable_schema=vs,
+        mean_match_candidates=mmc,
+        data_subset=ds,
+        mean_match_strategy="normal",
+        save_all_iterations_data=True,
+    )
+
+    assert "obj_col" not in kernel.variable_schema
+    assert "obj_col" not in kernel.all_var_in_schema
