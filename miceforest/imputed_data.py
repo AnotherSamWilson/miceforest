@@ -93,9 +93,10 @@ class ImputedData:
         )
 
         for col in self.all_var_in_schema:
-            assert (
-                pd_dtypes_orig[col].name != "object"
-            ), "Cannot model an object column, please convert to int or categorical."
+            assert pd_dtypes_orig[col].name != "object", (
+                "Cannot model an object column, please convert to int or categorical, or "
+                "specify a variable_schema that does not use the object column."
+            )
 
         if random_seed_array is not None:
             assert isinstance(random_seed_array, np.ndarray)
